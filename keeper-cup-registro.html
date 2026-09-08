@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keeper Cup 3 — Inscripción de equipos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0F1B14;
+    --bg-elevated: #16261C;
+    --bg-card: #1B2E22;
+    --line: rgba(245,242,233,0.14);
+    --line-strong: rgba(245,242,233,0.28);
+    --ink: #F5F2E9;
+    --ink-dim: #A9B8AC;
+    --gold: #D4A24C;
+    --gold-ink: #241A08;
+    --silver: #B9C4C1;
+    --brick: #C97764;
+    --radius-sm: 4px;
+    --radius-md: 10px;
+  }
+
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Work Sans', sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .display{
+    font-family: 'League Spartan', sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  a{ color: var(--gold); }
+
+  .wrap{
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    padding: 28px 0 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .header-row{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    padding-bottom: 20px;
+  }
+  .wordmark{
+    font-family:'League Spartan', sans-serif;
+    font-weight: 900;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+  }
+  .wordmark span{ color: var(--gold); }
+  .venue-tag{
+    font-size: 13px;
+    color: var(--ink-dim);
+    text-align: right;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    position: relative;
+    padding: 64px 0 56px;
+    overflow: hidden;
+  }
+  .hero-grid{
+    display:grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 40px;
+    align-items:center;
+  }
+  .eyebrow{
+    color: var(--gold);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .hero h1{
+    font-size: clamp(38px, 5.4vw, 60px);
+    line-height: 0.98;
+  }
+  .hero p.lead{
+    margin-top: 18px;
+    max-width: 46ch;
+    color: var(--ink-dim);
+    font-size: 17px;
+  }
+  .stat-row{
+    display:flex;
+    gap: 32px;
+    margin-top: 34px;
+    flex-wrap: wrap;
+  }
+  .stat b{
+    display:block;
+    font-family:'League Spartan', sans-serif;
+    font-weight: 900;
+    font-size: 30px;
+    color: var(--ink);
+  }
+  .stat span{
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+
+  .pitch-motif{ width: 100%; height: auto; opacity: 0.9; }
+  .pitch-motif circle, .pitch-motif line, .pitch-motif rect{
+    stroke: var(--line-strong);
+  }
+  .pitch-motif .draw{
+    stroke-dasharray: 600;
+    stroke-dashoffset: 600;
+    animation: draw 1.6s ease forwards 0.2s;
+  }
+  @keyframes draw{ to{ stroke-dashoffset: 0; } }
+  @media (prefers-reduced-motion: reduce){
+    .pitch-motif .draw{ animation: none; stroke-dashoffset: 0; }
+  }
+
+  .cta-inline{
+    margin-top: 36px;
+    display:inline-flex;
+    align-items:center;
+    gap: 10px;
+    background: var(--gold);
+    color: var(--gold-ink);
+    font-weight: 600;
+    padding: 13px 22px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-size: 15px;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* ---------- Stepper ---------- */
+  .form-section{ padding: 8px 0 100px; }
+  .stepper{
+    display:flex;
+    gap: 0;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--line);
+  }
+  .step-tab{
+    flex:1;
+    padding: 0 0 16px;
+    border-bottom: 2px solid transparent;
+    color: var(--ink-dim);
+    cursor: default;
+  }
+  .step-tab.active{
+    color: var(--ink);
+    border-bottom-color: var(--gold);
+  }
+  .step-tab.done{ color: var(--silver); }
+  .step-num{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    font-size: 12px;
+    margin-right: 8px;
+    font-family:'League Spartan',sans-serif;
+    font-weight:700;
+  }
+  .step-tab.active .step-num{ background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+  .step-label{ font-size: 14px; font-weight: 600; }
+  .step-sub{ display:block; font-size: 12px; color: var(--ink-dim); margin-top: 2px; font-weight: 400; }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .card{
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 28px;
+  }
+
+  .field-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .field{ display:flex; flex-direction:column; gap: 6px; }
+  .field.full{ grid-column: 1 / -1; }
+  label{ font-size: 13px; color: var(--ink-dim); }
+  label .req{ color: var(--brick); }
+
+  input[type=text], input[type=email], input[type=tel], input[type=date], select{
+    background: var(--bg-elevated);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 11px 12px;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+  }
+  input:focus-visible, select:focus-visible, button:focus-visible, .file-btn:focus-within{
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+  input::placeholder{ color: #6E7C71; }
+
+  .file-btn{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    background: var(--bg-elevated);
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--ink-dim);
+    cursor:pointer;
+    position: relative;
+  }
+  .file-btn input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .file-btn .fname{ color: var(--ink); }
+
+  /* ---------- Players ---------- */
+  .roster-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom: 18px;
+  }
+  .roster-count{ font-size: 13px; color: var(--ink-dim); }
+  .roster-count b{ color: var(--gold); }
+
+  .player-row{
+    display:grid;
+    grid-template-columns: 32px 1.4fr 1fr 1fr 1fr auto auto;
+    gap: 12px;
+    align-items:center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .player-row:first-of-type{ border-top: 1px solid var(--line); }
+  .player-idx{
+    font-family:'League Spartan',sans-serif;
+    font-weight: 700;
+    color: var(--ink-dim);
+    font-size: 13px;
+  }
+  .player-row input, .player-row select{ padding: 8px 10px; font-size: 13px; }
+  .mini-file{
+    font-size: 12px;
+    background: var(--bg-elevated);
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 8px 8px;
+    color: var(--ink-dim);
+    position: relative;
+    text-align:center;
+  }
+  .mini-file input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .remove-btn{
+    background:none; border:none; color: var(--brick); cursor:pointer;
+    font-size: 13px; padding: 6px;
+  }
+
+  .add-player{
+    margin-top: 18px;
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    padding: 11px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    cursor:pointer;
+    font-weight: 500;
+  }
+  .add-player:hover{ border-color: var(--gold); color: var(--gold); }
+  .add-player:disabled{ opacity: 0.4; cursor:not-allowed; }
+
+  /* ---------- Confirmation ---------- */
+  .summary-line{
+    display:flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .summary-line span:first-child{ color: var(--ink-dim); }
+  .pay-box{
+    margin-top: 22px;
+    background: var(--bg-elevated);
+    border-left: 2px solid var(--gold);
+    padding: 16px 18px;
+    font-size: 13px;
+    color: var(--ink-dim);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+  .pay-box b{ color: var(--ink); }
+
+  .check-row{
+    display:flex;
+    align-items:flex-start;
+    gap: 10px;
+    margin-top: 22px;
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .check-row input{ margin-top: 3px; }
+
+  /* ---------- Nav buttons ---------- */
+  .form-nav{
+    display:flex;
+    justify-content: space-between;
+    margin-top: 28px;
+  }
+  .btn-ghost{
+    background: none;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-dim);
+    padding: 12px 22px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    cursor:pointer;
+  }
+  .btn-gold{
+    background: var(--gold);
+    color: var(--gold-ink);
+    border: none;
+    padding: 12px 26px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor:pointer;
+  }
+  .btn-gold:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .error-msg{
+    color: var(--brick);
+    font-size: 13px;
+    margin-top: 14px;
+    display:none;
+  }
+
+  /* ---------- Success ---------- */
+  .success{
+    display:none;
+    text-align:center;
+    padding: 60px 20px;
+  }
+  .success .step-num{ width:44px;height:44px;font-size:18px;margin:0 auto 20px; display:flex; }
+  .success h2{ font-size: 26px; margin-bottom: 10px; }
+  .success p{ color: var(--ink-dim); max-width: 42ch; margin: 0 auto; }
+
+  footer{
+    border-top: 1px solid var(--line);
+    padding: 22px 0 40px;
+    text-align:center;
+    color: var(--ink-dim);
+    font-size: 12px;
+  }
+
+  @media (max-width: 760px){
+    .hero-grid{ grid-template-columns: 1fr; }
+    .pitch-motif{ max-width: 260px; margin: 0 auto; }
+    .field-grid{ grid-template-columns: 1fr; }
+    .player-row{
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "idx idx"
+        "name name"
+        "ced dob"
+        "pos foto"
+        "rm rm";
+      row-gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .player-row:first-of-type{ border-top: 1px solid var(--line); }
+    .stepper{ flex-direction:column; gap:10px; border-bottom:none; }
+    .step-tab{ border-bottom: none; border-left: 2px solid transparent; padding: 0 0 0 14px; }
+    .step-tab.active{ border-left-color: var(--gold); border-bottom-color:transparent; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap header-row">
+    <div class="wordmark">KEEPER <span>CUP 3</span></div>
+    <div class="venue-tag">Estadio Principal · Liga San Miguel de Ibarra</div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">Inscripción de equipos — Temporada de pretemporada 2026</div>
+      <h1>Fichá tu plantilla<br>para la Keeper Cup 3.</h1>
+      <p class="lead">Torneo draft interclubes de fútbol 11. 24 equipos, nóminas de hasta 35 jugadores, y un camino hasta la final por Copa Oro o Copa Plata.</p>
+      <div class="stat-row">
+        <div class="stat"><b>24</b><span>cupos de equipo</span></div>
+        <div class="stat"><b>13</b><span>semanas de juego</span></div>
+        <div class="stat"><b>$1,000</b><span>premio Copa Oro</span></div>
+      </div>
+      <button class="cta-inline" onclick="document.getElementById('form-start').scrollIntoView()">Empezar inscripción ↓</button>
+    </div>
+    <svg class="pitch-motif" viewBox="0 0 320 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="20" width="280" height="360" rx="2" stroke-width="1.5"/>
+      <line class="draw" x1="20" y1="200" x2="300" y2="200" stroke-width="1.5"/>
+      <circle class="draw" cx="160" cy="200" r="52" stroke-width="1.5"/>
+      <circle cx="160" cy="200" r="2.5" fill="#F5F2E9" fill-opacity="0.5"/>
+      <rect x="90" y="20" width="140" height="46" stroke-width="1.5"/>
+      <rect x="90" y="334" width="140" height="46" stroke-width="1.5"/>
+      <circle cx="160" cy="86" r="2.5" fill="#F5F2E9" fill-opacity="0.5"/>
+      <circle cx="160" cy="314" r="2.5" fill="#F5F2E9" fill-opacity="0.5"/>
+    </svg>
+  </div>
+</section>
+
+<section class="form-section wrap" id="form-start">
+
+  <div id="wizard">
+    <div class="stepper">
+      <div class="step-tab active" data-step="0">
+        <span class="step-num">1</span><span class="step-label">Datos del equipo<span class="step-sub">Club, DT y contacto</span></span>
+      </div>
+      <div class="step-tab" data-step="1">
+        <span class="step-num">2</span><span class="step-label">Nómina de jugadores<span class="step-sub">Hasta 35 fichas</span></span>
+      </div>
+      <div class="step-tab" data-step="2">
+        <span class="step-num">3</span><span class="step-label">Confirmación<span class="step-sub">Pago e inscripción</span></span>
+      </div>
+    </div>
+
+    <form id="regForm">
+      <!-- STEP 1 -->
+      <div class="panel active" data-panel="0">
+        <div class="card">
+          <div class="field-grid">
+            <div class="field full">
+              <label>Nombre del equipo <span class="req">*</span></label>
+              <input type="text" name="teamName" placeholder="Ej. Deportivo Norte" required>
+            </div>
+            <div class="field">
+              <label>Categoría <span class="req">*</span></label>
+              <select name="category" required>
+                <option value="">Selecciona una opción</option>
+                <option>Libre / Senior</option>
+                <option>Sub-20</option>
+                <option>Sub-17</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Ciudad / sector</label>
+              <input type="text" name="city" placeholder="Ej. Ibarra">
+            </div>
+            <div class="field">
+              <label>Nombre del DT <span class="req">*</span></label>
+              <input type="text" name="dtName" required>
+            </div>
+            <div class="field">
+              <label>Teléfono de contacto <span class="req">*</span></label>
+              <input type="tel" name="phone" placeholder="09XXXXXXXX" required>
+            </div>
+            <div class="field">
+              <label>Correo electrónico <span class="req">*</span></label>
+              <input type="email" name="email" required>
+            </div>
+            <div class="field">
+              <label>Logo del equipo</label>
+              <div class="file-btn">
+                <span>📎</span><span class="fname" data-default="Subir archivo (PNG/JPG)">Subir archivo (PNG/JPG)</span>
+                <input type="file" id="logoInput" accept="image/*" onchange="showFileName(this)">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="form-nav">
+          <span></span>
+          <button type="button" class="btn-gold" onclick="goStep(1)">Siguiente: Nómina →</button>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="panel" data-panel="1">
+        <div class="card">
+          <div class="roster-head">
+            <h3 style="font-size:16px;font-weight:600;font-family:'Work Sans'">Jugadores del equipo</h3>
+            <div class="roster-count"><b id="playerCount">0</b> / 35 registrados</div>
+          </div>
+          <div id="playerList"></div>
+          <button type="button" class="add-player" id="addPlayerBtn" onclick="addPlayer()">+ Agregar jugador</button>
+        </div>
+        <div class="form-nav">
+          <button type="button" class="btn-ghost" onclick="goStep(0)">← Atrás</button>
+          <button type="button" class="btn-gold" onclick="tryStep2Next()">Siguiente: Confirmar →</button>
+        </div>
+        <div class="error-msg" id="rosterError">Agrega al menos 1 jugador antes de continuar.</div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="panel" data-panel="2">
+        <div class="card">
+          <h3 style="font-size:16px;font-weight:600;font-family:'Work Sans';margin-bottom:14px;">Resumen de inscripción</h3>
+          <div class="summary-line"><span>Equipo</span><span id="sumTeam">—</span></div>
+          <div class="summary-line"><span>Categoría</span><span id="sumCat">—</span></div>
+          <div class="summary-line"><span>DT</span><span id="sumDt">—</span></div>
+          <div class="summary-line"><span>Contacto</span><span id="sumContact">—</span></div>
+          <div class="summary-line"><span>Jugadores registrados</span><span id="sumPlayers">—</span></div>
+
+          <div class="pay-box">
+            <b>Inscripción: $125 USD.</b> Transfiere a la cuenta del torneo y sube tu comprobante en el siguiente paso una vez habilitemos el envío de pagos. Tu cupo se confirma al verificar el pago.
+          </div>
+
+          <div class="check-row">
+            <input type="checkbox" id="acceptRules" required>
+            <label for="acceptRules">Confirmo que la información de la nómina es correcta y acepto el reglamento del torneo.</label>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button type="button" class="btn-ghost" onclick="goStep(1)">← Atrás</button>
+          <button type="submit" class="btn-gold" id="submitBtn">Enviar inscripción</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="success" id="successPanel">
+    <span class="step-num">✓</span>
+    <h2>Inscripción recibida</h2>
+    <p>Tu equipo <b id="successTeam"></b> quedó registrado con <b id="successPlayers"></b> jugadores. Te contactaremos para confirmar el pago y tu cupo en la Keeper Cup 3.</p>
+  </div>
+
+</section>
+
+<footer>Keeper Cup 3 · Liga San Miguel de Ibarra</footer>
+
+<script>
+  let currentStep = 0;
+  let playerCounter = 0;
+  const MAX_PLAYERS = 35;
+
+  function goStep(n){
+    currentStep = n;
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.panel[data-panel="${n}"]`).classList.add('active');
+    document.querySelectorAll('.step-tab').forEach((t, i) => {
+      t.classList.toggle('active', i === n);
+      t.classList.toggle('done', i < n);
+    });
+    if(n === 2) fillSummary();
+    window.scrollTo({top: document.getElementById('form-start').offsetTop - 20, behavior:'smooth'});
+  }
+
+  function tryStep2Next(){
+    const err = document.getElementById('rosterError');
+    if(playerCounter === 0){
+      err.style.display = 'block';
+      return;
+    }
+    err.style.display = 'none';
+    goStep(2);
+  }
+
+  function showFileName(input){
+    const label = input.previousElementSibling;
+    label.textContent = input.files.length ? input.files[0].name : label.dataset.default;
+  }
+
+  function showMiniFileName(input){
+    const label = input.previousElementSibling;
+    label.textContent = input.files.length ? '✓ Foto' : 'Foto';
+  }
+
+  function addPlayer(){
+    if(playerCounter >= MAX_PLAYERS) return;
+    playerCounter++;
+    const row = document.createElement('div');
+    row.className = 'player-row';
+    row.innerHTML = `
+      <span class="player-idx" style="grid-area: idx">#${playerCounter}</span>
+      <input type="text" class="p-name" placeholder="Nombre completo" required style="grid-area: name">
+      <input type="text" class="p-cedula" placeholder="Cédula" required style="grid-area: ced">
+      <input type="date" class="p-dob" required style="grid-area: dob">
+      <select class="p-position" required style="grid-area: pos">
+        <option value="">Posición</option>
+        <option>Portero</option>
+        <option>Defensa</option>
+        <option>Mediocampista</option>
+        <option>Delantero</option>
+      </select>
+      <div class="mini-file" style="grid-area: foto">
+        <span class="mini-fname">Foto</span>
+        <input type="file" class="p-photo" accept="image/*" onchange="showMiniFileName(this)">
+      </div>
+      <button type="button" class="remove-btn" style="grid-area: rm" onclick="removePlayer(this)">Quitar</button>
+    `;
+    document.getElementById('playerList').appendChild(row);
+    updatePlayerCount();
+  }
+
+  function removePlayer(btn){
+    btn.closest('.player-row').remove();
+    playerCounter--;
+    document.querySelectorAll('.player-row').forEach((row, i) => {
+      row.querySelector('.player-idx').textContent = `#${i+1}`;
+    });
+    updatePlayerCount();
+  }
+
+  function updatePlayerCount(){
+    document.getElementById('playerCount').textContent = playerCounter;
+    document.getElementById('addPlayerBtn').disabled = playerCounter >= MAX_PLAYERS;
+  }
+
+  function fillSummary(){
+    const f = document.getElementById('regForm');
+    document.getElementById('sumTeam').textContent = f.teamName.value || '—';
+    document.getElementById('sumCat').textContent = f.category.value || '—';
+    document.getElementById('sumDt').textContent = f.dtName.value || '—';
+    document.getElementById('sumContact').textContent = `${f.phone.value || '—'} · ${f.email.value || ''}`;
+    document.getElementById('sumPlayers').textContent = `${playerCounter} / 35`;
+  }
+
+  // start roster with 1 player row for convenience
+  addPlayer();
+
+  // Pega aquí la URL de tu Web App de Apps Script (ver los pasos de configuración)
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEc4dn0CERk9o5gRNpc08grYs6GSs-sZHD7FZGhK1AV_9655DKmvMn4w19g4c_K0SA/exec';
+
+  function fileToBase64(file){
+    return new Promise((resolve, reject) => {
+      if(!file){ resolve(''); return; }
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  document.getElementById('regForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+
+    if(APPS_SCRIPT_URL === 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP'){
+      alert('Falta configurar la URL del Web App de Apps Script en el código (APPS_SCRIPT_URL).');
+      return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enviando...';
+
+    const f = this;
+    const teamName = f.teamName.value;
+
+    const logoInput = document.getElementById('logoInput');
+    const logoBase64 = await fileToBase64(logoInput.files[0]);
+
+    const playerRows = Array.from(document.querySelectorAll('.player-row'));
+    const players = await Promise.all(playerRows.map(async row => ({
+      fullName: row.querySelector('.p-name').value,
+      cedula: row.querySelector('.p-cedula').value,
+      dob: row.querySelector('.p-dob').value,
+      position: row.querySelector('.p-position').value,
+      photo: await fileToBase64(row.querySelector('.p-photo').files[0])
+    })));
+
+    const payload = {
+      teamName,
+      category: f.category.value,
+      city: f.city.value,
+      dtName: f.dtName.value,
+      phone: f.phone.value,
+      email: f.email.value,
+      logo: logoBase64,
+      players
+    };
+
+    try{
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if(!result.ok) throw new Error(result.message || 'Error al guardar la inscripción.');
+
+      document.getElementById('wizard').style.display = 'none';
+      document.getElementById('successTeam').textContent = teamName;
+      document.getElementById('successPlayers').textContent = playerCounter;
+      document.getElementById('successPanel').style.display = 'block';
+      window.scrollTo({top: document.getElementById('form-start').offsetTop - 20, behavior:'smooth'});
+    }catch(err){
+      alert('No se pudo enviar la inscripción: ' + err.message);
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Enviar inscripción';
+    }
+  });
+</script>
+
+</body>
+</html>

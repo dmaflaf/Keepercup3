@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keeper Cup 3 — Inscripción de jugador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0F1B14;
+    --bg-elevated: #16261C;
+    --bg-card: #1B2E22;
+    --line: rgba(245,242,233,0.14);
+    --line-strong: rgba(245,242,233,0.28);
+    --ink: #F5F2E9;
+    --ink-dim: #A9B8AC;
+    --gold: #D4A24C;
+    --gold-ink: #241A08;
+    --brick: #C97764;
+    --radius-sm: 4px;
+    --radius-md: 10px;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Work Sans', sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, .display{
+    font-family: 'League Spartan', sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .wrap{ max-width: 460px; margin: 0 auto; padding: 0 20px 60px; }
+
+  header{ padding: 24px 0 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+  .wordmark{ font-family:'League Spartan', sans-serif; font-weight: 900; font-size: 18px; }
+  .wordmark span{ color: var(--gold); }
+  .venue-tag{ font-size: 12px; color: var(--ink-dim); margin-top: 4px; }
+
+  h1{ font-size: 26px; line-height: 1.1; margin-bottom: 8px; }
+  .lead{ color: var(--ink-dim); font-size: 14px; margin-bottom: 26px; }
+
+  .card{
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 22px;
+  }
+  .field{ display:flex; flex-direction:column; gap: 6px; margin-bottom: 18px; }
+  label{ font-size: 13px; color: var(--ink-dim); }
+  label .req{ color: var(--brick); }
+
+  input[type=text], input[type=date], select{
+    width: 100%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 13px 12px;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 15px;
+  }
+  input:focus-visible, select:focus-visible, .photo-btn:focus-within{
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+  select:disabled{ opacity: .5; }
+
+  .photo-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-elevated);
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 28px 12px;
+    font-size: 13px;
+    color: var(--ink-dim);
+    cursor:pointer;
+    position: relative;
+    text-align:center;
+  }
+  .photo-btn input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .photo-btn .icon{ font-size: 26px; }
+  .photo-preview{ width:100%; border-radius: var(--radius-sm); display:none; margin-top: 10px; }
+
+  .hint{ font-size: 12px; color: var(--ink-dim); margin-top: 6px; }
+
+  .btn-gold{
+    width: 100%;
+    background: var(--gold);
+    color: var(--gold-ink);
+    border: none;
+    padding: 15px 22px;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-weight: 600;
+    cursor:pointer;
+    margin-top: 6px;
+  }
+  .btn-gold:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .msg{
+    font-size: 13px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    display:none;
+  }
+  .msg.error{ display:block; background: rgba(201,119,100,0.14); color: var(--brick); border: 1px solid rgba(201,119,100,0.4); }
+  .msg.info{ display:block; background: rgba(212,162,76,0.1); color: var(--ink-dim); border: 1px solid var(--line-strong); }
+
+  .success{
+    display:none;
+    text-align:center;
+    padding: 50px 10px 20px;
+  }
+  .success .check{
+    width:48px;height:48px;border-radius:50%;border:1px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;font-size:20px;
+    margin: 0 auto 18px;
+  }
+  .success p{ color: var(--ink-dim); max-width: 34ch; margin: 8px auto 0; font-size: 14px; }
+  .success button{
+    margin-top: 26px;
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    padding: 11px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="wordmark">KEEPER <span>CUP 3</span></div>
+    <div class="venue-tag">Inscripción individual de jugador</div>
+  </header>
+
+  <div id="formView">
+    <h1>Ficha tu registro.</h1>
+    <p class="lead">Completa tus datos y súbete una foto. Tu club debe estar aprobado para aparecer en la lista.</p>
+
+    <div class="card">
+      <form id="jugadorForm">
+        <div class="field">
+          <label>Club <span class="req">*</span></label>
+          <select name="club" id="clubSelect" required disabled>
+            <option value="">Cargando equipos…</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Nombre completo <span class="req">*</span></label>
+          <input type="text" name="fullName" placeholder="Nombres y apellidos" required>
+        </div>
+
+        <div class="field">
+          <label>Cédula <span class="req">*</span></label>
+          <input type="text" name="cedula" placeholder="Número de cédula" required inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <label>Fecha de nacimiento <span class="req">*</span></label>
+          <input type="date" name="dob" required>
+        </div>
+
+        <div class="field">
+          <label>Posición <span class="req">*</span></label>
+          <select name="position" required>
+            <option value="">Selecciona una opción</option>
+            <option>Portero</option>
+            <option>Defensa</option>
+            <option>Mediocampista</option>
+            <option>Delantero</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Foto <span class="req">*</span></label>
+          <div class="photo-btn" id="photoBtn">
+            <span class="icon">📷</span>
+            <span id="photoLabel">Tomar o subir foto</span>
+            <input type="file" id="photoInput" accept="image/*" capture="user" required>
+          </div>
+          <img id="photoPreview" class="photo-preview" alt="Vista previa de la foto">
+        </div>
+
+        <div class="msg error" id="formError"></div>
+
+        <button type="submit" class="btn-gold" id="submitBtn" disabled>Enviar registro</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="success" id="successView">
+    <div class="check">✓</div>
+    <h2>Registro recibido</h2>
+    <p id="successMsg">Tu ficha quedó guardada. El club confirmará tu cupo en la nómina.</p>
+    <button type="button" onclick="resetForm()">Registrar otro jugador</button>
+  </div>
+</div>
+
+<script>
+  // Debe ser la misma URL de Web App que usa keeper-cup-registro.html
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEc4dn0CERk9o5gRNpc08grYs6GSs-sZHD7FZGhK1AV_9655DKmvMn4w19g4c_K0SA/exec';
+
+  const clubSelect = document.getElementById('clubSelect');
+  const submitBtn = document.getElementById('submitBtn');
+  const form = document.getElementById('jugadorForm');
+  const formError = document.getElementById('formError');
+  const photoInput = document.getElementById('photoInput');
+  const photoLabel = document.getElementById('photoLabel');
+  const photoPreview = document.getElementById('photoPreview');
+
+  function showError(msg){
+    formError.textContent = msg;
+    formError.style.display = 'block';
+  }
+  function hideError(){
+    formError.style.display = 'none';
+  }
+
+  async function loadClubs(){
+    if(APPS_SCRIPT_URL === 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP'){
+      clubSelect.innerHTML = '<option value="">Falta configurar APPS_SCRIPT_URL</option>';
+      return;
+    }
+    try{
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'listarEquipos' })
+      });
+      const data = await res.json();
+      if(!data.ok) throw new Error(data.message || 'No se pudo cargar la lista de equipos.');
+      const equipos = data.equipos || [];
+      if(equipos.length === 0){
+        clubSelect.innerHTML = '<option value="">Aún no hay equipos aprobados</option>';
+        return;
+      }
+      clubSelect.innerHTML = '<option value="">Selecciona tu club</option>' +
+        equipos.map(e => `<option>${e}</option>`).join('');
+      clubSelect.disabled = false;
+      submitBtn.disabled = false;
+    }catch(err){
+      clubSelect.innerHTML = '<option value="">Error al cargar equipos</option>';
+      showError('No se pudo cargar la lista de clubes: ' + err.message);
+    }
+  }
+
+  photoInput.addEventListener('change', () => {
+    const file = photoInput.files[0];
+    if(!file) return;
+    photoLabel.textContent = '✓ ' + file.name;
+    const reader = new FileReader();
+    reader.onload = () => {
+      photoPreview.src = reader.result;
+      photoPreview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function fileToBase64(file){
+    return new Promise((resolve, reject) => {
+      if(!file){ resolve(''); return; }
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    hideError();
+
+    if(APPS_SCRIPT_URL === 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP'){
+      showError('Falta configurar la URL del Web App de Apps Script en el código (APPS_SCRIPT_URL).');
+      return;
+    }
+    if(!photoInput.files[0]){
+      showError('Sube o toma una foto antes de enviar.');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enviando...';
+
+    const photoBase64 = await fileToBase64(photoInput.files[0]);
+
+    const payload = {
+      type: 'jugador',
+      teamName: form.club.value,
+      fullName: form.fullName.value,
+      cedula: form.cedula.value,
+      dob: form.dob.value,
+      position: form.position.value,
+      photo: photoBase64
+    };
+
+    try{
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if(!result.ok) throw new Error(result.message || 'Error al guardar el registro.');
+
+      document.getElementById('successMsg').textContent =
+        `Quedaste registrado con ${form.club.value}. El club confirmará tu cupo en la nómina.`;
+      document.getElementById('formView').style.display = 'none';
+      document.getElementById('successView').style.display = 'block';
+    }catch(err){
+      showError('No se pudo enviar el registro: ' + err.message);
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Enviar registro';
+    }
+  });
+
+  function resetForm(){
+    form.reset();
+    photoPreview.style.display = 'none';
+    photoLabel.textContent = 'Tomar o subir foto';
+    document.getElementById('successView').style.display = 'none';
+    document.getElementById('formView').style.display = 'block';
+    submitBtn.textContent = 'Enviar registro';
+    submitBtn.disabled = false;
+  }
+
+  loadClubs();
+</script>
+
+</body>
+</html>
