@@ -28,7 +28,13 @@
   html{ scroll-behavior:smooth; }
   body{
     margin:0;
-    background:var(--bg);
+    background:
+      linear-gradient(180deg, rgba(5,18,37,0.55), rgba(5,18,37,0.72) 45%, rgba(5,18,37,0.88) 100%),
+      url('bg-textura.jpg');
+    background-repeat: repeat;
+    background-size: 340px auto;
+    background-position: top left;
+    background-attachment: fixed;
     color:var(--ink);
     font-family:'Work Sans',sans-serif;
     line-height:1.55;
@@ -56,7 +62,7 @@
     display:flex; align-items:center; justify-content:space-between;
     padding:16px 0;
   }
-  .logo-img{ height:46px; width:auto; }
+  .logo-img{ height:46px; width:auto; margin-left:10px; }
   .nav-links{ display:flex; gap:28px; font-size:14px; color:var(--ink-dim); }
   .nav-links a:hover{ color:var(--ink); }
   .nav-cta{
