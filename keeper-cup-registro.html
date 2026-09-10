@@ -9,16 +9,17 @@
 <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #0F1B14;
-    --bg-elevated: #16261C;
-    --bg-card: #1B2E22;
-    --line: rgba(245,242,233,0.14);
-    --line-strong: rgba(245,242,233,0.28);
-    --ink: #F5F2E9;
-    --ink-dim: #A9B8AC;
-    --gold: #D4A24C;
-    --gold-ink: #241A08;
-    --silver: #B9C4C1;
+    --bg: #051225;
+    --bg-elevated: #0B1B33;
+    --bg-card: #0F223D;
+    --line: rgba(224,232,240,0.14);
+    --line-strong: rgba(224,232,240,0.28);
+    --ink: #F3F6F8;
+    --ink-dim: #93A4B8;
+    --gold: #D9A93A;
+    --gold-ink: #211603;
+    --silver: #C7D2D9;
+    --green: #3ECB3B;
     --brick: #C97764;
     --radius-sm: 4px;
     --radius-md: 10px;
@@ -59,21 +60,10 @@
   .header-row{
     display:flex;
     align-items:center;
-    justify-content: space-between;
+    justify-content: center;
     padding-bottom: 20px;
   }
-  .wordmark{
-    font-family:'League Spartan', sans-serif;
-    font-weight: 900;
-    font-size: 20px;
-    letter-spacing: 0.02em;
-  }
-  .wordmark span{ color: var(--gold); }
-  .venue-tag{
-    font-size: 13px;
-    color: var(--ink-dim);
-    text-align: right;
-  }
+  .logo-img{ height: 56px; width: auto; }
 
   /* ---------- Hero ---------- */
   .hero{
@@ -81,58 +71,10 @@
     padding: 64px 0 56px;
     overflow: hidden;
   }
-  .hero-grid{
-    display:grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 40px;
-    align-items:center;
-  }
-  .eyebrow{
-    color: var(--gold);
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 14px;
-  }
-  .hero h1{
-    font-size: clamp(38px, 5.4vw, 60px);
-    line-height: 0.98;
-  }
-  .hero p.lead{
-    margin-top: 18px;
-    max-width: 46ch;
-    color: var(--ink-dim);
-    font-size: 17px;
-  }
-  .stat-row{
-    display:flex;
-    gap: 32px;
-    margin-top: 34px;
-    flex-wrap: wrap;
-  }
-  .stat b{
-    display:block;
-    font-family:'League Spartan', sans-serif;
-    font-weight: 900;
-    font-size: 30px;
-    color: var(--ink);
-  }
-  .stat span{
-    font-size: 13px;
-    color: var(--ink-dim);
-  }
-
-  .pitch-motif{ width: 100%; height: auto; opacity: 0.9; }
-  .pitch-motif circle, .pitch-motif line, .pitch-motif rect{
-    stroke: var(--line-strong);
-  }
-  .pitch-motif .draw{
-    stroke-dasharray: 600;
-    stroke-dashoffset: 600;
-    animation: draw 1.6s ease forwards 0.2s;
-  }
-  @keyframes draw{ to{ stroke-dashoffset: 0; } }
-  @media (prefers-reduced-motion: reduce){
-    .pitch-motif .draw{ animation: none; stroke-dashoffset: 0; }
+  .hero-simple{ text-align:center; }
+  .hero-simple h1{
+    font-size: clamp(30px, 4.6vw, 44px);
+    line-height: 1.1;
   }
 
   .cta-inline{
@@ -237,62 +179,13 @@
   }
   .file-btn input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
   .file-btn .fname{ color: var(--ink); }
-
-  /* ---------- Players ---------- */
-  .roster-head{
-    display:flex;
-    justify-content:space-between;
-    align-items:baseline;
-    margin-bottom: 18px;
-  }
-  .roster-count{ font-size: 13px; color: var(--ink-dim); }
-  .roster-count b{ color: var(--gold); }
-
-  .player-row{
-    display:grid;
-    grid-template-columns: 32px 1.4fr 1fr 1fr 1fr auto auto;
-    gap: 12px;
-    align-items:center;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .player-row:first-of-type{ border-top: 1px solid var(--line); }
-  .player-idx{
-    font-family:'League Spartan',sans-serif;
-    font-weight: 700;
-    color: var(--ink-dim);
-    font-size: 13px;
-  }
-  .player-row input, .player-row select{ padding: 8px 10px; font-size: 13px; }
-  .mini-file{
-    font-size: 12px;
-    background: var(--bg-elevated);
-    border: 1px dashed var(--line-strong);
+  .logo-preview{
+    display:none;
+    max-width: 120px;
+    margin-top: 10px;
     border-radius: var(--radius-sm);
-    padding: 8px 8px;
-    color: var(--ink-dim);
-    position: relative;
-    text-align:center;
+    border: 1px solid var(--line);
   }
-  .mini-file input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
-  .remove-btn{
-    background:none; border:none; color: var(--brick); cursor:pointer;
-    font-size: 13px; padding: 6px;
-  }
-
-  .add-player{
-    margin-top: 18px;
-    background: transparent;
-    border: 1px solid var(--line-strong);
-    color: var(--ink);
-    padding: 11px 18px;
-    border-radius: var(--radius-sm);
-    font-size: 14px;
-    cursor:pointer;
-    font-weight: 500;
-  }
-  .add-player:hover{ border-color: var(--gold); color: var(--gold); }
-  .add-player:disabled{ opacity: 0.4; cursor:not-allowed; }
 
   /* ---------- Confirmation ---------- */
   .summary-line{
@@ -351,13 +244,6 @@
   }
   .btn-gold:disabled{ opacity:.5; cursor:not-allowed; }
 
-  .error-msg{
-    color: var(--brick);
-    font-size: 13px;
-    margin-top: 14px;
-    display:none;
-  }
-
   /* ---------- Success ---------- */
   .success{
     display:none;
@@ -380,21 +266,6 @@
     .hero-grid{ grid-template-columns: 1fr; }
     .pitch-motif{ max-width: 260px; margin: 0 auto; }
     .field-grid{ grid-template-columns: 1fr; }
-    .player-row{
-      grid-template-columns: 1fr 1fr;
-      grid-template-areas:
-        "idx idx"
-        "name name"
-        "ced dob"
-        "pos foto"
-        "rm rm";
-      row-gap: 8px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      padding: 12px;
-      margin-bottom: 10px;
-    }
-    .player-row:first-of-type{ border-top: 1px solid var(--line); }
     .stepper{ flex-direction:column; gap:10px; border-bottom:none; }
     .step-tab{ border-bottom: none; border-left: 2px solid transparent; padding: 0 0 0 14px; }
     .step-tab.active{ border-left-color: var(--gold); border-bottom-color:transparent; }
@@ -405,34 +276,14 @@
 
 <header>
   <div class="wrap header-row">
-    <div class="wordmark">KEEPER <span>CUP 3</span></div>
-    <div class="venue-tag">Estadio Principal · Liga San Miguel de Ibarra</div>
+    <img src="logo-kc3.png" alt="Keeper Cup 3" class="logo-img">
   </div>
 </header>
 
-<section class="hero">
-  <div class="wrap hero-grid">
-    <div>
-      <div class="eyebrow">Inscripción de equipos — Temporada de pretemporada 2026</div>
-      <h1>Fichá tu plantilla<br>para la Keeper Cup 3.</h1>
-      <p class="lead">Torneo draft interclubes de fútbol 11. 24 equipos, nóminas de hasta 35 jugadores, y un camino hasta la final por Copa Oro o Copa Plata.</p>
-      <div class="stat-row">
-        <div class="stat"><b>24</b><span>cupos de equipo</span></div>
-        <div class="stat"><b>13</b><span>semanas de juego</span></div>
-        <div class="stat"><b>$1,000</b><span>premio Copa Oro</span></div>
-      </div>
-      <button class="cta-inline" onclick="document.getElementById('form-start').scrollIntoView()">Empezar inscripción ↓</button>
-    </div>
-    <svg class="pitch-motif" viewBox="0 0 320 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="20" y="20" width="280" height="360" rx="2" stroke-width="1.5"/>
-      <line class="draw" x1="20" y1="200" x2="300" y2="200" stroke-width="1.5"/>
-      <circle class="draw" cx="160" cy="200" r="52" stroke-width="1.5"/>
-      <circle cx="160" cy="200" r="2.5" fill="#F5F2E9" fill-opacity="0.5"/>
-      <rect x="90" y="20" width="140" height="46" stroke-width="1.5"/>
-      <rect x="90" y="334" width="140" height="46" stroke-width="1.5"/>
-      <circle cx="160" cy="86" r="2.5" fill="#F5F2E9" fill-opacity="0.5"/>
-      <circle cx="160" cy="314" r="2.5" fill="#F5F2E9" fill-opacity="0.5"/>
-    </svg>
+<section class="hero" id="heroSection">
+  <div class="wrap hero-simple">
+    <h1>¿Listo para iniciar este nuevo reto?</h1>
+    <button class="cta-inline" onclick="document.getElementById('form-start').scrollIntoView()">Empezar Inscripción ↓</button>
   </div>
 </section>
 
@@ -444,7 +295,7 @@
         <span class="step-num">1</span><span class="step-label">Datos del equipo<span class="step-sub">Club, DT y contacto</span></span>
       </div>
       <div class="step-tab" data-step="1">
-        <span class="step-num">2</span><span class="step-label">Nómina de jugadores<span class="step-sub">Hasta 35 fichas</span></span>
+        <span class="step-num">2</span><span class="step-label">Nómina de jugadores<span class="step-sub">Excel y fotos</span></span>
       </div>
       <div class="step-tab" data-step="2">
         <span class="step-num">3</span><span class="step-label">Confirmación<span class="step-sub">Pago e inscripción</span></span>
@@ -461,21 +312,20 @@
               <input type="text" name="teamName" placeholder="Ej. Deportivo Norte" required>
             </div>
             <div class="field">
-              <label>Categoría <span class="req">*</span></label>
-              <select name="category" required>
-                <option value="">Selecciona una opción</option>
-                <option>Libre / Senior</option>
-                <option>Sub-20</option>
-                <option>Sub-17</option>
-              </select>
-            </div>
-            <div class="field">
               <label>Ciudad / sector</label>
               <input type="text" name="city" placeholder="Ej. Ibarra">
             </div>
             <div class="field">
               <label>Nombre del DT <span class="req">*</span></label>
               <input type="text" name="dtName" required>
+            </div>
+            <div class="field">
+              <label>Cédula del DT <span class="req">*</span></label>
+              <input type="text" name="dtCedula" placeholder="Número de cédula" required inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Asistente técnico</label>
+              <input type="text" name="asistenteName">
             </div>
             <div class="field">
               <label>Teléfono de contacto <span class="req">*</span></label>
@@ -489,8 +339,9 @@
               <label>Logo del equipo</label>
               <div class="file-btn">
                 <span>📎</span><span class="fname" data-default="Subir archivo (PNG/JPG)">Subir archivo (PNG/JPG)</span>
-                <input type="file" id="logoInput" accept="image/*" onchange="showFileName(this)">
+                <input type="file" id="logoInput" accept="image/*" onchange="previewLogo(this)">
               </div>
+              <img id="logoPreview" class="logo-preview" alt="Vista previa del logo">
             </div>
           </div>
         </div>
@@ -503,18 +354,33 @@
       <!-- STEP 2 -->
       <div class="panel" data-panel="1">
         <div class="card">
-          <div class="roster-head">
-            <h3 style="font-size:16px;font-weight:600;font-family:'Work Sans'">Jugadores del equipo</h3>
-            <div class="roster-count"><b id="playerCount">0</b> / 35 registrados</div>
+          <h3 style="font-size:16px;font-weight:600;font-family:'Work Sans';margin-bottom:6px;">Nómina de jugadores</h3>
+          <p style="font-size:13px;color:var(--ink-dim);margin:0 0 20px;">
+            Sube el Excel con tu nómina (hasta 40 jugadores) y las fotos de todos tus jugadores.
+            Si prefieres, cada jugador también puede inscribirse individualmente desde su celular con el
+            enlace que te compartimos aparte — en ese caso puedes dejar esto en blanco.
+          </p>
+          <div class="field-grid">
+            <div class="field full">
+              <label>Excel de la nómina (.xlsx, .xls o .csv)</label>
+              <div class="file-btn">
+                <span>📎</span><span class="fname" data-default="Subir archivo Excel">Subir archivo Excel</span>
+                <input type="file" id="nominaInput" accept=".xlsx,.xls,.csv" onchange="showFileName(this)">
+              </div>
+            </div>
+            <div class="field full">
+              <label>Fotos de los jugadores (puedes seleccionar varias a la vez)</label>
+              <div class="file-btn">
+                <span>📎</span><span class="fname" data-default="Subir fotos (puedes elegir varias)">Subir fotos (puedes elegir varias)</span>
+                <input type="file" id="fotosInput" accept="image/*" multiple onchange="showFileName(this, true)">
+              </div>
+            </div>
           </div>
-          <div id="playerList"></div>
-          <button type="button" class="add-player" id="addPlayerBtn" onclick="addPlayer()">+ Agregar jugador</button>
         </div>
         <div class="form-nav">
           <button type="button" class="btn-ghost" onclick="goStep(0)">← Atrás</button>
-          <button type="button" class="btn-gold" onclick="tryStep2Next()">Siguiente: Confirmar →</button>
+          <button type="button" class="btn-gold" onclick="goStep(2)">Siguiente: Confirmar →</button>
         </div>
-        <div class="error-msg" id="rosterError">Agrega al menos 1 jugador antes de continuar.</div>
       </div>
 
       <!-- STEP 3 -->
@@ -522,18 +388,23 @@
         <div class="card">
           <h3 style="font-size:16px;font-weight:600;font-family:'Work Sans';margin-bottom:14px;">Resumen de inscripción</h3>
           <div class="summary-line"><span>Equipo</span><span id="sumTeam">—</span></div>
-          <div class="summary-line"><span>Categoría</span><span id="sumCat">—</span></div>
           <div class="summary-line"><span>DT</span><span id="sumDt">—</span></div>
           <div class="summary-line"><span>Contacto</span><span id="sumContact">—</span></div>
-          <div class="summary-line"><span>Jugadores registrados</span><span id="sumPlayers">—</span></div>
+          <div class="summary-line"><span>Correo</span><span id="sumEmail">—</span></div>
 
           <div class="pay-box">
-            <b>Inscripción: $125 USD.</b> Transfiere a la cuenta del torneo y sube tu comprobante en el siguiente paso una vez habilitemos el envío de pagos. Tu cupo se confirma al verificar el pago.
+            <b>Inscripción: $125 USD.</b> Transfiere a esta cuenta y envía tu comprobante al <b>0969838331</b>. Tu cupo se confirma al verificar el pago.<br><br>
+            <b>Keeper Cup</b><br>
+            Damián Mafla Flores<br>
+            CI: 1003399134<br>
+            Cta. Ahorros N.º 2210260741<br>
+            equipokeeper@gmail.com<br>
+            Enviar comprobante al: 0969838331
           </div>
 
           <div class="check-row">
             <input type="checkbox" id="acceptRules" required>
-            <label for="acceptRules">Confirmo que la información de la nómina es correcta y acepto el reglamento del torneo.</label>
+            <label for="acceptRules">Confirmo que los términos y condiciones del torneo están claros y estoy de acuerdo con ellos.</label>
           </div>
         </div>
         <div class="form-nav">
@@ -547,17 +418,21 @@
   <div class="success" id="successPanel">
     <span class="step-num">✓</span>
     <h2>Inscripción recibida</h2>
-    <p>Tu equipo <b id="successTeam"></b> quedó registrado con <b id="successPlayers"></b> jugadores. Te contactaremos para confirmar el pago y tu cupo en la Keeper Cup 3.</p>
+    <p>Tu equipo <b id="successTeam"></b> quedó registrado. Te contactaremos para confirmar el pago y tu cupo en la Keeper Cup 3.</p>
+  </div>
+
+  <div class="success" id="alreadyPanel" style="display:none">
+    <span class="step-num">✓</span>
+    <h2>Ya registraste un equipo</h2>
+    <p>Este dispositivo ya envió una inscripción de equipo. Si necesitas corregir algo, contáctanos.</p>
   </div>
 
 </section>
 
-<footer>Keeper Cup 3 · Liga San Miguel de Ibarra</footer>
+<footer>Keeper <span style="color:var(--green)">Cup</span> Series - By NIX</footer>
 
 <script>
   let currentStep = 0;
-  let playerCounter = 0;
-  const MAX_PLAYERS = 35;
 
   function goStep(n){
     currentStep = n;
@@ -571,78 +446,37 @@
     window.scrollTo({top: document.getElementById('form-start').offsetTop - 20, behavior:'smooth'});
   }
 
-  function tryStep2Next(){
-    const err = document.getElementById('rosterError');
-    if(playerCounter === 0){
-      err.style.display = 'block';
-      return;
+  function previewLogo(input){
+    showFileName(input);
+    const preview = document.getElementById('logoPreview');
+    const file = input.files[0];
+    if(!file){ preview.style.display = 'none'; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      preview.src = reader.result;
+      preview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function showFileName(input, multiple){
+    const label = input.previousElementSibling;
+    if(!input.files.length){
+      label.textContent = label.dataset.default;
+    }else if(multiple){
+      label.textContent = `✓ ${input.files.length} foto(s) seleccionadas`;
+    }else{
+      label.textContent = input.files[0].name;
     }
-    err.style.display = 'none';
-    goStep(2);
-  }
-
-  function showFileName(input){
-    const label = input.previousElementSibling;
-    label.textContent = input.files.length ? input.files[0].name : label.dataset.default;
-  }
-
-  function showMiniFileName(input){
-    const label = input.previousElementSibling;
-    label.textContent = input.files.length ? '✓ Foto' : 'Foto';
-  }
-
-  function addPlayer(){
-    if(playerCounter >= MAX_PLAYERS) return;
-    playerCounter++;
-    const row = document.createElement('div');
-    row.className = 'player-row';
-    row.innerHTML = `
-      <span class="player-idx" style="grid-area: idx">#${playerCounter}</span>
-      <input type="text" class="p-name" placeholder="Nombre completo" required style="grid-area: name">
-      <input type="text" class="p-cedula" placeholder="Cédula" required style="grid-area: ced">
-      <input type="date" class="p-dob" required style="grid-area: dob">
-      <select class="p-position" required style="grid-area: pos">
-        <option value="">Posición</option>
-        <option>Portero</option>
-        <option>Defensa</option>
-        <option>Mediocampista</option>
-        <option>Delantero</option>
-      </select>
-      <div class="mini-file" style="grid-area: foto">
-        <span class="mini-fname">Foto</span>
-        <input type="file" class="p-photo" accept="image/*" onchange="showMiniFileName(this)">
-      </div>
-      <button type="button" class="remove-btn" style="grid-area: rm" onclick="removePlayer(this)">Quitar</button>
-    `;
-    document.getElementById('playerList').appendChild(row);
-    updatePlayerCount();
-  }
-
-  function removePlayer(btn){
-    btn.closest('.player-row').remove();
-    playerCounter--;
-    document.querySelectorAll('.player-row').forEach((row, i) => {
-      row.querySelector('.player-idx').textContent = `#${i+1}`;
-    });
-    updatePlayerCount();
-  }
-
-  function updatePlayerCount(){
-    document.getElementById('playerCount').textContent = playerCounter;
-    document.getElementById('addPlayerBtn').disabled = playerCounter >= MAX_PLAYERS;
   }
 
   function fillSummary(){
     const f = document.getElementById('regForm');
     document.getElementById('sumTeam').textContent = f.teamName.value || '—';
-    document.getElementById('sumCat').textContent = f.category.value || '—';
     document.getElementById('sumDt').textContent = f.dtName.value || '—';
-    document.getElementById('sumContact').textContent = `${f.phone.value || '—'} · ${f.email.value || ''}`;
-    document.getElementById('sumPlayers').textContent = `${playerCounter} / 35`;
+    document.getElementById('sumContact').textContent = f.phone.value || '—';
+    document.getElementById('sumEmail').textContent = f.email.value || '—';
   }
-
-  // start roster with 1 player row for convenience
-  addPlayer();
 
   // Pega aquí la URL de tu Web App de Apps Script (ver los pasos de configuración)
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEc4dn0CERk9o5gRNpc08grYs6GSs-sZHD7FZGhK1AV_9655DKmvMn4w19g4c_K0SA/exec';
@@ -657,6 +491,37 @@
     });
   }
 
+  // Reduce el tamaño de las fotos antes de subirlas, para que el envío no se
+  // cuelgue con nóminas de muchos jugadores (fotos de celular sin comprimir
+  // pueden pesar varios MB cada una).
+  function resizeDataUrl(dataUrl, maxDim, quality){
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if(width > height && width > maxDim){
+          height = Math.round(height * maxDim / width);
+          width = maxDim;
+        }else if(height >= width && height > maxDim){
+          width = Math.round(width * maxDim / height);
+          height = maxDim;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = dataUrl;
+    });
+  }
+
+  async function imageFileToCompressed(file){
+    if(!file) return '';
+    const raw = await fileToBase64(file);
+    return resizeDataUrl(raw, 1100, 0.82);
+  }
+
   document.getElementById('regForm').addEventListener('submit', async function(e){
     e.preventDefault();
 
@@ -667,32 +532,37 @@
 
     const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Enviando...';
+    submitBtn.textContent = 'Subiendo datos y fotos...';
 
     const f = this;
     const teamName = f.teamName.value;
 
     const logoInput = document.getElementById('logoInput');
-    const logoBase64 = await fileToBase64(logoInput.files[0]);
+    const logoBase64 = await imageFileToCompressed(logoInput.files[0]);
 
-    const playerRows = Array.from(document.querySelectorAll('.player-row'));
-    const players = await Promise.all(playerRows.map(async row => ({
-      fullName: row.querySelector('.p-name').value,
-      cedula: row.querySelector('.p-cedula').value,
-      dob: row.querySelector('.p-dob').value,
-      position: row.querySelector('.p-position').value,
-      photo: await fileToBase64(row.querySelector('.p-photo').files[0])
+    const nominaInput = document.getElementById('nominaInput');
+    const nominaFile = nominaInput.files[0];
+    const nominaBase64 = await fileToBase64(nominaFile);
+    const nominaNombre = nominaFile ? nominaFile.name : '';
+
+    const fotosInput = document.getElementById('fotosInput');
+    const fotos = await Promise.all(Array.from(fotosInput.files).map(async file => ({
+      nombre: file.name,
+      data: await imageFileToCompressed(file)
     })));
 
     const payload = {
       teamName,
-      category: f.category.value,
       city: f.city.value,
       dtName: f.dtName.value,
+      dtCedula: f.dtCedula.value,
+      asistenteName: f.asistenteName.value,
       phone: f.phone.value,
       email: f.email.value,
       logo: logoBase64,
-      players
+      nomina: nominaBase64,
+      nominaNombre,
+      fotos
     };
 
     try{
@@ -704,9 +574,13 @@
       const result = await res.json();
       if(!result.ok) throw new Error(result.message || 'Error al guardar la inscripción.');
 
+      if(!TEST_MODE){
+        try{ localStorage.setItem('kc3_equipo_registrado', '1'); }catch(err){}
+      }
+
+      document.getElementById('heroSection').style.display = 'none';
       document.getElementById('wizard').style.display = 'none';
       document.getElementById('successTeam').textContent = teamName;
-      document.getElementById('successPlayers').textContent = playerCounter;
       document.getElementById('successPanel').style.display = 'block';
       window.scrollTo({top: document.getElementById('form-start').offsetTop - 20, behavior:'smooth'});
     }catch(err){
@@ -715,6 +589,19 @@
       submitBtn.textContent = 'Enviar inscripción';
     }
   });
+
+  // Cada celular solo puede registrar un equipo en esta página.
+  // Agregar ?test=1 al enlace desactiva ese bloqueo, para poder probar
+  // varias veces desde el mismo dispositivo (uso interno, no para equipos reales).
+  const TEST_MODE = new URLSearchParams(location.search).get('test') === '1';
+  let equipoYaRegistrado = false;
+  try{ equipoYaRegistrado = !TEST_MODE && localStorage.getItem('kc3_equipo_registrado') === '1'; }catch(err){}
+
+  if(equipoYaRegistrado){
+    document.getElementById('heroSection').style.display = 'none';
+    document.getElementById('wizard').style.display = 'none';
+    document.getElementById('alreadyPanel').style.display = 'block';
+  }
 </script>
 
 </body>

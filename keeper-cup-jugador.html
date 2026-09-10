@@ -9,15 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #0F1B14;
-    --bg-elevated: #16261C;
-    --bg-card: #1B2E22;
-    --line: rgba(245,242,233,0.14);
-    --line-strong: rgba(245,242,233,0.28);
-    --ink: #F5F2E9;
-    --ink-dim: #A9B8AC;
-    --gold: #D4A24C;
-    --gold-ink: #241A08;
+    --bg: #051225;
+    --bg-elevated: #0B1B33;
+    --bg-card: #0F223D;
+    --line: rgba(224,232,240,0.14);
+    --line-strong: rgba(224,232,240,0.28);
+    --ink: #F3F6F8;
+    --ink-dim: #93A4B8;
+    --gold: #D9A93A;
+    --gold-ink: #211603;
+    --green: #3ECB3B;
     --brick: #C97764;
     --radius-sm: 4px;
     --radius-md: 10px;
@@ -39,10 +40,9 @@
   }
   .wrap{ max-width: 460px; margin: 0 auto; padding: 0 20px 60px; }
 
-  header{ padding: 24px 0 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
-  .wordmark{ font-family:'League Spartan', sans-serif; font-weight: 900; font-size: 18px; }
-  .wordmark span{ color: var(--gold); }
-  .venue-tag{ font-size: 12px; color: var(--ink-dim); margin-top: 4px; }
+  header{ padding: 26px 0 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; text-align:center; }
+  .logo-img{ height: 64px; width: auto; }
+  .venue-tag{ font-size: 12px; color: var(--ink-dim); margin-top: 8px; }
 
   h1{ font-size: 26px; line-height: 1.1; margin-bottom: 8px; }
   .lead{ color: var(--ink-dim); font-size: 14px; margin-bottom: 26px; }
@@ -54,10 +54,11 @@
     padding: 22px;
   }
   .field{ display:flex; flex-direction:column; gap: 6px; margin-bottom: 18px; }
+  .field-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   label{ font-size: 13px; color: var(--ink-dim); }
   label .req{ color: var(--brick); }
 
-  input[type=text], input[type=date], select{
+  input[type=text], input[type=email], input[type=tel], input[type=date], select{
     width: 100%;
     background: var(--bg-elevated);
     border: 1px solid var(--line-strong);
@@ -73,27 +74,65 @@
   }
   select:disabled{ opacity: .5; }
 
-  .photo-btn{
+  .section-title{
+    font-family:'League Spartan', sans-serif; font-weight:700; font-size: 15px;
+    margin: 26px 0 4px; padding-top: 18px; border-top: 1px solid var(--line);
+  }
+  .field .hint{ font-size: 12px; color: var(--ink-dim); margin: -2px 0 2px; }
+
+  .photo-picker{ position: relative; }
+  .photo-main-btn{
     display:flex;
     align-items:center;
     justify-content:center;
-    flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    width: 100%;
     background: var(--bg-elevated);
     border: 1px dashed var(--line-strong);
     border-radius: var(--radius-sm);
-    padding: 28px 12px;
-    font-size: 13px;
+    padding: 18px 12px;
+    font-size: 14px;
     color: var(--ink-dim);
     cursor:pointer;
-    position: relative;
     text-align:center;
+    font-family: inherit;
   }
-  .photo-btn input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
-  .photo-btn .icon{ font-size: 26px; }
-  .photo-preview{ width:100%; border-radius: var(--radius-sm); display:none; margin-top: 10px; }
+  .photo-main-btn:hover{ border-color: var(--gold); color: var(--ink); }
+  .photo-main-btn.filled{ border-style: solid; border-color: rgba(62,203,59,0.4); color: var(--green); }
+  .photo-main-btn .icon{ font-size: 20px; }
 
-  .hint{ font-size: 12px; color: var(--ink-dim); margin-top: 6px; }
+  .photo-menu{
+    display:none;
+    position: absolute;
+    left: 0; right: 0; top: calc(100% + 6px);
+    z-index: 20;
+    background: var(--bg-card);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .photo-menu.open{ display:block; }
+  .photo-menu button{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 13px 14px;
+    text-align:left;
+    cursor:pointer;
+  }
+  .photo-menu button:not(:last-child){ border-bottom: 1px solid var(--line); }
+  .photo-menu button:hover{ background: var(--bg-elevated); color: var(--gold); }
+  .photo-menu .icon{ font-size: 17px; }
+
+  .photo-status{ font-size: 13px; color: var(--green); margin-top: 8px; display:none; }
+  .photo-preview{ width:100%; border-radius: var(--radius-sm); display:none; margin-top: 10px; }
 
   .btn-gold{
     width: 100%;
@@ -117,7 +156,6 @@
     display:none;
   }
   .msg.error{ display:block; background: rgba(201,119,100,0.14); color: var(--brick); border: 1px solid rgba(201,119,100,0.4); }
-  .msg.info{ display:block; background: rgba(212,162,76,0.1); color: var(--ink-dim); border: 1px solid var(--line-strong); }
 
   .success{
     display:none;
@@ -140,19 +178,59 @@
     font-size: 14px;
     cursor:pointer;
   }
+
+  /* ---------- Camera modal ---------- */
+  .camera-modal{
+    display:none;
+    position:fixed; inset:0; z-index:200;
+    background: rgba(5,18,37,0.97);
+    flex-direction: column; align-items:center; justify-content:center;
+    padding: 24px 16px;
+  }
+  .camera-modal.open{ display:flex; }
+  .camera-title{ color:var(--ink); font-size:14px; font-weight:600; margin-bottom:14px; text-align:center; }
+  .camera-viewport{
+    position:relative; width:100%; max-width:380px; aspect-ratio: 3/4;
+    background:#000; border-radius: var(--radius-md); overflow:hidden;
+  }
+  .camera-viewport video, .camera-viewport canvas{
+    width:100%; height:100%; object-fit:cover; display:block;
+  }
+  .camera-viewport video.mirror{ transform: scaleX(-1); }
+  .camera-guide{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    border: 2px dashed var(--gold); pointer-events:none;
+  }
+  .camera-guide.guide-oval{ width:60%; height:76%; border-radius:50%; }
+  .camera-guide.guide-card{ width:84%; aspect-ratio:1.586; border-radius:10px; }
+  .camera-hint{ color:var(--ink-dim); font-size:12.5px; margin-top:14px; text-align:center; max-width:340px; }
+  .camera-controls{ display:flex; align-items:center; gap:22px; margin-top:20px; }
+  .camera-btn-capture{
+    width:64px; height:64px; border-radius:50%;
+    background: var(--gold); border: 4px solid var(--ink);
+    cursor:pointer;
+  }
+  .camera-btn-secondary{
+    background:transparent; border:1px solid var(--line-strong); color:var(--ink);
+    padding:11px 18px; border-radius:var(--radius-sm); font-size:14px; cursor:pointer;
+  }
+  .camera-btn-gold{
+    background:var(--gold); color:var(--gold-ink); border:none; font-weight:600;
+    padding:11px 20px; border-radius:var(--radius-sm); font-size:14px; cursor:pointer;
+  }
 </style>
 </head>
 <body>
 
 <div class="wrap">
   <header>
-    <div class="wordmark">KEEPER <span>CUP 3</span></div>
+    <img src="logo-kc3.png" alt="Keeper Cup 3" class="logo-img">
     <div class="venue-tag">Inscripción individual de jugador</div>
   </header>
 
   <div id="formView">
     <h1>Ficha tu registro.</h1>
-    <p class="lead">Completa tus datos y súbete una foto. Tu club debe estar aprobado para aparecer en la lista.</p>
+    <p class="lead">Completa tus datos y súbete tus fotos. Tu club debe estar aprobado para aparecer en la lista.</p>
 
     <div class="card">
       <form id="jugadorForm">
@@ -163,9 +241,15 @@
           </select>
         </div>
 
-        <div class="field">
-          <label>Nombre completo <span class="req">*</span></label>
-          <input type="text" name="fullName" placeholder="Nombres y apellidos" required>
+        <div class="field-grid">
+          <div class="field">
+            <label>Nombres <span class="req">*</span></label>
+            <input type="text" name="nombres" required>
+          </div>
+          <div class="field">
+            <label>Apellidos <span class="req">*</span></label>
+            <input type="text" name="apellidos" required>
+          </div>
         </div>
 
         <div class="field">
@@ -190,13 +274,70 @@
         </div>
 
         <div class="field">
-          <label>Foto <span class="req">*</span></label>
-          <div class="photo-btn" id="photoBtn">
-            <span class="icon">📷</span>
-            <span id="photoLabel">Tomar o subir foto</span>
-            <input type="file" id="photoInput" accept="image/*" capture="user" required>
+          <label>Correo electrónico</label>
+          <input type="email" name="email">
+        </div>
+
+        <div class="field">
+          <label>Teléfono <span class="req">*</span></label>
+          <input type="tel" name="phone" placeholder="09XXXXXXXX" required>
+        </div>
+
+        <div class="section-title">Fotos</div>
+
+        <div class="field">
+          <label>Foto selfie carnet <span class="req">*</span></label>
+          <p class="hint">Tómala con luz clara, de frente, con fondo de pared blanco o similar.</p>
+          <div class="photo-picker">
+            <button type="button" class="photo-main-btn" id="selfieMainBtn" onclick="togglePhotoMenu('selfie')">
+              <span class="icon">📷</span>
+              <span id="selfieBtnLabel">Agregar foto</span>
+            </button>
+            <div class="photo-menu" id="selfieMenu">
+              <button type="button" onclick="choosePhotoOption('selfie','camera')"><span class="icon">📷</span> Tomar foto</button>
+              <button type="button" onclick="choosePhotoOption('selfie','gallery')"><span class="icon">🖼️</span> Subir foto</button>
+            </div>
           </div>
-          <img id="photoPreview" class="photo-preview" alt="Vista previa de la foto">
+          <input type="file" id="selfieInput" accept="image/*" capture="user" style="display:none" onchange="handleFileFallback(this,'selfie')">
+          <input type="file" id="selfieGalleryInput" accept="image/*" style="display:none" onchange="handleFileFallback(this,'selfie')">
+          <div class="photo-status" id="selfieStatus">✓ Foto lista</div>
+          <img id="selfiePreview" class="photo-preview" alt="Vista previa selfie">
+        </div>
+
+        <div class="field">
+          <label>Foto de cédula — frente <span class="req">*</span></label>
+          <div class="photo-picker">
+            <button type="button" class="photo-main-btn" id="cedulaFrenteMainBtn" onclick="togglePhotoMenu('cedulaFrente')">
+              <span class="icon">🪪</span>
+              <span id="cedulaFrenteBtnLabel">Agregar foto</span>
+            </button>
+            <div class="photo-menu" id="cedulaFrenteMenu">
+              <button type="button" onclick="choosePhotoOption('cedulaFrente','camera')"><span class="icon">📷</span> Tomar foto</button>
+              <button type="button" onclick="choosePhotoOption('cedulaFrente','gallery')"><span class="icon">🖼️</span> Subir foto</button>
+            </div>
+          </div>
+          <input type="file" id="cedulaFrenteInput" accept="image/*" capture="environment" style="display:none" onchange="handleFileFallback(this,'cedulaFrente')">
+          <input type="file" id="cedulaFrenteGalleryInput" accept="image/*" style="display:none" onchange="handleFileFallback(this,'cedulaFrente')">
+          <div class="photo-status" id="cedulaFrenteStatus">✓ Foto lista</div>
+          <img id="cedulaFrentePreview" class="photo-preview" alt="Vista previa cédula frente">
+        </div>
+
+        <div class="field">
+          <label>Foto de cédula — reverso <span class="req">*</span></label>
+          <div class="photo-picker">
+            <button type="button" class="photo-main-btn" id="cedulaReversoMainBtn" onclick="togglePhotoMenu('cedulaReverso')">
+              <span class="icon">🪪</span>
+              <span id="cedulaReversoBtnLabel">Agregar foto</span>
+            </button>
+            <div class="photo-menu" id="cedulaReversoMenu">
+              <button type="button" onclick="choosePhotoOption('cedulaReverso','camera')"><span class="icon">📷</span> Tomar foto</button>
+              <button type="button" onclick="choosePhotoOption('cedulaReverso','gallery')"><span class="icon">🖼️</span> Subir foto</button>
+            </div>
+          </div>
+          <input type="file" id="cedulaReversoInput" accept="image/*" capture="environment" style="display:none" onchange="handleFileFallback(this,'cedulaReverso')">
+          <input type="file" id="cedulaReversoGalleryInput" accept="image/*" style="display:none" onchange="handleFileFallback(this,'cedulaReverso')">
+          <div class="photo-status" id="cedulaReversoStatus">✓ Foto lista</div>
+          <img id="cedulaReversoPreview" class="photo-preview" alt="Vista previa cédula reverso">
         </div>
 
         <div class="msg error" id="formError"></div>
@@ -210,7 +351,32 @@
     <div class="check">✓</div>
     <h2>Registro recibido</h2>
     <p id="successMsg">Tu ficha quedó guardada. El club confirmará tu cupo en la nómina.</p>
-    <button type="button" onclick="resetForm()">Registrar otro jugador</button>
+  </div>
+
+  <div class="success" id="alreadyView">
+    <div class="check">✓</div>
+    <h2>Ya te registraste</h2>
+    <p>Este dispositivo ya envió un registro de jugador. Si necesitas corregir algo, contacta a tu club o al organizador del torneo.</p>
+  </div>
+</div>
+
+<!-- Cámara con guía de encuadre -->
+<div class="camera-modal" id="cameraModal">
+  <div class="camera-title" id="cameraTitle">Foto</div>
+  <div class="camera-viewport">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <canvas id="cameraCanvas" style="display:none"></canvas>
+    <div class="camera-guide" id="cameraGuide"></div>
+  </div>
+  <p class="camera-hint" id="cameraHint">Ubica tu rostro dentro de la guía, con buena luz.</p>
+  <div class="camera-controls" id="cameraControlsLive">
+    <button type="button" class="camera-btn-secondary" onclick="closeCamera()">Cancelar</button>
+    <button type="button" class="camera-btn-capture" onclick="captureFrame()" aria-label="Capturar foto"></button>
+    <span style="width:70px"></span>
+  </div>
+  <div class="camera-controls" id="cameraControlsReview" style="display:none">
+    <button type="button" class="camera-btn-secondary" onclick="retakePhoto()">Repetir</button>
+    <button type="button" class="camera-btn-gold" onclick="confirmPhoto()">Usar esta foto</button>
   </div>
 </div>
 
@@ -222,9 +388,13 @@
   const submitBtn = document.getElementById('submitBtn');
   const form = document.getElementById('jugadorForm');
   const formError = document.getElementById('formError');
-  const photoInput = document.getElementById('photoInput');
-  const photoLabel = document.getElementById('photoLabel');
-  const photoPreview = document.getElementById('photoPreview');
+
+  const cameraConfig = {
+    selfie: { facingMode: 'user', guide: 'oval', title: 'Foto selfie carnet', hint: 'Ubica tu rostro dentro de la guía, con buena luz y fondo claro.', mirror: true },
+    cedulaFrente: { facingMode: 'environment', guide: 'card', title: 'Cédula — frente', hint: 'Encuadra la cédula completa dentro de la guía.', mirror: false },
+    cedulaReverso: { facingMode: 'environment', guide: 'card', title: 'Cédula — reverso', hint: 'Encuadra la cédula completa dentro de la guía.', mirror: false }
+  };
+  const photoData = {}; // fieldKey -> dataURL base64
 
   function showError(msg){
     formError.textContent = msg;
@@ -262,26 +432,169 @@
     }
   }
 
-  photoInput.addEventListener('change', () => {
-    const file = photoInput.files[0];
-    if(!file) return;
-    photoLabel.textContent = '✓ ' + file.name;
-    const reader = new FileReader();
-    reader.onload = () => {
-      photoPreview.src = reader.result;
-      photoPreview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
+  // ---------- Menú "Tomar foto / Subir foto" ----------
+  function togglePhotoMenu(fieldKey){
+    const menu = document.getElementById(fieldKey + 'Menu');
+    const isOpen = menu.classList.contains('open');
+    document.querySelectorAll('.photo-menu.open').forEach(m => m.classList.remove('open'));
+    if(!isOpen) menu.classList.add('open');
+  }
+
+  function choosePhotoOption(fieldKey, mode){
+    document.getElementById(fieldKey + 'Menu').classList.remove('open');
+    if(mode === 'camera'){
+      openCamera(fieldKey);
+    }else{
+      document.getElementById(fieldKey + 'GalleryInput').click();
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest('.photo-picker')){
+      document.querySelectorAll('.photo-menu.open').forEach(m => m.classList.remove('open'));
+    }
   });
 
-  function fileToBase64(file){
+  // ---------- Cámara con guía ----------
+  let cameraStream = null;
+  let cameraTargetField = null;
+
+  async function openCamera(fieldKey){
+    cameraTargetField = fieldKey;
+    const cfg = cameraConfig[fieldKey];
+    const modal = document.getElementById('cameraModal');
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('cameraCanvas');
+    const guide = document.getElementById('cameraGuide');
+
+    document.getElementById('cameraTitle').textContent = cfg.title;
+    document.getElementById('cameraHint').textContent = cfg.hint;
+    guide.className = 'camera-guide guide-' + cfg.guide;
+    video.className = cfg.mirror ? 'mirror' : '';
+
+    video.style.display = 'block';
+    canvas.style.display = 'none';
+    document.getElementById('cameraControlsLive').style.display = 'flex';
+    document.getElementById('cameraControlsReview').style.display = 'none';
+
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      document.getElementById(fieldKey + 'Input').click();
+      return;
+    }
+
+    modal.classList.add('open');
+    try{
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: cfg.facingMode },
+        audio: false
+      });
+      video.srcObject = cameraStream;
+    }catch(err){
+      closeCamera();
+      document.getElementById(fieldKey + 'Input').click();
+    }
+  }
+
+  function closeCamera(){
+    document.getElementById('cameraModal').classList.remove('open');
+    if(cameraStream){
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+    }
+  }
+
+  function captureFrame(){
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('cameraCanvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if(video.classList.contains('mirror')){
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0);
+    video.style.display = 'none';
+    canvas.style.display = 'block';
+    document.getElementById('cameraControlsLive').style.display = 'none';
+    document.getElementById('cameraControlsReview').style.display = 'flex';
+  }
+
+  function retakePhoto(){
+    document.getElementById('cameraVideo').style.display = 'block';
+    document.getElementById('cameraCanvas').style.display = 'none';
+    document.getElementById('cameraControlsLive').style.display = 'flex';
+    document.getElementById('cameraControlsReview').style.display = 'none';
+  }
+
+  function confirmPhoto(){
+    const canvas = document.getElementById('cameraCanvas');
+    const targetKey = cameraTargetField;
+    showPhotoStatus(targetKey, 'Procesando…');
+    canvas.toBlob(async blob => {
+      const raw = await blobToDataUrl(blob);
+      const compressed = await resizeDataUrl(raw, 1100, 0.82);
+      photoData[targetKey] = compressed;
+      updatePhotoPreview(targetKey, compressed);
+      closeCamera();
+    }, 'image/jpeg', 0.92);
+  }
+
+  function updatePhotoPreview(fieldKey, dataUrl){
+    document.getElementById(fieldKey + 'Preview').src = dataUrl;
+    document.getElementById(fieldKey + 'Preview').style.display = 'block';
+    showPhotoStatus(fieldKey, '✓ Foto lista');
+    document.getElementById(fieldKey + 'BtnLabel').textContent = 'Cambiar foto';
+    document.getElementById(fieldKey + 'MainBtn').classList.add('filled');
+  }
+
+  function showPhotoStatus(fieldKey, text){
+    const el = document.getElementById(fieldKey + 'Status');
+    el.textContent = text;
+    el.style.display = 'block';
+  }
+
+  function blobToDataUrl(blob){
     return new Promise((resolve, reject) => {
-      if(!file){ resolve(''); return; }
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
       reader.onerror = reject;
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(blob);
     });
+  }
+
+  // Reduce el tamaño de la imagen antes de subirla, para que el envío sea rápido
+  // incluso con fotos grandes tomadas directamente con la cámara del celular.
+  function resizeDataUrl(dataUrl, maxDim, quality){
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if(width > height && width > maxDim){
+          height = Math.round(height * maxDim / width);
+          width = maxDim;
+        }else if(height >= width && height > maxDim){
+          width = Math.round(width * maxDim / height);
+          height = maxDim;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = dataUrl;
+    });
+  }
+
+  async function handleFileFallback(input, fieldKey){
+    const file = input.files[0];
+    if(!file) return;
+    showPhotoStatus(fieldKey, 'Procesando…');
+    const raw = await blobToDataUrl(file);
+    const compressed = await resizeDataUrl(raw, 1100, 0.82);
+    photoData[fieldKey] = compressed;
+    updatePhotoPreview(fieldKey, compressed);
   }
 
   form.addEventListener('submit', async function(e){
@@ -292,24 +605,31 @@
       showError('Falta configurar la URL del Web App de Apps Script en el código (APPS_SCRIPT_URL).');
       return;
     }
-    if(!photoInput.files[0]){
-      showError('Sube o toma una foto antes de enviar.');
+    if(!photoData.selfie){
+      showError('Toma la foto selfie carnet antes de enviar.');
+      return;
+    }
+    if(!photoData.cedulaFrente || !photoData.cedulaReverso){
+      showError('Toma o sube las dos fotos de la cédula (frente y reverso) antes de enviar.');
       return;
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Enviando...';
-
-    const photoBase64 = await fileToBase64(photoInput.files[0]);
+    submitBtn.textContent = 'Subiendo tus datos y fotos...';
 
     const payload = {
       type: 'jugador',
       teamName: form.club.value,
-      fullName: form.fullName.value,
+      nombres: form.nombres.value,
+      apellidos: form.apellidos.value,
       cedula: form.cedula.value,
       dob: form.dob.value,
       position: form.position.value,
-      photo: photoBase64
+      email: form.email.value,
+      phone: form.phone.value,
+      fotoSelfie: photoData.selfie,
+      fotoCedulaFrente: photoData.cedulaFrente,
+      fotoCedulaReverso: photoData.cedulaReverso
     };
 
     try{
@@ -320,6 +640,10 @@
       });
       const result = await res.json();
       if(!result.ok) throw new Error(result.message || 'Error al guardar el registro.');
+
+      if(!TEST_MODE){
+        try{ localStorage.setItem('kc3_jugador_registrado', '1'); }catch(err){}
+      }
 
       document.getElementById('successMsg').textContent =
         `Quedaste registrado con ${form.club.value}. El club confirmará tu cupo en la nómina.`;
@@ -332,17 +656,19 @@
     }
   });
 
-  function resetForm(){
-    form.reset();
-    photoPreview.style.display = 'none';
-    photoLabel.textContent = 'Tomar o subir foto';
-    document.getElementById('successView').style.display = 'none';
-    document.getElementById('formView').style.display = 'block';
-    submitBtn.textContent = 'Enviar registro';
-    submitBtn.disabled = false;
-  }
+  // Cada celular solo puede registrar un jugador en esta página.
+  // Agregar ?test=1 al enlace desactiva ese bloqueo, para poder probar
+  // varias veces desde el mismo dispositivo (uso interno, no para jugadores).
+  const TEST_MODE = new URLSearchParams(location.search).get('test') === '1';
+  let yaRegistrado = false;
+  try{ yaRegistrado = !TEST_MODE && localStorage.getItem('kc3_jugador_registrado') === '1'; }catch(err){}
 
-  loadClubs();
+  if(yaRegistrado){
+    document.getElementById('formView').style.display = 'none';
+    document.getElementById('alreadyView').style.display = 'block';
+  }else{
+    loadClubs();
+  }
 </script>
 
 </body>

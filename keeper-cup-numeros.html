@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keeper Cup 3 — Números de camiseta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #051225;
+    --bg-elevated: #0B1B33;
+    --bg-card: #0F223D;
+    --line: rgba(224,232,240,0.14);
+    --line-strong: rgba(224,232,240,0.28);
+    --ink: #F3F6F8;
+    --ink-dim: #93A4B8;
+    --gold: #D9A93A;
+    --gold-ink: #211603;
+    --green: #3ECB3B;
+    --brick: #C97764;
+    --radius-sm: 4px;
+    --radius-md: 10px;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Work Sans', sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, .display{
+    font-family: 'League Spartan', sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .wrap{ max-width: 560px; margin: 0 auto; padding: 0 20px 60px; }
+
+  header{ padding: 26px 0 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; text-align:center; }
+  .logo-img{ height: 56px; width: auto; }
+  .venue-tag{ font-size: 12px; color: var(--ink-dim); margin-top: 8px; }
+
+  h1{ font-size: 24px; line-height: 1.2; margin-bottom: 8px; }
+  .lead{ color: var(--ink-dim); font-size: 14px; margin-bottom: 26px; }
+
+  .card{
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 22px;
+  }
+  .field{ display:flex; flex-direction:column; gap: 6px; margin-bottom: 18px; }
+  label{ font-size: 13px; color: var(--ink-dim); }
+
+  input[type=text], select{
+    width: 100%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 13px 12px;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 15px;
+  }
+  select:disabled{ opacity: .5; }
+
+  .btn-gold{
+    width: 100%;
+    background: var(--gold);
+    color: var(--gold-ink);
+    border: none;
+    padding: 15px 22px;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-weight: 600;
+    cursor:pointer;
+    margin-top: 6px;
+  }
+  .btn-gold:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn-ghost{
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    padding: 12px 22px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    cursor:pointer;
+    margin-top: 10px;
+  }
+
+  .msg{
+    font-size: 13px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    display:none;
+  }
+  .msg.error{ display:block; background: rgba(201,119,100,0.14); color: var(--brick); border: 1px solid rgba(201,119,100,0.4); }
+  .msg.ok{ display:block; background: rgba(62,203,59,0.1); color: var(--ink); border: 1px solid rgba(62,203,59,0.35); }
+
+  .roster-row{
+    display:grid;
+    grid-template-columns: 1fr 90px;
+    gap: 12px;
+    align-items:center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .roster-row:first-of-type{ border-top: 1px solid var(--line); }
+  .roster-name{ font-size: 14px; }
+  .roster-pos{ font-size: 12px; color: var(--ink-dim); }
+  .roster-row input{
+    width: 100%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 15px;
+    text-align:center;
+  }
+  .roster-row input.dup{ border-color: var(--brick); }
+
+  #rosterView{ display:none; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <img src="logo-kc3.png" alt="Keeper Cup 3" class="logo-img">
+    <div class="venue-tag">Números de camiseta (para DTs)</div>
+  </header>
+
+  <div id="verifyView">
+    <h1>Asigna los números de tu equipo.</h1>
+    <p class="lead">Ingresa el nombre de tu club y tu cédula o correo con el que lo inscribiste, para verificar que eres el DT.</p>
+
+    <div class="card">
+      <div class="field">
+        <label>Club</label>
+        <select id="equipoSelect" disabled>
+          <option value="">Cargando equipos…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Cédula del DT o correo con el que inscribiste el equipo</label>
+        <input type="text" id="contactoInput" placeholder="Número de cédula o tu correo">
+      </div>
+      <button type="button" class="btn-gold" id="verifyBtn">Ver mi nómina</button>
+      <div class="msg error" id="verifyError"></div>
+    </div>
+  </div>
+
+  <div id="rosterView">
+    <h1 id="rosterTitle">Tu nómina</h1>
+    <p class="lead">Escribe el número de camiseta de cada jugador (no pueden repetirse) y guarda.</p>
+
+    <div class="card">
+      <div id="rosterList"></div>
+      <button type="button" class="btn-gold" id="saveBtn">Guardar números</button>
+      <button type="button" class="btn-ghost" id="backBtn">← Cambiar de equipo</button>
+      <div class="msg error" id="rosterError"></div>
+      <div class="msg ok" id="rosterOk"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEc4dn0CERk9o5gRNpc08grYs6GSs-sZHD7FZGhK1AV_9655DKmvMn4w19g4c_K0SA/exec';
+
+  const equipoSelect = document.getElementById('equipoSelect');
+  const contactoInput = document.getElementById('contactoInput');
+  const verifyBtn = document.getElementById('verifyBtn');
+  const verifyError = document.getElementById('verifyError');
+
+  const verifyView = document.getElementById('verifyView');
+  const rosterView = document.getElementById('rosterView');
+  const rosterTitle = document.getElementById('rosterTitle');
+  const rosterList = document.getElementById('rosterList');
+  const saveBtn = document.getElementById('saveBtn');
+  const backBtn = document.getElementById('backBtn');
+  const rosterError = document.getElementById('rosterError');
+  const rosterOk = document.getElementById('rosterOk');
+
+  let jugadoresActuales = [];
+  let equipoActual = '';
+  let contactoActual = '';
+
+  async function loadTeams(){
+    try{
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'listarEquipos' })
+      });
+      const data = await res.json();
+      if(!data.ok) throw new Error(data.message || 'No se pudo cargar la lista de equipos.');
+      const equipos = data.equipos || [];
+      if(equipos.length === 0){
+        equipoSelect.innerHTML = '<option value="">Aún no hay equipos aprobados</option>';
+        return;
+      }
+      equipoSelect.innerHTML = '<option value="">Selecciona tu club</option>' +
+        equipos.map(e => `<option>${e}</option>`).join('');
+      equipoSelect.disabled = false;
+    }catch(err){
+      equipoSelect.innerHTML = '<option value="">Error al cargar equipos</option>';
+      showVerifyError('No se pudo cargar la lista de clubes: ' + err.message);
+    }
+  }
+
+  function showVerifyError(msg){ verifyError.textContent = msg; verifyError.style.display = 'block'; }
+  function hideVerifyError(){ verifyError.style.display = 'none'; }
+
+  verifyBtn.addEventListener('click', async () => {
+    hideVerifyError();
+    const teamName = equipoSelect.value;
+    const contacto = contactoInput.value.trim();
+    if(!teamName){ showVerifyError('Selecciona tu club.'); return; }
+    if(!contacto){ showVerifyError('Escribe el teléfono o correo con el que inscribiste el equipo.'); return; }
+
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = 'Verificando...';
+
+    try{
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'listarJugadoresEquipo', teamName, contacto })
+      });
+      const data = await res.json();
+      if(!data.ok) throw new Error(data.message || 'No se pudo verificar tu equipo.');
+
+      jugadoresActuales = data.jugadores || [];
+      equipoActual = teamName;
+      contactoActual = contacto;
+
+      if(jugadoresActuales.length === 0){
+        showVerifyError('Ese equipo no tiene jugadores registrados todavía.');
+        return;
+      }
+
+      renderRoster();
+      verifyView.style.display = 'none';
+      rosterView.style.display = 'block';
+    }catch(err){
+      showVerifyError(err.message);
+    }finally{
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Ver mi nómina';
+    }
+  });
+
+  function renderRoster(){
+    rosterTitle.textContent = equipoActual;
+    rosterList.innerHTML = jugadoresActuales.map((j, i) => `
+      <div class="roster-row">
+        <div>
+          <div class="roster-name">${j.nombres} ${j.apellidos}</div>
+          <div class="roster-pos">${j.posicion || '—'}</div>
+        </div>
+        <input type="text" inputmode="numeric" maxlength="2" data-idx="${i}" value="${j.numero || ''}" placeholder="00">
+      </div>
+    `).join('');
+  }
+
+  backBtn.addEventListener('click', () => {
+    rosterView.style.display = 'none';
+    verifyView.style.display = 'block';
+    rosterError.style.display = 'none';
+    rosterOk.style.display = 'none';
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    rosterError.style.display = 'none';
+    rosterOk.style.display = 'none';
+
+    const inputs = Array.from(rosterList.querySelectorAll('input'));
+    inputs.forEach(inp => inp.classList.remove('dup'));
+
+    const vistos = {};
+    let hayDuplicado = false;
+    inputs.forEach(inp => {
+      const val = inp.value.trim();
+      if(!val) return;
+      if(vistos[val]){
+        hayDuplicado = true;
+        inp.classList.add('dup');
+        vistos[val].classList.add('dup');
+      }
+      vistos[val] = inp;
+    });
+
+    if(hayDuplicado){
+      rosterError.textContent = 'Hay números repetidos — cada jugador debe tener un número distinto.';
+      rosterError.style.display = 'block';
+      return;
+    }
+
+    const numeros = inputs.map(inp => ({
+      cedula: jugadoresActuales[Number(inp.dataset.idx)].cedula,
+      numero: inp.value.trim()
+    }));
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Guardando...';
+
+    try{
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'guardarNumeros', teamName: equipoActual, contacto: contactoActual, numeros })
+      });
+      const data = await res.json();
+      if(!data.ok) throw new Error(data.message || 'No se pudo guardar.');
+
+      rosterOk.textContent = `✓ Números guardados (${data.actualizados} jugadores actualizados).`;
+      rosterOk.style.display = 'block';
+    }catch(err){
+      rosterError.textContent = 'No se pudo guardar: ' + err.message;
+      rosterError.style.display = 'block';
+    }finally{
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Guardar números';
+    }
+  });
+
+  loadTeams();
+</script>
+
+</body>
+</html>

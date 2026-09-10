@@ -9,16 +9,17 @@
 <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #0B140F;
-    --bg-elevated: #142019;
-    --bg-card: #182C21;
-    --line: rgba(245,242,233,0.12);
-    --line-strong: rgba(245,242,233,0.26);
-    --ink: #F5F2E9;
-    --ink-dim: #9FB0A3;
-    --gold: #D4A24C;
-    --gold-ink: #201705;
-    --silver: #B9C4C1;
+    --bg: #051225;
+    --bg-elevated: #0B1B33;
+    --bg-card: #0F223D;
+    --line: rgba(224,232,240,0.12);
+    --line-strong: rgba(224,232,240,0.26);
+    --ink: #F3F6F8;
+    --ink-dim: #93A4B8;
+    --gold: #D9A93A;
+    --gold-ink: #211603;
+    --silver: #C7D2D9;
+    --green: #3ECB3B;
     --brick: #C97764;
     --radius-sm: 4px;
     --radius-md: 12px;
@@ -47,7 +48,7 @@
   /* ---------- Nav ---------- */
   nav{
     position:sticky; top:0; z-index:50;
-    background:rgba(11,20,15,0.86);
+    background:rgba(5,18,37,0.86);
     backdrop-filter: blur(10px);
     border-bottom:1px solid var(--line);
   }
@@ -55,8 +56,7 @@
     display:flex; align-items:center; justify-content:space-between;
     padding:16px 0;
   }
-  .wordmark{ font-family:'League Spartan'; font-weight:900; font-size:18px; }
-  .wordmark span{ color:var(--gold); }
+  .logo-img{ height:46px; width:auto; }
   .nav-links{ display:flex; gap:28px; font-size:14px; color:var(--ink-dim); }
   .nav-links a:hover{ color:var(--ink); }
   .nav-cta{
@@ -71,8 +71,8 @@
     padding:100px 0 90px;
     overflow:hidden;
     background:
-      radial-gradient(ellipse 900px 500px at 78% -10%, rgba(212,162,76,0.16), transparent 60%),
-      radial-gradient(ellipse 700px 500px at 10% 110%, rgba(185,196,193,0.08), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 78% -10%, rgba(217,169,58,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 10% 110%, rgba(62,203,59,0.07), transparent 60%),
       var(--bg);
   }
   .hero-pitch-lines{
@@ -183,20 +183,20 @@
     aspect-ratio:1/1;
     background:
       repeating-linear-gradient(135deg, rgba(245,242,233,0.03) 0 2px, transparent 2px 14px),
-      linear-gradient(160deg, #1E3527, #12201A);
+      linear-gradient(160deg, #1B2C46, #0D1626);
     display:flex; align-items:flex-end;
   }
   .gallery-grid > *:first-child .ph{ aspect-ratio:auto; height:100%; min-height:340px; }
   .ph-cap{
     padding:16px; font-size:12.5px; color:var(--ink-dim);
-    background:linear-gradient(0deg, rgba(11,20,15,0.75), transparent);
+    background:linear-gradient(0deg, rgba(5,18,37,0.75), transparent);
     width:100%;
   }
   .ph-cap em{ color:var(--ink); font-style:normal; font-weight:500; }
 
   /* ---------- CTA final ---------- */
   .cta-final{
-    background: linear-gradient(120deg, #1B2E22, #0F1B14);
+    background: linear-gradient(120deg, #17263E, #0A1220);
     border-top:1px solid var(--line);
     padding:90px 0;
     text-align:center;
@@ -225,7 +225,7 @@
 
 <nav>
   <div class="wrap nav-row">
-    <div class="wordmark">KEEPER <span>CUP 3</span></div>
+    <img src="logo-kc3.png" alt="Keeper Cup 3" class="logo-img">
     <div class="nav-links">
       <a href="#torneo">Torneo</a>
       <a href="#reglamento">Reglamento</a>
@@ -243,7 +243,7 @@
       <span class="tag">Estadio Principal · Liga San Miguel de Ibarra</span>
     </div>
     <h1>La pretemporada<span class="line2">se juega acá.</span></h1>
-    <p class="lead">Torneo draft interclubes de fútbol 11. 24 equipos, nóminas de hasta 35 jugadores, y 13 semanas de juego hasta coronar campeón de Copa Oro y Copa Plata.</p>
+    <p class="lead">Torneo draft interclubes de fútbol 11. 24 equipos, nóminas de hasta 40 jugadores, y 13 semanas de juego hasta coronar campeón de Copa Oro y Copa Plata.</p>
     <div class="hero-actions">
       <a href="keeper-cup-registro.html" class="btn-gold">Inscribir mi equipo</a>
       <a href="#reglamento" class="btn-outline">Ver reglamento</a>
@@ -268,7 +268,7 @@
       <ul class="reg-points">
         <li>Formato de liga con 9 jornadas, clasificación a Copa Oro (1°–12°) y Copa Plata (13°–24°).</li>
         <li>Cuartos, semis, final y tercer puesto — cada ronda en su propia semana.</li>
-        <li>Nóminas de hasta 35 jugadores por club, verificadas antes de cada partido.</li>
+        <li>Nóminas de hasta 40 jugadores por club, verificadas antes de cada partido.</li>
         <li>El arbitraje de cada encuentro corre por cuenta de cada club.</li>
       </ul>
     </div>
