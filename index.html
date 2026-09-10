@@ -63,13 +63,15 @@
     padding:16px 0;
   }
   .logo-img{ height:46px; width:auto; margin-left:10px; }
-  .nav-links{ display:flex; gap:28px; font-size:14px; color:var(--ink-dim); }
+  .nav-links{ display:flex; gap:28px; font-size:13px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em; font-weight:600; }
   .nav-links a:hover{ color:var(--ink); }
   .nav-cta{
-    background:var(--gold); color:var(--gold-ink); font-weight:600;
-    padding:9px 18px; border-radius:var(--radius-sm); font-size:14px;
-    text-decoration:none; white-space:nowrap;
+    background:var(--gold); color:var(--gold-ink); font-weight:700;
+    padding:9px 18px; border-radius:var(--radius-sm); font-size:13px;
+    text-decoration:none; white-space:nowrap; text-transform:uppercase; letter-spacing:0.04em;
   }
+  .arrow{ display:inline-block; transition:transform 0.2s ease; }
+  a:hover .arrow, button:hover .arrow{ transform:translate(3px,-3px); }
 
   /* ---------- Hero ---------- */
   .hero{
@@ -96,8 +98,10 @@
     padding:6px 12px; border-radius:20px;
   }
   .hero h1{
-    font-size:clamp(38px, 5.4vw, 66px);
-    line-height:0.98;
+    font-size:clamp(44px, 7.4vw, 92px);
+    line-height:0.92;
+    letter-spacing:-0.02em;
+    text-transform:uppercase;
     max-width:15ch;
     opacity:0; transform:translateY(16px);
     animation: rise 0.8s ease forwards;
@@ -124,24 +128,46 @@
     box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
   }
   .btn-gold{
-    background:var(--gold); color:var(--gold-ink); font-weight:600;
+    background:var(--gold); color:var(--gold-ink); font-weight:700;
     padding:14px 26px; border-radius:var(--radius-sm); font-size:15px;
-    text-decoration:none; border:none; cursor:pointer;
+    text-decoration:none; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.03em;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display:inline-flex; align-items:center; gap:8px;
   }
   .btn-gold:hover{ transform:translateY(-2px); box-shadow:0 10px 24px -8px rgba(217,169,58,0.5); }
   .btn-outline{
-    border:1px solid var(--line-strong); color:var(--ink); font-weight:500;
+    border:1px solid var(--line-strong); color:var(--ink); font-weight:600;
     padding:14px 24px; border-radius:var(--radius-sm); font-size:15px;
     text-decoration:none; transition: border-color 0.2s ease, color 0.2s ease;
+    text-transform:uppercase; letter-spacing:0.03em;
+    display:inline-flex; align-items:center; gap:8px;
   }
   .btn-outline:hover{ border-color:var(--gold); color:var(--gold); }
 
+  /* ---------- Sello circular ---------- */
+  .badge-seal{
+    position:absolute; left:-18px; bottom:-18px; z-index:2;
+    width:118px; height:118px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg); border-radius:50%;
+    box-shadow: 0 14px 34px -10px rgba(0,0,0,0.55);
+    border:1px solid var(--line-strong);
+  }
+  .badge-seal svg{ width:100%; height:100%; animation: spin 18s linear infinite; }
+  .badge-seal text{
+    font-family:'League Spartan',sans-serif; font-weight:700; font-size:9.5px;
+    letter-spacing:2.5px; fill:var(--ink-dim); text-transform:uppercase;
+  }
+  .badge-center{ position:absolute; font-size:30px; }
+  @media (max-width:760px){ .badge-seal{ width:92px; height:92px; left:-10px; bottom:-10px; } .badge-center{ font-size:24px; } }
+
   @keyframes rise{ to{ opacity:1; transform:translateY(0) scale(1); } }
   @keyframes float{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-12px); } }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
   @media (prefers-reduced-motion: reduce){
     .hero h1, .hero p.lead, .hero-actions, .hero-trophy{ animation:none; opacity:1; transform:none; }
     .hero-trophy img{ animation:none; }
+    .badge-seal svg{ animation:none; }
   }
 
   @media (max-width: 760px){
@@ -167,17 +193,17 @@
     display:grid; grid-template-columns:repeat(4,1fr); gap:24px;
   }
   .ficha-item b{
-    display:block; font-family:'League Spartan'; font-weight:900; font-size:26px;
+    display:block; font-family:'League Spartan'; font-weight:900; font-size:34px;
   }
-  .ficha-item span{ font-size:13px; color:var(--ink-dim); }
+  .ficha-item span{ font-size:12px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em; }
   .ficha-item{ transition: transform 0.25s ease; }
   .ficha-item:hover{ transform:translateY(-3px); }
 
   /* ---------- Section heading ---------- */
   .section-pad{ padding:88px 0; }
   .section-head{ max-width:60ch; margin-bottom:44px; }
-  .eyebrow{ color:var(--gold); font-size:13.5px; font-weight:600; margin-bottom:10px; }
-  .section-head h2{ font-size:clamp(28px,3.6vw,40px); }
+  .eyebrow{ color:var(--gold); font-size:12.5px; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.14em; }
+  .section-head h2{ font-size:clamp(32px,4.6vw,52px); text-transform:uppercase; letter-spacing:-0.015em; line-height:0.98; }
   .section-head p{ color:var(--ink-dim); margin-top:12px; font-size:16px; max-width:56ch; }
 
   /* ---------- Reglamento ---------- */
@@ -205,20 +231,23 @@
   .reg-download{
     display:inline-flex; align-items:center; gap:8px;
     background:transparent; border:1px solid var(--gold); color:var(--gold);
-    padding:11px 20px; border-radius:var(--radius-sm); font-size:14px; font-weight:600;
-    text-decoration:none;
+    padding:11px 20px; border-radius:var(--radius-sm); font-size:14px; font-weight:700;
+    text-decoration:none; text-transform:uppercase; letter-spacing:0.03em;
   }
   .reg-download:hover{ background:var(--gold); color:var(--gold-ink); }
 
-  /* ---------- Galería ---------- */
-  .gallery-grid{
-    display:grid; grid-template-columns:repeat(3,1fr); gap:16px;
+  /* ---------- Galería (scroll horizontal) ---------- */
+  .gallery-scroll{
+    display:flex; gap:16px; overflow-x:auto; padding-bottom:8px;
+    scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
   }
-  .gallery-grid > *:first-child{ grid-column:span 2; grid-row:span 2; }
+  .gallery-scroll::-webkit-scrollbar{ height:6px; }
+  .gallery-scroll::-webkit-scrollbar-thumb{ background:var(--line-strong); border-radius:4px; }
   .ph{
     position:relative; border-radius:var(--radius-md); overflow:hidden;
     border:1px solid var(--line);
-    aspect-ratio:1/1;
+    flex:0 0 auto; width:300px; aspect-ratio:4/5;
+    scroll-snap-align:start;
     background:
       repeating-linear-gradient(135deg, rgba(245,242,233,0.03) 0 2px, transparent 2px 14px),
       linear-gradient(160deg, #1B2C46, #0D1626);
@@ -226,24 +255,33 @@
     transition: transform 0.3s ease, border-color 0.3s ease;
   }
   .ph:hover{ transform:translateY(-3px); border-color:var(--line-strong); }
-  .gallery-grid > *:first-child .ph{ aspect-ratio:auto; height:100%; min-height:340px; }
+  .ph:first-child{ width:380px; }
   .ph-cap{
     padding:16px; font-size:12.5px; color:var(--ink-dim);
     background:linear-gradient(0deg, rgba(5,18,37,0.75), transparent);
-    width:100%;
+    width:100%; text-transform:uppercase; letter-spacing:0.04em;
   }
-  .ph-cap em{ color:var(--ink); font-style:normal; font-weight:500; }
+  .ph-cap em{ color:var(--ink); font-style:normal; font-weight:600; }
 
   /* ---------- CTA final ---------- */
   .cta-final{
-    background: linear-gradient(120deg, #17263E, #0A1220);
-    border-top:1px solid var(--line);
+    background: var(--gold);
     padding:90px 0;
     text-align:center;
   }
-  .cta-final h2{ font-size:clamp(30px,4vw,44px); max-width:20ch; margin:0 auto; }
-  .cta-final p{ color:var(--ink-dim); margin:16px auto 0; max-width:48ch; font-size:16px; }
-  .cta-final .btn-gold{ margin-top:30px; font-size:16px; padding:16px 34px; }
+  .cta-final h2{
+    font-size:clamp(36px,6.4vw,72px); max-width:18ch; margin:0 auto;
+    color:var(--gold-ink); text-transform:uppercase; letter-spacing:-0.02em; line-height:0.96;
+  }
+  .cta-final p{ color:rgba(33,22,3,0.72); margin:16px auto 0; max-width:48ch; font-size:16px; }
+  .cta-final .btn-gold{
+    margin-top:30px; font-size:16px; padding:16px 34px;
+    background:var(--gold-ink); color:var(--gold);
+    box-shadow:none;
+  }
+  .cta-final .btn-gold:hover{ box-shadow:0 10px 24px -8px rgba(33,22,3,0.4); }
+  .cta-final .cta-sub-link{ color:var(--gold-ink); }
+  .cta-final .cta-sub-link a{ text-decoration:underline; font-weight:600; }
 
   footer{
     border-top:1px solid var(--line); padding:26px 0 50px;
@@ -254,9 +292,6 @@
   @media (max-width: 860px){
     .ficha-row{ grid-template-columns:repeat(2,1fr); row-gap:22px; }
     .reg-grid{ grid-template-columns:1fr; }
-    .gallery-grid{ grid-template-columns:repeat(2,1fr); }
-    .gallery-grid > *:first-child{ grid-column:span 2; grid-row:span 1; }
-    .gallery-grid > *:first-child .ph{ min-height:220px; }
     .nav-links{ display:none; }
   }
 </style>
@@ -287,12 +322,19 @@
       <h1>La pretemporada<span class="line2">se juega acá.</span></h1>
       <p class="lead">Torneo draft interclubes de fútbol 11. 24 equipos, nóminas de hasta 40 jugadores, y 13 semanas de juego hasta coronar campeón de Copa Oro y Copa Plata.</p>
       <div class="hero-actions">
-        <a href="keeper-cup-registro.html" class="btn-gold">Inscribir mi equipo</a>
-        <a href="#reglamento" class="btn-outline">Ver reglamento</a>
+        <a href="keeper-cup-registro.html" class="btn-gold">Inscribir mi equipo <span class="arrow">↗</span></a>
+        <a href="#reglamento" class="btn-outline">Ver reglamento <span class="arrow">↗</span></a>
       </div>
     </div>
     <div class="hero-trophy">
       <img src="trofeo-kc3.jpg" alt="Trofeo Keeper Cup 3 — Pre-temporada Draft Interclubes">
+      <div class="badge-seal">
+        <svg viewBox="0 0 200 200">
+          <defs><path id="badgeCircle" d="M 100,100 m -82,0 a 82,82 0 1,1 164,0 a 82,82 0 1,1 -164,0"/></defs>
+          <text><textPath href="#badgeCircle">Keeper Cup 3 • Torneo Oficial • Keeper Cup 3 • Torneo Oficial •</textPath></text>
+        </svg>
+        <span class="badge-center">⚽</span>
+      </div>
     </div>
   </div>
 </section>
@@ -322,7 +364,7 @@
       <div class="reg-icon">📄</div>
       <h3>Reglamento Keeper Cup 3</h3>
       <p>PDF con el formato completo, fechas y condiciones de participación.</p>
-      <a href="#" class="reg-download">Descargar PDF ↓</a>
+      <a href="#" class="reg-download">Descargar PDF <span class="arrow">↓</span></a>
     </div>
   </div>
 </section>
@@ -334,7 +376,7 @@
       <h2>Así se vivió la Keeper Cup 2.</h2>
       <p>Espacio reservado para las fotos del torneo pasado — se reemplazan por las tuyas cuando las tengas listas.</p>
     </div>
-    <div class="gallery-grid reveal">
+    <div class="gallery-scroll reveal">
       <div class="ph"><div class="ph-cap"><em>Final Copa Oro</em> — Keeper Cup 2</div></div>
       <div class="ph"><div class="ph-cap">Premiación</div></div>
       <div class="ph"><div class="ph-cap">Jornada de grupos</div></div>
@@ -346,10 +388,10 @@
 
 <section class="cta-final reveal" id="inscripcion">
   <div class="wrap">
-    <h2>Asegura el cupo de tu equipo.</h2>
+    <h2>Asegura el cupo de tu equipo</h2>
     <p>Quedan cupos limitados de los 24 equipos. La inscripción toma unos minutos: datos del club, escudo y nómina.</p>
-    <a href="keeper-cup-registro.html" class="btn-gold">Inscribir mi equipo →</a>
-    <p style="margin-top:18px; font-size:14px;">¿Ya eres parte de un equipo aprobado? <a href="keeper-cup-jugador.html" style="text-decoration:underline;">Inscríbete como jugador →</a></p>
+    <a href="keeper-cup-registro.html" class="btn-gold">Inscribir mi equipo <span class="arrow">↗</span></a>
+    <p class="cta-sub-link" style="margin-top:18px; font-size:14px;">¿Ya eres parte de un equipo aprobado? <a href="keeper-cup-jugador.html">Inscríbete como jugador ↗</a></p>
   </div>
 </section>
 
