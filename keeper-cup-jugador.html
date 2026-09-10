@@ -249,12 +249,12 @@
 
         <div class="field-grid">
           <div class="field">
-            <label>Nombres <span class="req">*</span></label>
-            <input type="text" name="nombres" required>
+            <label>Nombres completos <span class="req">*</span></label>
+            <input type="text" name="nombres" placeholder="Ej. Juan Carlos" required pattern="\S+\s+\S+.*" title="Escribe tus dos nombres completos">
           </div>
           <div class="field">
-            <label>Apellidos <span class="req">*</span></label>
-            <input type="text" name="apellidos" required>
+            <label>Apellidos completos <span class="req">*</span></label>
+            <input type="text" name="apellidos" placeholder="Ej. Pérez Andrade" required pattern="\S+\s+\S+.*" title="Escribe tus dos apellidos completos">
           </div>
         </div>
 
@@ -280,8 +280,8 @@
         </div>
 
         <div class="field">
-          <label>Correo electrónico</label>
-          <input type="email" name="email" placeholder="Correo real para verificación">
+          <label>Correo electrónico <span class="req">*</span></label>
+          <input type="email" name="email" placeholder="Correo real para verificación" required>
         </div>
 
         <div class="field">
@@ -640,7 +640,7 @@
       showError('Falta configurar la URL del Web App de Apps Script en el código (APPS_SCRIPT_URL).');
       return;
     }
-    for(const campo of [form.club, form.teamCode, form.nombres, form.apellidos, form.cedula, form.dob, form.position, form.phone]){
+    for(const campo of [form.club, form.teamCode, form.nombres, form.apellidos, form.cedula, form.dob, form.position, form.email, form.phone]){
       if(!campo.checkValidity()){
         showError(campo.title ? `${campo.name}: ${campo.title}.` : 'Revisa los campos marcados en rojo.');
         campo.reportValidity();
