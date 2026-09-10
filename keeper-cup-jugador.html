@@ -241,6 +241,12 @@
           </select>
         </div>
 
+        <div class="field">
+          <label>Código de equipo <span class="req">*</span></label>
+          <p class="hint">Te lo da tu DT — sin este código no puedes inscribirte.</p>
+          <input type="text" name="teamCode" placeholder="Código de 6 caracteres" required maxlength="6" style="text-transform:uppercase;">
+        </div>
+
         <div class="field-grid">
           <div class="field">
             <label>Nombres <span class="req">*</span></label>
@@ -254,7 +260,7 @@
 
         <div class="field">
           <label>Cédula <span class="req">*</span></label>
-          <input type="text" name="cedula" placeholder="Número de cédula" required inputmode="numeric">
+          <input type="text" name="cedula" placeholder="10 dígitos" required inputmode="numeric" maxlength="10" pattern="\d{10}" title="Debe tener 10 dígitos numéricos">
         </div>
 
         <div class="field">
@@ -275,12 +281,12 @@
 
         <div class="field">
           <label>Correo electrónico</label>
-          <input type="email" name="email">
+          <input type="email" name="email" placeholder="Correo real para verificación">
         </div>
 
         <div class="field">
           <label>Teléfono <span class="req">*</span></label>
-          <input type="tel" name="phone" placeholder="09XXXXXXXX" required>
+          <input type="tel" name="phone" placeholder="09XXXXXXXX" required inputmode="numeric" maxlength="10" pattern="09\d{8}" title="Debe tener 10 dígitos y empezar con 09">
         </div>
 
         <div class="section-title">Fotos</div>
@@ -605,6 +611,13 @@
       showError('Falta configurar la URL del Web App de Apps Script en el código (APPS_SCRIPT_URL).');
       return;
     }
+    for(const campo of [form.club, form.teamCode, form.nombres, form.apellidos, form.cedula, form.dob, form.position, form.phone]){
+      if(!campo.checkValidity()){
+        showError(campo.title ? `${campo.name}: ${campo.title}.` : 'Revisa los campos marcados en rojo.');
+        campo.reportValidity();
+        return;
+      }
+    }
     if(!photoData.selfie){
       showError('Toma la foto selfie carnet antes de enviar.');
       return;
@@ -620,6 +633,7 @@
     const payload = {
       type: 'jugador',
       teamName: form.club.value,
+      teamCode: form.teamCode.value,
       nombres: form.nombres.value,
       apellidos: form.apellidos.value,
       cedula: form.cedula.value,

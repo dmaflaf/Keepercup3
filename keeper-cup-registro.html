@@ -217,6 +217,19 @@
   }
   .check-row input{ margin-top: 3px; }
 
+  .msg{ font-size: 13px; margin-top: 16px; padding: 12px 14px; border-radius: var(--radius-sm); display:none; }
+  .msg.error{ display:block; background: rgba(201,119,100,0.14); color: var(--brick); border: 1px solid rgba(201,119,100,0.4); }
+  .msg.ok{ display:block; background: rgba(62,203,59,0.1); color: var(--ink); border: 1px solid rgba(62,203,59,0.35); }
+  .msg b{ color: var(--green); }
+  .team-code{
+    margin-top: 20px; background: var(--bg-elevated); border: 1px dashed var(--gold);
+    border-radius: var(--radius-sm); padding: 16px 18px; display:inline-block;
+  }
+  .team-code .code-value{
+    font-family:'League Spartan',sans-serif; font-weight:900; font-size: 26px;
+    letter-spacing: 0.1em; color: var(--gold);
+  }
+
   /* ---------- Nav buttons ---------- */
   .form-nav{
     display:flex;
@@ -321,7 +334,7 @@
             </div>
             <div class="field">
               <label>Cédula del DT <span class="req">*</span></label>
-              <input type="text" name="dtCedula" placeholder="Número de cédula" required inputmode="numeric">
+              <input type="text" name="dtCedula" placeholder="10 dígitos" required inputmode="numeric" maxlength="10" pattern="\d{10}" title="Debe tener 10 dígitos numéricos">
             </div>
             <div class="field">
               <label>Asistente técnico</label>
@@ -329,11 +342,11 @@
             </div>
             <div class="field">
               <label>Teléfono de contacto <span class="req">*</span></label>
-              <input type="tel" name="phone" placeholder="09XXXXXXXX" required>
+              <input type="tel" name="phone" placeholder="09XXXXXXXX" required inputmode="numeric" maxlength="10" pattern="09\d{8}" title="Debe tener 10 dígitos y empezar con 09">
             </div>
             <div class="field">
               <label>Correo electrónico <span class="req">*</span></label>
-              <input type="email" name="email" required>
+              <input type="email" name="email" placeholder="Correo real para verificación" required>
             </div>
             <div class="field">
               <label>Logo del equipo</label>
@@ -344,10 +357,11 @@
               <img id="logoPreview" class="logo-preview" alt="Vista previa del logo">
             </div>
           </div>
+          <div class="msg error" id="step1Error" style="display:none;"></div>
         </div>
         <div class="form-nav">
           <span></span>
-          <button type="button" class="btn-gold" onclick="goStep(1)">Siguiente: Nómina →</button>
+          <button type="button" class="btn-gold" onclick="tryStep1Next()">Siguiente: Nómina →</button>
         </div>
       </div>
 
@@ -419,6 +433,13 @@
     <span class="step-num">✓</span>
     <h2>Inscripción recibida</h2>
     <p>Tu equipo <b id="successTeam"></b> quedó registrado. Te contactaremos para confirmar el pago y tu cupo en la Keeper Cup 3.</p>
+    <div class="team-code">
+      <div style="font-size:13px;color:var(--ink-dim);margin-bottom:4px;">Código de tu equipo</div>
+      <div class="code-value" id="successCode">——————</div>
+    </div>
+    <p style="font-size:13px;color:var(--ink-dim);max-width:38ch;margin:16px auto 0;">
+      Comparte este código <b>solo con tus jugadores</b> — lo van a necesitar para inscribirse individualmente. Sin el código, nadie más puede registrarse en tu nómina.
+    </p>
   </div>
 
   <div class="success" id="alreadyPanel" style="display:none">
@@ -444,6 +465,25 @@
     });
     if(n === 2) fillSummary();
     window.scrollTo({top: document.getElementById('form-start').offsetTop - 20, behavior:'smooth'});
+  }
+
+  function tryStep1Next(){
+    const f = document.getElementById('regForm');
+    const err = document.getElementById('step1Error');
+    err.style.display = 'none';
+
+    const campos = [f.teamName, f.dtName, f.dtCedula, f.phone, f.email];
+    for(const campo of campos){
+      if(!campo.checkValidity()){
+        err.textContent = campo.title
+          ? `${campo.previousElementSibling.textContent.replace('*','').trim()}: ${campo.title}.`
+          : 'Revisa los campos marcados — falta algo o el formato no es válido.';
+        err.style.display = 'block';
+        campo.reportValidity();
+        return;
+      }
+    }
+    goStep(1);
   }
 
   function previewLogo(input){
@@ -581,6 +621,7 @@
       document.getElementById('heroSection').style.display = 'none';
       document.getElementById('wizard').style.display = 'none';
       document.getElementById('successTeam').textContent = teamName;
+      document.getElementById('successCode').textContent = result.codigoEquipo || '—';
       document.getElementById('successPanel').style.display = 'block';
       window.scrollTo({top: document.getElementById('form-start').offsetTop - 20, behavior:'smooth'});
     }catch(err){
