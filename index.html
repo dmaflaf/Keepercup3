@@ -233,17 +233,21 @@
     border:1px solid var(--line);
     flex:0 0 auto; width:300px; aspect-ratio:4/5;
     scroll-snap-align:start;
-    background:
-      repeating-linear-gradient(135deg, rgba(245,242,233,0.03) 0 2px, transparent 2px 14px),
-      linear-gradient(160deg, #1B2C46, #0D1626);
     display:flex; align-items:flex-end;
     transition: transform 0.3s ease, border-color 0.3s ease;
   }
+  .ph img{
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:cover; object-position:center 20%;
+    transition: transform 0.4s ease;
+  }
   .ph:hover{ transform:translateY(-3px); border-color:var(--line-strong); }
+  .ph:hover img{ transform:scale(1.05); }
   .ph:first-child{ width:380px; }
   .ph-cap{
+    position:relative; z-index:1;
     padding:16px; font-size:12.5px; color:var(--ink-dim);
-    background:linear-gradient(0deg, rgba(5,18,37,0.75), transparent);
+    background:linear-gradient(0deg, rgba(5,18,37,0.85), transparent);
     width:100%; text-transform:uppercase; letter-spacing:0.04em;
   }
   .ph-cap em{ color:var(--ink); font-style:normal; font-weight:600; }
@@ -319,7 +323,7 @@
 <div class="ficha reveal">
   <div class="wrap ficha-row">
     <div class="ficha-item"><b data-count="24">0</b><span>equipos en competencia</span></div>
-    <div class="ficha-item"><b data-count="13">0</b><span>semanas de calendario</span></div>
+    <div class="ficha-item"><b data-count="13">0</b><span>semanas de puro fútbol</span></div>
     <div class="ficha-item"><b data-count="2000" data-prefix="+" data-suffix="usd">0</b><span>Premios Copa Oro y Plata</span></div>
     <div class="ficha-item"><b data-count="125" data-prefix="$">$0</b><span>inscripción por equipo</span></div>
   </div>
@@ -332,7 +336,7 @@
       <h2>Todo lo que tu equipo necesita saber antes de fichar jugadores.</h2>
       <ul class="reg-points">
         <li>Formato de liga con 9 jornadas y clasificación a etapa Finales.</li>
-        <li>Cuartos, semis, final y tercer puesto — cada ronda en su propia semana.</li>
+        <li>1 jugador Profesional + 1 Jugador Fútbol Sala + 2 Jugadores Extranjeros y cambios ilimitados.</li>
         <li>Nóminas de hasta 40 jugadores por club, verificadas antes de cada partido.</li>
         <li>Horarios estelares todos los fines de semana.</li>
       </ul>
@@ -351,14 +355,15 @@
     <div class="section-head reveal">
       <div class="eyebrow">Edición anterior</div>
       <h2>Así se vivió la Keeper Cup 2.</h2>
-      <p>Espacio reservado para las fotos del torneo pasado — se reemplazan por las tuyas cuando las tengas listas.</p>
+      <p>Un vistazo a la acción, la premiación y los campeones de la edición pasada.</p>
     </div>
     <div class="gallery-scroll reveal">
-      <div class="ph"><div class="ph-cap"><em>Final Copa Oro</em> — Keeper Cup 2</div></div>
-      <div class="ph"><div class="ph-cap">Premiación</div></div>
-      <div class="ph"><div class="ph-cap">Jornada de grupos</div></div>
-      <div class="ph"><div class="ph-cap">Hinchada</div></div>
-      <div class="ph"><div class="ph-cap">Equipos campeones</div></div>
+      <div class="ph"><img src="galeria-1.jpg" alt="Equipo campeón levantando el trofeo — Keeper Cup 2" loading="lazy"><div class="ph-cap"><em>Final Copa Oro</em> — Keeper Cup 2</div></div>
+      <div class="ph"><img src="galeria-2.jpg" alt="Premiación Keeper Cup 2" loading="lazy"><div class="ph-cap">Premiación</div></div>
+      <div class="ph"><img src="galeria-3.jpg" alt="Trofeo Campeón Keeper Cup" loading="lazy"><div class="ph-cap">Equipos campeones</div></div>
+      <div class="ph"><img src="galeria-4.jpg" alt="Jugador en calentamiento previo al partido" loading="lazy"><div class="ph-cap">Jornada de grupos</div></div>
+      <div class="ph"><img src="galeria-5.jpg" alt="Jugador en acción de juego" loading="lazy"><div class="ph-cap">En la cancha</div></div>
+      <div class="ph"><img src="galeria-6.jpg" alt="Árbitro dirigiendo un partido de Keeper Cup" loading="lazy"><div class="ph-cap">Arbitraje profesional</div></div>
     </div>
   </div>
 </section>
