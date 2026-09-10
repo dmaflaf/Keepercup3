@@ -562,6 +562,35 @@
     return resizeDataUrl(raw, 1100, 0.82);
   }
 
+  /**
+   * A veces, justo después de guardar, Apps Script responde con una página
+   * rara en vez del JSON (falla pasajera de la plataforma, no del registro).
+   * Si eso pasa, reintentamos una vez; si el reintento dice "ya existe" o
+   * "ya fue usado", confirma que el primer intento sí se guardó bien.
+   */
+  async function enviarConReintento(payload, intentos){
+    intentos = intentos || 0;
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    const text = await res.text();
+    try{
+      return JSON.parse(text);
+    }catch(parseErr){
+      if(intentos >= 1){
+        throw new Error('Tu inscripción probablemente ya se guardó, pero no pudimos confirmarlo. Contáctanos antes de volver a intentarlo.');
+      }
+      await new Promise(r => setTimeout(r, 1500));
+      const reintento = await enviarConReintento(payload, intentos + 1);
+      if(!reintento.ok && /ya existe|ya fue usado/i.test(reintento.message || '')){
+        return { ok: true };
+      }
+      return reintento;
+    }
+  }
+
   document.getElementById('regForm').addEventListener('submit', async function(e){
     e.preventDefault();
 
@@ -606,12 +635,7 @@
     };
 
     try{
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      });
-      const result = await res.json();
+      const result = await enviarConReintento(payload);
       if(!result.ok) throw new Error(result.message || 'Error al guardar la inscripción.');
 
       if(!TEST_MODE){
@@ -621,7 +645,7 @@
       document.getElementById('heroSection').style.display = 'none';
       document.getElementById('wizard').style.display = 'none';
       document.getElementById('successTeam').textContent = teamName;
-      document.getElementById('successCode').textContent = result.codigoEquipo || '—';
+      document.getElementById('successCode').textContent = result.codigoEquipo || 'Revisa tu correo o contáctanos';
       document.getElementById('successPanel').style.display = 'block';
       window.scrollTo({top: document.getElementById('form-start').offsetTop - 20, behavior:'smooth'});
     }catch(err){
