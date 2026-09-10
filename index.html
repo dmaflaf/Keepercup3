@@ -303,7 +303,7 @@
   <div class="wrap hero-inner">
     <div class="hero-copy">
       <h1>La pretemporada<span class="line2">se juega acá.</span></h1>
-      <p class="lead">Torneo draft de pre-temporada interclubes. Prepara tu club y llévalo al siguiente nivel. No te quedes fuera: 24 clubes compiten por el podio en Copa Oro y Copa Plata.</p>
+      <p class="lead">Torneo draft de pre-temporada interclubes. Prepara tu club y llévalo al siguiente nivel. No te quedes fuera.</p>
       <div class="hero-actions">
         <a href="keeper-cup-registro.html" class="btn-gold">Inscribir mi equipo <span class="arrow">↗</span></a>
         <a href="#reglamento" class="btn-outline">Ver reglamento <span class="arrow">↗</span></a>
@@ -320,7 +320,7 @@
   <div class="wrap ficha-row">
     <div class="ficha-item"><b data-count="24">0</b><span>equipos en competencia</span></div>
     <div class="ficha-item"><b data-count="13">0</b><span>semanas de calendario</span></div>
-    <div class="ficha-item"><b data-count="1000" data-prefix="$">$0</b><span>premio Copa Oro</span></div>
+    <div class="ficha-item"><b data-count="2000" data-prefix="+" data-suffix="usd">0</b><span>Premios Copa Oro y Plata</span></div>
     <div class="ficha-item"><b data-count="125" data-prefix="$">$0</b><span>inscripción por equipo</span></div>
   </div>
 </div>
@@ -331,10 +331,10 @@
       <div class="eyebrow">Reglamento oficial</div>
       <h2>Todo lo que tu equipo necesita saber antes de fichar jugadores.</h2>
       <ul class="reg-points">
-        <li>Formato de liga con 9 jornadas, clasificación a Copa Oro (1°–12°) y Copa Plata (13°–24°).</li>
+        <li>Formato de liga con 9 jornadas y clasificación a etapa Finales.</li>
         <li>Cuartos, semis, final y tercer puesto — cada ronda en su propia semana.</li>
         <li>Nóminas de hasta 40 jugadores por club, verificadas antes de cada partido.</li>
-        <li>El arbitraje de cada encuentro corre por cuenta de cada club.</li>
+        <li>Horarios estelares todos los fines de semana.</li>
       </ul>
     </div>
     <div class="reg-card reveal">
@@ -384,8 +384,9 @@
   function animateCount(el){
     const target = parseInt(el.dataset.count, 10);
     const prefix = el.dataset.prefix || '';
+    const suffix = el.dataset.suffix || '';
     if(prefersReducedMotion){
-      el.textContent = prefix + target.toLocaleString('en-US');
+      el.textContent = prefix + target + suffix;
       return;
     }
     const duration = 1200;
@@ -394,7 +395,7 @@
       const progress = Math.min((now - start) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       const value = Math.round(target * eased);
-      el.textContent = prefix + value.toLocaleString('en-US');
+      el.textContent = prefix + value + suffix;
       if(progress < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
