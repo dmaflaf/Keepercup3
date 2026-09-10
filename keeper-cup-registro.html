@@ -579,7 +579,7 @@
     try{
       return JSON.parse(text);
     }catch(parseErr){
-      if(intentos >= 1){
+      if(intentos >= 2){
         throw new Error('Tu inscripción probablemente ya se guardó, pero no pudimos confirmarlo. Contáctanos antes de volver a intentarlo.');
       }
       await new Promise(r => setTimeout(r, 1500));
