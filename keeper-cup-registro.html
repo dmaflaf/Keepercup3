@@ -245,6 +245,19 @@
     font-size: 14px;
     cursor:pointer;
   }
+  .nomina-download{
+    display:inline-flex; align-items:center; gap:8px;
+    background:transparent; border:1px solid var(--gold); color:var(--gold);
+    padding:11px 18px; border-radius:var(--radius-sm); font-size:13.5px; font-weight:600;
+    text-decoration:none; margin-bottom:18px;
+  }
+  .nomina-download:hover{ background:var(--gold); color:var(--gold-ink); }
+  .nomina-hint{
+    font-size:12.5px; color:var(--ink-dim); margin:-10px 0 20px; line-height:1.6;
+  }
+  .nomina-hint code{
+    background:var(--bg-elevated); padding:1px 6px; border-radius:3px; font-size:12px;
+  }
   .btn-gold{
     background: var(--gold);
     color: var(--gold-ink);
@@ -373,6 +386,12 @@
             Sube el Excel con tu nómina (hasta 40 jugadores) y las fotos de todos tus jugadores.
             Si prefieres, cada jugador también puede inscribirse individualmente desde su celular con el
             enlace que te compartimos aparte — en ese caso puedes dejar esto en blanco.
+          </p>
+          <a href="plantilla-nomina-keeper-cup-3.xlsx" download class="nomina-download">📥 Descargar plantilla de nómina</a>
+          <p class="nomina-hint">
+            La plantilla trae una hoja "Instrucciones" con el detalle. En resumen: nombra cada foto con el número de
+            cédula del jugador — <code>1003399134.jpg</code> (carnet), <code>1003399134 CI Frente.jpg</code> y
+            <code>1003399134 CI Reverso.jpg</code>.
           </p>
           <div class="field-grid">
             <div class="field full">
