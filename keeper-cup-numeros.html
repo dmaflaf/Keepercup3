@@ -193,14 +193,52 @@
   let equipoActual = '';
   let contactoActual = '';
 
+  // Mensajes de error que suelen ser pasajeros del lado de Google (cuota,
+  // "Error de servicio", etc.) — vale la pena reintentar en vez de fallar
+  // de una, porque casi siempre el segundo intento sí funciona.
+  function esErrorTransitorio_(mensaje){
+    return /error de servicio|service error|tiempo de espera|timeout|rate limit|quota|l[ií]mite/i.test(mensaje || '');
+  }
+
+  // A veces Apps Script responde con una página rara en vez del JSON
+  // esperado (falla pasajera de la plataforma), o simplemente se demora
+  // demasiado. En vez de fallarle al usuario de una, reintentamos.
+  async function enviarConReintento(payload, intentos){
+    intentos = intentos || 0;
+    let result;
+    try{
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      let text;
+      try{
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        text = await res.text();
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      result = JSON.parse(text);
+    }catch(err){
+      if(intentos >= 2) throw new Error('No pudimos comunicarnos con el servidor. Intenta de nuevo en unos segundos.');
+      await new Promise(r => setTimeout(r, 1500));
+      return enviarConReintento(payload, intentos + 1);
+    }
+
+    if(!result.ok && esErrorTransitorio_(result.message) && intentos < 2){
+      await new Promise(r => setTimeout(r, 1500));
+      return enviarConReintento(payload, intentos + 1);
+    }
+
+    return result;
+  }
+
   async function loadTeams(){
     try{
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'listarEquipos' })
-      });
-      const data = await res.json();
+      const data = await enviarConReintento({ type: 'listarEquipos' });
       if(!data.ok) throw new Error(data.message || 'No se pudo cargar la lista de equipos.');
       const equipos = data.equipos || [];
       if(equipos.length === 0){
@@ -230,12 +268,7 @@
     verifyBtn.textContent = 'Verificando...';
 
     try{
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'listarJugadoresEquipo', teamName, contacto })
-      });
-      const data = await res.json();
+      const data = await enviarConReintento({ type: 'listarJugadoresEquipo', teamName, contacto });
       if(!data.ok) throw new Error(data.message || 'No se pudo verificar tu equipo.');
 
       jugadoresActuales = data.jugadores || [];
@@ -313,12 +346,7 @@
     saveBtn.textContent = 'Guardando...';
 
     try{
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'guardarNumeros', teamName: equipoActual, contacto: contactoActual, numeros })
-      });
-      const data = await res.json();
+      const data = await enviarConReintento({ type: 'guardarNumeros', teamName: equipoActual, contacto: contactoActual, numeros });
       if(!data.ok) throw new Error(data.message || 'No se pudo guardar.');
 
       rosterOk.textContent = `✓ Números guardados (${data.actualizados} jugadores actualizados).`;

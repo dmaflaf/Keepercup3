@@ -416,12 +416,7 @@
       return;
     }
     try{
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'listarEquipos' })
-      });
-      const data = await res.json();
+      const data = await enviarConReintento({ type: 'listarEquipos' });
       if(!data.ok) throw new Error(data.message || 'No se pudo cargar la lista de equipos.');
       const equipos = data.equipos || [];
       if(equipos.length === 0){
