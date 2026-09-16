@@ -609,17 +609,38 @@
    * Si eso pasa, reintentamos una vez; si el reintento dice "ya registrada"
    * o "ya fue usado", confirma que el primer intento sí se guardó bien.
    */
+  // Mensajes de error que suelen ser pasajeros del lado de Google (cuota,
+  // "Error de servicio", etc.) — vale la pena reintentar en vez de fallar
+  // de una, porque casi siempre el segundo intento sí funciona.
+  function esErrorTransitorio_(mensaje){
+    return /error de servicio|service error|tiempo de espera|timeout|rate limit|quota|l[ií]mite/i.test(mensaje || '');
+  }
+
   async function enviarConReintento(payload, intentos){
     intentos = intentos || 0;
-    const res = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text();
+    let result;
     try{
-      return JSON.parse(text);
-    }catch(parseErr){
+      // Si Apps Script se demora demasiado (o la conexión se cuelga), no
+      // esperamos para siempre: a los 20s cancelamos y reintentamos. El
+      // envío original puede terminar guardándose igual del lado del
+      // servidor — por eso el reintento revisa "ya registrada/ya fue usado"
+      // antes de darlo por fallido.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      let text;
+      try{
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        text = await res.text();
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      result = JSON.parse(text);
+    }catch(err){
       if(intentos >= 2){
         throw new Error('Tu registro probablemente ya se guardó, pero no pudimos confirmarlo. Revisa con tu club antes de volver a intentarlo.');
       }
@@ -630,6 +651,17 @@
       }
       return reintento;
     }
+
+    if(!result.ok && esErrorTransitorio_(result.message) && intentos < 2){
+      await new Promise(r => setTimeout(r, 1500));
+      const reintento = await enviarConReintento(payload, intentos + 1);
+      if(!reintento.ok && /ya est(á|a) registrada|ya fue usado/i.test(reintento.message || '')){
+        return { ok: true };
+      }
+      return reintento;
+    }
+
+    return result;
   }
 
   form.addEventListener('submit', async function(e){
