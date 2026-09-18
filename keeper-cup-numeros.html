@@ -291,8 +291,16 @@
     }
   });
 
+  function escapeHtml_(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
   function renderRoster(){
-    rosterTitle.textContent = equipoActual;
+    const cantidad = jugadoresActuales.length;
+    rosterTitle.innerHTML = escapeHtml_(equipoActual) +
+      ` <span style="color:var(--ink-dim); font-size:16px; font-weight:500;">(${cantidad} jugador${cantidad === 1 ? '' : 'es'} registrado${cantidad === 1 ? '' : 's'})</span>`;
     rosterList.innerHTML = jugadoresActuales.map((j, i) => `
       <div class="roster-row">
         <div>
