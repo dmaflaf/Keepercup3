@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 
 interface FormData {
@@ -32,6 +32,11 @@ export default function TeamRegistration() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
+
+  useEffect(() => {
+    setAlreadyRegistered(!!localStorage.getItem('kc3_equipo_registrado'))
+  }, [])
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -151,7 +156,7 @@ export default function TeamRegistration() {
     )
   }
 
-  if (localStorage.getItem('kc3_equipo_registrado')) {
+  if (alreadyRegistered) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
         <div className="text-center">
