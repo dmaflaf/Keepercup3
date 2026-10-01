@@ -1,0 +1,200 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Team {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  city          String
+  logo          String?  @db.Text // Base64 encoded image
+  codigoEquipo  String   @unique @default(cuid())
+
+  // Director info
+  directorName  String
+  directorCedula String
+
+  // Assistant info
+  assistantName String?
+  assistantPhone String?
+  assistantEmail String?
+
+  // Files
+  nominaFile    String?  @db.Text // Base64 or URL
+  nominaNombre  String?
+
+  // Relations
+  players       Player[]
+  fixturesLocal Fixture[] @relation("FixtureLocal")
+  fixturesVisitante Fixture[] @relation("FixtureVisitante")
+  standing      Standing?
+
+  // Metadata
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Player {
+  id            String   @id @default(cuid())
+  firstName     String
+  lastName      String
+  cedula        String?
+  number        Int?
+  position      String?
+  birthDate     String?
+  photo         String?  @db.Text // Base64 encoded image
+
+  team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId        String
+
+  // Relations
+  goles         Goal[]
+  sanciones     Sanction[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([teamId, cedula])
+  @@index([teamId])
+}
+
+model Credential {
+  id            String   @id @default(cuid())
+  playerName    String
+  playerNumber  Int
+  cedula        String
+  teamName      String
+  tournament    String
+  photo         String?  @db.Text
+
+  createdAt     DateTime @default(now())
+
+  @@index([teamName])
+}
+
+// ===== AUTENTICACIÓN =====
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  nombre        String
+  rol           String   @default("vocal") // 'admin', 'vocal'
+  activo        Boolean  @default(true)
+
+  // Relations
+  resultadosRegistrados Result[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email])
+}
+
+// ===== FIXTURE Y RESULTADOS =====
+model Fixture {
+  id            String   @id @default(cuid())
+  fecha         DateTime
+  fase          String   // "Fecha 1", "Fecha 2", etc
+  horario       String?  // "15:00", "17:00", etc
+  serie         String?  // "División A", "División B"
+  escenario     String?  // "Estadio X"
+  veedor        String?  // Nombre del veedor
+  observaciones String?  @db.Text
+
+  localId       String
+  visitanteId   String
+  local         Team     @relation("FixtureLocal", fields: [localId], references: [id])
+  visitante     Team     @relation("FixtureVisitante", fields: [visitanteId], references: [id])
+
+  // Relations
+  resultado     Result?
+  sanciones     Sanction[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([localId])
+  @@index([visitanteId])
+  @@index([fecha])
+}
+
+model Result {
+  id            String   @id @default(cuid())
+  fixtureId     String   @unique
+  fixture       Fixture  @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+
+  localGoles    Int      @default(0)
+  visitanteGoles Int     @default(0)
+  estado        String   @default("programado") // 'programado', 'en_vivo', 'finalizado'
+
+  registradoPor String?
+  usuario       User?    @relation(fields: [registradoPor], references: [id])
+
+  goles         Goal[]
+
+  updatedAt     DateTime @updatedAt
+
+  @@index([fixtureId])
+}
+
+model Goal {
+  id            String   @id @default(cuid())
+  resultadoId   String
+  resultado     Result   @relation(fields: [resultadoId], references: [id], onDelete: Cascade)
+
+  jugadorId     String?
+  jugador       Player?  @relation(fields: [jugadorId], references: [id])
+
+  minuto        Int?
+  equipo        String   // 'local' o 'visitante'
+  tipo          String   @default("gol") // 'gol', 'autogol'
+
+  createdAt     DateTime @default(now())
+
+  @@index([resultadoId])
+  @@index([jugadorId])
+}
+
+model Sanction {
+  id            String   @id @default(cuid())
+  fixtureId     String
+  fixture       Fixture  @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+
+  jugadorId     String
+  jugador       Player   @relation(fields: [jugadorId], references: [id], onDelete: Cascade)
+
+  tipo          String   // 'amarilla', 'roja'
+  razon         String?
+
+  createdAt     DateTime @default(now())
+
+  @@index([fixtureId])
+  @@index([jugadorId])
+}
+
+model Standing {
+  id            String   @id @default(cuid())
+  teamId        String   @unique
+  team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  serie         String?  // División
+  partidos      Int      @default(0)
+  ganados       Int      @default(0)
+  empatados     Int      @default(0)
+  perdidos      Int      @default(0)
+  golesAFavor   Int      @default(0)
+  golesEnContra Int      @default(0)
+  puntos        Int      @default(0)
+  diferencia    Int      @default(0)
+
+  updatedAt     DateTime @updatedAt
+
+  @@index([teamId])
+}
