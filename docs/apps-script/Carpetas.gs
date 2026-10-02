@@ -14,15 +14,22 @@
  *      Se puede repetir las veces que quieras. Si no alcanza el tiempo, continúa donde quedó.
  *   3. REINICIAR_IMPORTACION_CARPETAS() -> para volver a empezar desde el primer club.
  *
- * Fotos esperadas en la carpeta: 1234567890.jpg (selfie), 1234567890 CI Frente.jpg,
- * 1234567890 CI Reverso.jpg.  Resultado de cada corrida: pestaña "Resultado Importación".
+ * Busca en la carpeta del club Y EN SUS SUBCARPETAS (hasta 3 niveles).
+ * Nómina: Hoja de Google, Excel (.xlsx/.xls) o CSV; usa la hoja "Nómina" (ignora "Instrucciones").
+ * Fotos (según las instrucciones de la plantilla): 1234567890.jpg (selfie), 1234567890 CI Frente.jpg,
+ * 1234567890 CI Reverso.jpg. También reconoce las que subió el formulario con prefijo
+ * (foto_3_Equipo_1234567890 CI Frente.jpg) y variantes (.JPG, .png, "anverso", cédula de 9 dígitos).
+ * Resultado de cada corrida: pestaña "Resultado Importación".
  * Luego la sincronización con el panel (Sync.gs) lleva los cambios sola, en menos de 5 minutos.
  */
 
 var CARP_HOJA_REPORTE = 'Reporte Carpetas';
 var CARP_HOJA_RESULTADO = 'Resultado Importación';
 var CARP_MAX_MS = 4.5 * 60 * 1000;
-var CARP_PATRON_FOTO = /^(\d{10})(\s+CI\s+(Frente|Reverso))?\.\w+$/i;
+var CARP_MAX_PROF = 3;
+var CARP_MAX_CARPETAS = 40;
+var CARP_MIME_FOLDER = 'application/vnd.google-apps.folder';
+var CARP_CEDULA_EJEMPLO = '1003399134';
 var CARP_JUG_HEADERS = ['Fecha', 'Equipo', 'Número', 'Nombres', 'Apellidos', 'Cédula', 'Fecha nacimiento', 'Posición', 'Correo', 'Teléfono', 'Foto selfie (Drive)', 'Cédula frente (Drive)', 'Cédula reverso (Drive)'];
 var CARP_MIME_SHEET = 'application/vnd.google-apps.spreadsheet';
 var CARP_MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -54,11 +61,13 @@ function REPORTE_CARPETAS_EQUIPOS() {
     });
 
     var folderId = carpIdCarpeta_(eq);
-    if (!folderId) { filas.push([eq.nombre, eq.estado, total, sinSelfie, '(sin carpeta)', 0, 0, 'Sin carpeta en Drive']); return; }
-    var archivos;
-    try { archivos = carpListar_(folderId); } catch (e) { filas.push([eq.nombre, eq.estado, total, sinSelfie, '', 0, 0, 'No se pudo leer la carpeta: ' + e.message]); return; }
+    if (!folderId) { filas.push([eq.nombre, eq.estado, total, sinSelfie, '(sin carpeta)', 0, 0, 0, 'Sin carpeta en Drive']); return; }
+    var arbol;
+    try { arbol = carpListarArbol_(folderId); } catch (e) { filas.push([eq.nombre, eq.estado, total, sinSelfie, '', 0, 0, 0, 'No se pudo leer la carpeta: ' + e.message]); return; }
+    var archivos = arbol.archivos;
 
-    var nomina = carpBuscarNomina_(archivos);
+    var busq = carpBuscarNomina_(archivos);
+    var nomina = busq.archivo;
     var fotos = carpIndiceFotos_(archivos);
     var conFoto = Object.keys(fotos);
     var sinFila = conFoto.filter(function(c) { return !ctx.porCedula[c]; }).length;
@@ -67,14 +76,14 @@ function REPORTE_CARPETAS_EQUIPOS() {
     if (nomina || sinFila > 0) queHacer = 'Importar (IMPORTAR_NOMINAS_TODOS)';
     else if (sinSelfie > 0 && conFoto.length > 0) queHacer = 'Completar fotos (IMPORTAR_NOMINAS_TODOS)';
     else if (sinSelfie > 0) queHacer = 'Faltan fotos: pedirlas al DT';
-    filas.push([eq.nombre, eq.estado, total, sinSelfie, nomina ? nomina.name : '(ninguna)', conFoto.length, sinFila, queHacer]);
+    filas.push([eq.nombre, eq.estado, total, sinSelfie, nomina ? nomina.name + (busq.total > 1 ? ' (+' + (busq.total - 1) + ' más)' : '') : '(ninguna)', arbol.subcarpetas, conFoto.length, sinFila, queHacer]);
   });
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(CARP_HOJA_REPORTE);
   if (hoja) ss.deleteSheet(hoja);
   hoja = ss.insertSheet(CARP_HOJA_REPORTE);
-  var enc = ['Equipo', 'Estado', 'Jugadores en la hoja', 'Sin selfie en la hoja', 'Nómina en la carpeta', 'Cédulas con fotos en la carpeta', 'De esas, sin fila en la hoja', 'Qué hacer'];
+  var enc = ['Equipo', 'Estado', 'Jugadores en la hoja', 'Sin selfie en la hoja', 'Nómina en la carpeta', 'Subcarpetas revisadas', 'Cédulas con fotos en la carpeta', 'De esas, sin fila en la hoja', 'Qué hacer'];
   hoja.getRange(1, 1, 1, enc.length).setValues([enc]);
   if (filas.length) hoja.getRange(2, 1, filas.length, enc.length).setValues(filas);
   Logger.log('Reporte listo (' + filas.length + ' equipos)' + (incompleto ? ' — se agotó el tiempo, vuelve a ejecutarlo' : '') + '. Mira la pestaña "' + CARP_HOJA_REPORTE + '".');
@@ -114,20 +123,26 @@ function carpImportarEquipo_(eq, ctx) {
   var res = { equipo: eq.nombre, nuevos: 0, fotos: 0, numeros: 0, existian: 0, otroEquipo: 0, invalidos: 0, nota: '' };
   var folderId = carpIdCarpeta_(eq);
   if (!folderId) { res.nota = 'Sin carpeta en Drive'; return res; }
-  var archivos;
-  try { archivos = carpListar_(folderId); } catch (e) { res.nota = 'No se pudo leer la carpeta: ' + e.message; return res; }
+  var arbol;
+  try { arbol = carpListarArbol_(folderId); } catch (e) { res.nota = 'No se pudo leer la carpeta: ' + e.message; return res; }
+  var archivos = arbol.archivos;
 
   var fotos = carpIndiceFotos_(archivos);
   var teamNorm = eq.nombre.toLowerCase();
   var nuevasFilas = [];
   var cambios = [];
 
-  var nomina = carpBuscarNomina_(archivos);
+  var busq = carpBuscarNomina_(archivos);
+  var nomina = busq.archivo;
+  if (nomina && busq.total > 1) res.nota = 'Había ' + busq.total + ' archivos de nómina; se usó el más reciente: "' + nomina.name + '". ';
   if (nomina) {
     var filas = null;
-    try { filas = carpLeerFilasNomina_(nomina); } catch (e) { res.nota = e.message; }
-    if (filas && filas.length) {
-      var enc = filas.shift();
+    try { filas = carpLeerFilasNomina_(nomina); } catch (e) { res.nota = (res.nota || '') + e.message; }
+    var iEnc = filas ? carpFilaEncabezado_(filas) : -1;
+    if (filas && iEnc < 0) res.nota = (res.nota || '') + 'No encontré la columna "Cédula" en la nómina "' + nomina.name + '".';
+    if (filas && iEnc > -1) {
+      var enc = filas[iEnc];
+      filas = filas.slice(iEnc + 1);
       var iNombres = carpColumna_(enc, ['nombre'], 0);
       var iApellidos = carpColumna_(enc, ['apellido'], 1);
       var iCedula = carpColumna_(enc, ['cedula'], 2);
@@ -142,7 +157,7 @@ function carpImportarEquipo_(eq, ctx) {
         var nombres = String(fila[iNombres] || '').trim();
         var apellidos = String(fila[iApellidos] || '').trim();
         var cedula = normalizarCedula_(fila[iCedula]);
-        if (!nombres || !apellidos || !/^\d{10}$/.test(cedula)) { res.invalidos++; return; }
+        if (!nombres || !apellidos || !/^\d{10}$/.test(cedula) || (cedula === CARP_CEDULA_EJEMPLO && /^juan carlos$/i.test(nombres))) { res.invalidos++; return; }
         var numero = iNumero > -1 ? String(fila[iNumero] || '').trim() : '';
         var previo = ctx.porCedula[cedula];
         if (previo) {
@@ -254,19 +269,46 @@ function carpListar_(folderId) {
   return out;
 }
 
+function carpListarArbol_(raizId) {
+  var archivos = [];
+  var cola = [{ id: raizId, prof: 0 }];
+  var vistas = 0;
+  while (cola.length && vistas < CARP_MAX_CARPETAS) {
+    var actual = cola.shift();
+    vistas++;
+    carpListar_(actual.id).forEach(function(f) {
+      if (f.mimeType === CARP_MIME_FOLDER) {
+        if (actual.prof < CARP_MAX_PROF) cola.push({ id: f.id, prof: actual.prof + 1 });
+      } else {
+        archivos.push(f);
+      }
+    });
+  }
+  return { archivos: archivos, subcarpetas: vistas - 1 };
+}
+
+function carpClasificarFoto_(nombre) {
+  var m = String(nombre || '').match(/(?:^|[\s_\-.])(\d{9,10})(?:[\s_\-]*(?:ci[\s_\-]*)?(frente|front|anverso|reverso|atras|posterior|back))?\s*\.(?:jpe?g|png|webp|heic|heif|gif)$/i);
+  if (!m) return null;
+  var ced = normalizarCedula_(m[1]);
+  if (!/^\d{10}$/.test(ced)) return null;
+  var marca = carpQuitarAcentos_(m[2] || '');
+  var tipo = !marca ? 'selfie' : (/^(frente|front|anverso)$/.test(marca) ? 'frente' : 'reverso');
+  return { cedula: ced, tipo: tipo };
+}
+
 function carpIndiceFotos_(archivos) {
   var idx = {};
   var fechas = {};
   archivos.forEach(function(f) {
-    var m = String(f.name || '').match(CARP_PATRON_FOTO);
-    if (!m) return;
-    var tipo = !m[3] ? 'selfie' : (/frente/i.test(m[3]) ? 'frente' : 'reverso');
-    var clave = m[1] + '|' + tipo;
+    var c = carpClasificarFoto_(f.name);
+    if (!c) return;
+    var clave = c.cedula + '|' + c.tipo;
     var mod = String(f.modifiedTime || '');
     if (fechas[clave] && fechas[clave] > mod) return;
     fechas[clave] = mod;
-    if (!idx[m[1]]) idx[m[1]] = {};
-    idx[m[1]][tipo] = 'https://drive.google.com/file/d/' + f.id + '/view?usp=drivesdk';
+    if (!idx[c.cedula]) idx[c.cedula] = {};
+    idx[c.cedula][c.tipo] = 'https://drive.google.com/file/d/' + f.id + '/view?usp=drivesdk';
   });
   return idx;
 }
@@ -279,12 +321,12 @@ function carpBuscarNomina_(archivos) {
       f.mimeType === 'text/csv' || /\.(xlsx|xls|csv)$/i.test(n);
   });
   cand.sort(function(a, b) { return String(b.modifiedTime || '').localeCompare(String(a.modifiedTime || '')); });
-  return cand[0] || null;
+  return { archivo: cand[0] || null, total: cand.length };
 }
 
 function carpLeerFilasNomina_(f) {
   if (f.mimeType === CARP_MIME_SHEET) {
-    return SpreadsheetApp.openById(f.id).getSheets()[0].getDataRange().getValues();
+    return carpElegirHoja_(SpreadsheetApp.openById(f.id).getSheets()).getDataRange().getValues();
   }
   if (f.mimeType === 'text/csv' || /\.csv$/i.test(String(f.name || ''))) {
     return Utilities.parseCsv(DriveApp.getFileById(f.id).getBlob().getDataAsString());
@@ -296,10 +338,28 @@ function carpLeerFilasNomina_(f) {
     throw new Error('No se pudo convertir el Excel "' + f.name + '" (' + e.message + '). Ábrelo en Drive con Hojas de cálculo y guárdalo como Hoja de Google.');
   }
   try {
-    return SpreadsheetApp.openById(copia.id).getSheets()[0].getDataRange().getValues();
+    return carpElegirHoja_(SpreadsheetApp.openById(copia.id).getSheets()).getDataRange().getValues();
   } finally {
     try { DriveApp.getFileById(copia.id).setTrashed(true); } catch (e2) {}
   }
+}
+
+function carpFilaEncabezado_(filas) {
+  for (var i = 0; i < Math.min(filas.length, 10); i++) {
+    var hay = filas[i].some(function(c) { return carpQuitarAcentos_(c).indexOf('cedula') !== -1; });
+    if (hay) return i;
+  }
+  return -1;
+}
+
+function carpElegirHoja_(hojas) {
+  var porNombre = hojas.filter(function(h) {
+    var n = carpQuitarAcentos_(h.getName());
+    return n.indexOf('nomina') !== -1 && n.indexOf('instruc') === -1;
+  });
+  if (porNombre.length) return porNombre[0];
+  var conCedula = hojas.filter(function(h) { return carpFilaEncabezado_(h.getDataRange().getValues()) > -1; });
+  return conCedula[0] || hojas[0];
 }
 
 function carpQuitarAcentos_(s) {
