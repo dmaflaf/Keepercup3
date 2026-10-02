@@ -23,7 +23,7 @@ Iniciar sesión
 ```json
 {
   "email": "admin@keeper.ec",
-  "password": "admin123"
+  "password": "<contraseña>"
 }
 ```
 
@@ -71,7 +71,7 @@ Crear nuevo usuario (requiere admin)
 ```json
 {
   "email": "vocal@keeper.ec",
-  "password": "vocal123",
+  "password": "<contraseña>",
   "nombre": "Vocal 1"
 }
 ```
@@ -104,12 +104,12 @@ Setup inicial (crea admin + vocal de prueba)
   "usuarios": [
     {
       "email": "admin@keeper.ec",
-      "password": "admin123",
+      "password": "<contraseña>",
       "rol": "admin"
     },
     {
       "email": "vocal@keeper.ec",
-      "password": "vocal123",
+      "password": "<contraseña>",
       "rol": "vocal"
     }
   ]

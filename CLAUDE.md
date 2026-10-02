@@ -39,25 +39,9 @@
 
 ---
 
-## 👥 **CREDENCIALES DE PRUEBA**
+## 👥 **USUARIOS**
 
-**Admin:**
-```
-Email: admin@keeper.ec
-Password: admin123
-Rol: admin
-Permisos: Control total
-```
-
-**Vocal:**
-```
-Email: vocal@keeper.ec
-Password: vocal123
-Rol: vocal
-Permisos: Agregar goles, ver tabla
-```
-
-> ⚠️ **Crear con:** POST `/api/setup/init-admin` (solo primera vez)
+Usuarios: `admin@keeper.ec` (admin) y `vocal@keeper.ec` (vocal). Las contraseñas NO se guardan en el repo: se generan con `/api/setup/reset-admin?key=SETUP_KEY` (requiere la variable SETUP_KEY en Vercel).
 
 ---
 
