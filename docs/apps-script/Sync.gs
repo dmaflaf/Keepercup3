@@ -112,18 +112,39 @@ function syncConfig_() {
   return { url: String(url).replace(/\/+$/, ''), key: key };
 }
 
+function syncHost_(u) {
+  var m = String(u).match(/^https?:\/\/([^\/:?#]+)/i);
+  return m ? m[1].toLowerCase().replace(/^www\./, '') : '';
+}
+
 function syncPost_(ruta, cuerpo) {
   var c = syncConfig_();
-  var res = UrlFetchApp.fetch(c.url + ruta, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify(cuerpo),
-    headers: { 'x-sync-key': c.key },
-    muteHttpExceptions: true
-  });
-  var json = null;
-  try { json = JSON.parse(res.getContentText()); } catch (e) {}
-  return { code: res.getResponseCode(), json: json };
+  var url = c.url + ruta;
+  var anfitrion = syncHost_(url);
+  for (var salto = 0; salto < 4; salto++) {
+    var res = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(cuerpo),
+      headers: { 'x-sync-key': c.key },
+      muteHttpExceptions: true,
+      followRedirects: false
+    });
+    var code = res.getResponseCode();
+    if (code >= 300 && code < 400) {
+      var cab = res.getHeaders();
+      var destino = cab['Location'] || cab['location'];
+      if (!destino) return { code: code, json: null };
+      if (destino.indexOf('http') !== 0) destino = url.match(/^https?:\/\/[^\/]+/)[0] + destino;
+      if (syncHost_(destino) !== anfitrion) return { code: 0, json: null };
+      url = destino;
+      continue;
+    }
+    var json = null;
+    try { json = JSON.parse(res.getContentText()); } catch (e) {}
+    return { code: code, json: json };
+  }
+  return { code: 0, json: null };
 }
 
 function syncLeerHoja_(nombre) {
