@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { randomBytes, timingSafeEqual } from 'crypto'
+import { timingSafeEqual } from 'crypto'
 import { PrismaClient } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -15,51 +15,66 @@ function claveValida(recibida: string | null) {
   return a.length === b.length && timingSafeEqual(a, b)
 }
 
+interface CuentaConfig {
+  usuario: string
+  password: string
+  rol: 'admin' | 'vocal'
+  nombre?: string
+}
+
+function leerCuentas(): CuentaConfig[] | null {
+  try {
+    const lista = JSON.parse(process.env.USUARIOS_JSON || '')
+    if (!Array.isArray(lista) || lista.length === 0) return null
+    for (const c of lista) {
+      if (typeof c.usuario !== 'string' || typeof c.password !== 'string') return null
+      if (c.password.length < 8) return null
+      if (c.rol !== 'admin' && c.rol !== 'vocal') return null
+    }
+    return lista
+  } catch {
+    return null
+  }
+}
+
 export async function GET(request: NextRequest) {
   if (!claveValida(request.nextUrl.searchParams.get('key'))) {
     return NextResponse.json({ ok: false, message: 'No encontrado' }, { status: 404 })
   }
 
+  const cuentas = leerCuentas()
+  if (!cuentas) {
+    return NextResponse.json(
+      { ok: false, message: 'Falta o es inválida la variable USUARIOS_JSON en Vercel.' },
+      { status: 400 }
+    )
+  }
+
   try {
-    const adminUser = (process.env.ADMIN_USER || '').trim().toLowerCase()
-    const adminPass = process.env.ADMIN_PASSWORD || ''
-    const resultado: { usuario: string; rol: string; password?: string }[] = []
-
-    if (adminUser && adminPass) {
-      const passwordHash = await bcrypt.hash(adminPass, 10)
+    const emails: string[] = []
+    for (const c of cuentas) {
+      const email = c.usuario.trim().toLowerCase()
+      emails.push(email)
+      const passwordHash = await bcrypt.hash(c.password, 10)
       await prisma.user.upsert({
-        where: { email: adminUser },
-        update: { passwordHash, activo: true, rol: 'admin' },
-        create: { email: adminUser, nombre: 'Administrador', rol: 'admin', passwordHash, activo: true },
+        where: { email },
+        update: { passwordHash, activo: true, rol: c.rol, nombre: c.nombre || email },
+        create: { email, passwordHash, activo: true, rol: c.rol, nombre: c.nombre || email },
       })
-      await prisma.user.updateMany({
-        where: { email: 'admin@keeper.ec' },
-        data: { activo: false },
-      })
-      resultado.push({ usuario: adminUser, rol: 'admin' })
     }
-
-    const passVocal = randomBytes(6).toString('hex')
-    await prisma.user.upsert({
-      where: { email: 'vocal@keeper.ec' },
-      update: { passwordHash: await bcrypt.hash(passVocal, 10), activo: true, rol: 'vocal' },
-      create: {
-        email: 'vocal@keeper.ec',
-        nombre: 'Vocal 1',
-        rol: 'vocal',
-        passwordHash: await bcrypt.hash(passVocal, 10),
-        activo: true,
-      },
+    const desactivados = await prisma.user.updateMany({
+      where: { email: { notIn: emails } },
+      data: { activo: false },
     })
-    resultado.push({ usuario: 'vocal@keeper.ec', rol: 'vocal', password: passVocal })
 
     return NextResponse.json({
       ok: true,
-      message: 'Listo. El admin usa la contraseña definida en Vercel. La del vocal se muestra solo ahora.',
-      usuarios: resultado,
+      message: 'Cuentas aplicadas.',
+      activas: cuentas.map((c) => ({ usuario: c.usuario.trim().toLowerCase(), rol: c.rol })),
+      cuentasAnterioresDesactivadas: desactivados.count,
     })
   } catch (error) {
     console.error('Error en reset-admin:', error)
-    return NextResponse.json({ ok: false, message: 'Error al restablecer' }, { status: 500 })
+    return NextResponse.json({ ok: false, message: 'Error al aplicar las cuentas' }, { status: 500 })
   }
 }
