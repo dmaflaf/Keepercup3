@@ -76,104 +76,35 @@ export default function AdminDashboard() {
 
         {/* Menu de opciones */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {usuario?.rol === 'admin' && (
-            <>
-              {/* Fixture */}
-              <div
-                onClick={() => router.push('/admin/fixture')}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-red-500 transition cursor-pointer group"
-              >
-                <div className="text-4xl mb-3 group-hover:scale-110 transition">⚽</div>
-                <h3 className="text-xl font-bold text-white mb-2">Fixture</h3>
-                <p className="text-slate-400 text-sm mb-4">
-                  Agregar y editar partidos programados
-                </p>
-                <span className="text-red-400 text-sm font-semibold">Ir →</span>
-              </div>
-
-              {/* Equipos */}
-              <div
-                onClick={() => router.push('/admin/equipos')}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-red-500 transition cursor-pointer group"
-              >
-                <div className="text-4xl mb-3 group-hover:scale-110 transition">👕</div>
-                <h3 className="text-xl font-bold text-white mb-2">Equipos</h3>
-                <p className="text-slate-400 text-sm mb-4">
-                  Gestionar equipos y sus datos
-                </p>
-                <span className="text-red-400 text-sm font-semibold">Ir →</span>
-              </div>
-
-              {/* Jugadores */}
-              <div
-                onClick={() => router.push('/admin/jugadores')}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-red-500 transition cursor-pointer group"
-              >
-                <div className="text-4xl mb-3 group-hover:scale-110 transition">👥</div>
-                <h3 className="text-xl font-bold text-white mb-2">Jugadores</h3>
-                <p className="text-slate-400 text-sm mb-4">
-                  Importar y gestionar jugadores
-                </p>
-                <span className="text-red-400 text-sm font-semibold">Ir →</span>
-              </div>
-
-              {/* Usuarios */}
-              <div
-                onClick={() => router.push('/admin/usuarios')}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-red-500 transition cursor-pointer group"
-              >
-                <div className="text-4xl mb-3 group-hover:scale-110 transition">🔐</div>
-                <h3 className="text-xl font-bold text-white mb-2">Usuarios</h3>
-                <p className="text-slate-400 text-sm mb-4">
-                  Crear vocales y gestionar permisos
-                </p>
-                <span className="text-red-400 text-sm font-semibold">Ir →</span>
-              </div>
-            </>
-          )}
-
-          {/* Resultados (admin + vocal) */}
-          <div
-            onClick={() => router.push('/admin/resultados')}
-            className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-red-500 transition cursor-pointer group"
-          >
-            <div className="text-4xl mb-3 group-hover:scale-110 transition">📊</div>
-            <h3 className="text-xl font-bold text-white mb-2">Resultados</h3>
-            <p className="text-slate-400 text-sm mb-4">
-              Ingresar goles y resultados en vivo
-            </p>
-            <span className="text-red-400 text-sm font-semibold">Ir →</span>
-          </div>
-
-          {/* Tabla de posiciones */}
-          <div
-            onClick={() => router.push('/admin/tabla-posiciones')}
-            className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-red-500 transition cursor-pointer group"
-          >
-            <div className="text-4xl mb-3 group-hover:scale-110 transition">🏆</div>
-            <h3 className="text-xl font-bold text-white mb-2">Tabla</h3>
-            <p className="text-slate-400 text-sm mb-4">
-              Ver tabla de posiciones actualizada
-            </p>
-            <span className="text-red-400 text-sm font-semibold">Ir →</span>
-          </div>
-
-          {admin && (
-            <>
-              {/* Sanciones */}
-              <div
-                onClick={() => router.push('/admin/sanciones')}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-red-500 transition cursor-pointer group"
-              >
-                <div className="text-4xl mb-3 group-hover:scale-110 transition">⚠️</div>
-                <h3 className="text-xl font-bold text-white mb-2">Sanciones</h3>
-                <p className="text-slate-400 text-sm mb-4">
-                  Gestionar tarjetas y sanciones
-                </p>
-                <span className="text-red-400 text-sm font-semibold">Ir →</span>
-              </div>
-            </>
-          )}
+          {[
+            { icono: '📥', titulo: 'Importar', texto: 'Cargar equipos y jugadores desde Excel', ruta: '/admin/importar', solo: 'admin' },
+            { icono: '👥', titulo: 'Jugadores', texto: 'Ver y revisar fichas de jugadores', ruta: '/admin/jugadores' },
+            { icono: '⚽', titulo: 'Fixture', texto: 'Próximamente', solo: 'admin' },
+            { icono: '📊', titulo: 'Resultados', texto: 'Próximamente' },
+            { icono: '🏆', titulo: 'Tabla', texto: 'Próximamente' },
+            { icono: '⚠️', titulo: 'Sanciones', texto: 'Próximamente', solo: 'admin' },
+          ]
+            .filter((c) => !c.solo || c.solo === usuario?.rol)
+            .map((c) =>
+              c.ruta ? (
+                <div
+                  key={c.titulo}
+                  onClick={() => router.push(c.ruta!)}
+                  className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-red-500 transition cursor-pointer"
+                >
+                  <div className="text-4xl mb-3">{c.icono}</div>
+                  <h3 className="text-xl font-bold text-white mb-2">{c.titulo}</h3>
+                  <p className="text-slate-400 text-sm mb-4">{c.texto}</p>
+                  <span className="text-red-400 text-sm font-semibold">Ir →</span>
+                </div>
+              ) : (
+                <div key={c.titulo} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 opacity-60">
+                  <div className="text-4xl mb-3">{c.icono}</div>
+                  <h3 className="text-xl font-bold text-white mb-2">{c.titulo}</h3>
+                  <p className="text-slate-400 text-sm">{c.texto}</p>
+                </div>
+              )
+            )}
         </div>
 
         {/* Info */}
@@ -190,6 +121,3 @@ export default function AdminDashboard() {
     </div>
   )
 }
-
-// Temporal fix - usuario.rol debe ser verificado
-const admin = false

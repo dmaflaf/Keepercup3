@@ -1,7 +1,7 @@
 # 🏆 Keeper Cup 3 - Sistema de Gestión de Torneos
 
 **Última actualización:** 2026-10-01  
-**Estado:** Fase 1 completada - Autenticación ✅
+**Estado:** Autenticación ✅ · Importador de equipos/jugadores ✅ (probado con BD local) · Landing original en /public
 
 ---
 
@@ -188,3 +188,16 @@ Ver carpeta `/docs`:
 - `DEVELOPMENT.md` - Guía de desarrollo
 - `DEPLOYMENT.md` - Despliegue paso a paso
 - `API.md` - Endpoints disponibles
+
+
+---
+
+## Decisiones vigentes (2026-10)
+
+- La landing y los formularios originales (HTML) viven en `public/` y se sirven en la raíz; Next.js solo se usa para `/admin` y `/api`. Los formularios envían a Google Apps Script (hoja "Datops KC3").
+- Cuentas: definidas por la variable privada `USUARIOS_JSON` + `SETUP_KEY` en Vercel (`/api/setup/reset-admin`). Borrar ambas variables después de usarlas. Nunca guardar contraseñas en el repo.
+- Importador: `/admin/importar` (solo admin) lee el Excel descargado de la hoja (pestañas Equipos y Jugadores). Valida y limpia en `lib/importar.ts`. Cédula única global; cédulas de 9 dígitos se corrigen con cero inicial.
+- Jugadores importados quedan en estado `pendiente`; habilitar es decisión del organizador.
+- Privacidad: público = solo carnet digital (por hacer, vía QR con `qrToken` aleatorio). Admin ve ficha completa y cédulas. Vocales NO ven cédulas.
+- Pendiente: copiar selfies/cédulas desde Drive a almacenamiento propio (cédulas privadas), ficha de jugador, QR + página pública del carnet, modo verificación iPad, fixture/resultados/tabla.
+- Riesgo: Railway en período de prueba; pasar a plan de pago antes de que se acabe el crédito.

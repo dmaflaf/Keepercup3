@@ -30,6 +30,14 @@ model Team {
   nominaFile    String?  @db.Text // Base64 or URL
   nominaNombre  String?
 
+  // Datos importados desde la hoja de inscripciones
+  contactPhone  String?
+  contactEmail  String?
+  logoUrl       String?  @db.Text
+  nominaUrl     String?  @db.Text
+  folderUrl     String?  @db.Text
+  estado        String   @default("aprobado")
+
   // Relations
   players       Player[]
   fixturesLocal Fixture[] @relation("FixtureLocal")
@@ -51,6 +59,14 @@ model Player {
   birthDate     String?
   photo         String?  @db.Text // Base64 encoded image
 
+  email         String?
+  phone         String?
+  selfieUrl     String?  @db.Text
+  cedulaFrontUrl String? @db.Text
+  cedulaBackUrl String?  @db.Text
+  estado        String   @default("pendiente") // pendiente | habilitado | suspendido
+  qrToken       String?  @unique
+
   team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   teamId        String
 
@@ -62,7 +78,9 @@ model Player {
   updatedAt     DateTime @updatedAt
 
   @@unique([teamId, cedula])
+  @@unique([teamId, number])
   @@index([teamId])
+  @@index([cedula])
 }
 
 model Credential {
