@@ -2,8 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  experimental: {
-    esmExternals: true,
+  async rewrites() {
+    return [{ source: '/', destination: '/index.html' }]
   },
 }
 
