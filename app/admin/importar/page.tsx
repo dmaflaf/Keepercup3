@@ -89,7 +89,8 @@ export default function ImportarPage() {
       setMensaje(
         `Listo: ${x.jugadoresCreados} jugadores nuevos, ${x.jugadoresActualizados} actualizados.` +
           (x.equiposFallidos.length ? ` Equipos con problema: ${x.equiposFallidos.join(', ')}.` : '') +
-          (x.lotesFallidos.length ? ` Hubo lotes que fallaron: vuelve a importar el mismo archivo.` : '')
+          (x.jugadoresFallidos?.length ? ` No se pudo guardar a ${x.jugadoresFallidos.length} jugador(es): ${x.jugadoresFallidos.slice(0, 5).map((f: { nombre: string; motivo: string }) => `${f.nombre} (${f.motivo})`).join('; ')}.` : '') +
+          (x.numerosOmitidos?.length ? ` Entraron sin número (ya estaba tomado): ${x.numerosOmitidos.slice(0, 5).join(', ')}.` : '')
       )
       setHecho(true)
     } finally {
