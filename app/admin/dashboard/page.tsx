@@ -78,6 +78,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
             { icono: '📥', titulo: 'Importar', texto: 'Cargar equipos y jugadores desde Excel', ruta: '/admin/importar', solo: 'admin' },
+            { icono: '📷', titulo: 'Fotos', texto: 'Copiar fotos de Drive al sistema', ruta: '/admin/fotos', solo: 'admin' },
             { icono: '👥', titulo: 'Jugadores', texto: 'Ver y revisar fichas de jugadores', ruta: '/admin/jugadores' },
             { icono: '⚽', titulo: 'Fixture', texto: 'Próximamente', solo: 'admin' },
             { icono: '📊', titulo: 'Resultados', texto: 'Próximamente' },

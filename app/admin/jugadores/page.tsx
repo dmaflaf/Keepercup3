@@ -82,7 +82,7 @@ export default function JugadoresPage() {
             <tbody>
               {visibles.map((j) => (
                 <tr key={j.id} className="border-t border-slate-700">
-                  <td className="p-3">{j.nombre}</td><td className="p-3">{j.equipo}</td><td className="p-3">{j.numero ?? '—'}</td>
+                  <td className="p-3"><Link href={`/admin/jugadores/${j.id}`} className="text-white hover:text-red-400 underline-offset-2 hover:underline">{j.nombre}</Link></td><td className="p-3">{j.equipo}</td><td className="p-3">{j.numero ?? '—'}</td>
                   <td className="p-3">{j.posicion ?? '—'}</td>{rol === 'admin' && <td className="p-3">{j.cedula}</td>}
                   <td className="p-3">{marca(j.tieneSelfie)}</td><td className="p-3">{marca(j.tieneCedulaFrente)}</td><td className="p-3">{marca(j.tieneCedulaReverso)}</td>
                   <td className="p-3 capitalize">{j.estado}</td>

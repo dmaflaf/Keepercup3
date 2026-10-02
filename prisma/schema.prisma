@@ -73,6 +73,7 @@ model Player {
   // Relations
   goles         Goal[]
   sanciones     Sanction[]
+  images        PlayerImage[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -81,6 +82,21 @@ model Player {
   @@unique([teamId, number])
   @@index([teamId])
   @@index([cedula])
+}
+
+model PlayerImage {
+  id        String   @id @default(cuid())
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  kind      String   // selfie | cedula_front | cedula_back
+  sourceId  String?  // id del archivo en Drive del que se copió
+  mime      String
+  data      Bytes
+  bytes     Int
+  createdAt DateTime @default(now())
+
+  @@unique([playerId, kind])
+  @@index([playerId])
 }
 
 model Credential {
