@@ -60,14 +60,15 @@ export default function AdminLogin() {
             {/* Email */}
             <div>
               <label className="block text-slate-300 text-sm font-semibold mb-2">
-                Email
+                Usuario
               </label>
               <input
-                type="email"
+                type="text"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-red-500 transition"
-                placeholder="admin@keeper.ec"
+                placeholder="Usuario"
                 required
               />
             </div>
@@ -110,11 +111,6 @@ export default function AdminLogin() {
           </div>
         </div>
 
-        {/* Test credentials info */}
-        <div className="mt-6 bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-4 text-blue-200 text-sm">
-          <p className="font-semibold mb-2">💡 Para testear:</p>
-          <p>Debes crear usuarios primero en la BD</p>
-        </div>
       </div>
     </div>
   )

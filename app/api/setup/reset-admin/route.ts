@@ -21,25 +21,42 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const cuentas = [
-      { email: 'admin@keeper.ec', nombre: 'Administrador', rol: 'admin' },
-      { email: 'vocal@keeper.ec', nombre: 'Vocal 1', rol: 'vocal' },
-    ]
-    const usuarios = []
-    for (const c of cuentas) {
-      const password = randomBytes(6).toString('hex')
-      const passwordHash = await bcrypt.hash(password, 10)
+    const adminUser = (process.env.ADMIN_USER || '').trim().toLowerCase()
+    const adminPass = process.env.ADMIN_PASSWORD || ''
+    const resultado: { usuario: string; rol: string; password?: string }[] = []
+
+    if (adminUser && adminPass) {
+      const passwordHash = await bcrypt.hash(adminPass, 10)
       await prisma.user.upsert({
-        where: { email: c.email },
-        update: { passwordHash, activo: true, rol: c.rol },
-        create: { ...c, passwordHash, activo: true },
+        where: { email: adminUser },
+        update: { passwordHash, activo: true, rol: 'admin' },
+        create: { email: adminUser, nombre: 'Administrador', rol: 'admin', passwordHash, activo: true },
       })
-      usuarios.push({ email: c.email, password, rol: c.rol })
+      await prisma.user.updateMany({
+        where: { email: 'admin@keeper.ec' },
+        data: { activo: false },
+      })
+      resultado.push({ usuario: adminUser, rol: 'admin' })
     }
+
+    const passVocal = randomBytes(6).toString('hex')
+    await prisma.user.upsert({
+      where: { email: 'vocal@keeper.ec' },
+      update: { passwordHash: await bcrypt.hash(passVocal, 10), activo: true, rol: 'vocal' },
+      create: {
+        email: 'vocal@keeper.ec',
+        nombre: 'Vocal 1',
+        rol: 'vocal',
+        passwordHash: await bcrypt.hash(passVocal, 10),
+        activo: true,
+      },
+    })
+    resultado.push({ usuario: 'vocal@keeper.ec', rol: 'vocal', password: passVocal })
+
     return NextResponse.json({
       ok: true,
-      message: 'Contraseñas nuevas. Guárdalas ahora; no se vuelven a mostrar.',
-      usuarios,
+      message: 'Listo. El admin usa la contraseña definida en Vercel. La del vocal se muestra solo ahora.',
+      usuarios: resultado,
     })
   } catch (error) {
     console.error('Error en reset-admin:', error)
