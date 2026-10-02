@@ -9,6 +9,18 @@ export function driveId(url: string | null | undefined): string | null {
   return m ? m[1] : null
 }
 
+export function clasificarRespuestaHtml(texto: string): string {
+  const t = texto.toLowerCase()
+  if (t.includes('too many users') || t.includes('quota') || t.includes('unusual traffic') || t.includes('demasiados usuarios')) {
+    return 'Google limitó las descargas por ahora (reintenta más tarde)'
+  }
+  if (t.includes('accounts.google.com') || t.includes('servicelogin') || t.includes('sign in') || t.includes('iniciar sesi') || t.includes('request access') || t.includes('solicitar acceso') || t.includes('necesitas acceso')) {
+    return 'Archivo privado: Drive pide iniciar sesión o solicitar acceso'
+  }
+  if (t.includes('virus')) return 'Archivo demasiado grande para descarga directa'
+  return 'Drive devolvió una página en lugar de la imagen'
+}
+
 const BASE = () => process.env.DRIVE_DOWNLOAD_BASE || 'https://drive.google.com/uc?export=download&id='
 const MAX_DESCARGA = 15 * 1024 * 1024
 
@@ -22,14 +34,23 @@ async function descargar(id: string): Promise<Buffer> {
       } else {
         const tipo = res.headers.get('content-type') || ''
         if (!tipo.startsWith('image/')) {
-          throw new Error('El enlace no devuelve una imagen (¿archivo privado o borrado?)')
+          const html = (await res.text()).slice(0, 200000)
+          throw new Error(`NOIMG:${clasificarRespuestaHtml(html)}`)
         }
         const buf = Buffer.from(await res.arrayBuffer())
         if (buf.length > MAX_DESCARGA) throw new Error('Imagen demasiado grande')
         return buf
       }
     } catch (e) {
-      if (e instanceof Error && e.message.startsWith('El enlace')) throw e
+      if (e instanceof Error && e.message.startsWith('NOIMG:')) {
+        const motivo = e.message.slice(6)
+        if (motivo.startsWith('Google limitó') && intento < 2) {
+          ultimo = motivo
+          await new Promise((r) => setTimeout(r, 3000 * (intento + 1)))
+          continue
+        }
+        throw new Error(motivo)
+      }
       if (e instanceof Error && e.message === 'Imagen demasiado grande') throw e
       ultimo = e instanceof Error ? e.message : 'error de red'
     }

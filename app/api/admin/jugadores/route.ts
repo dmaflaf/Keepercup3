@@ -22,9 +22,7 @@ export async function GET() {
       number: true,
       position: true,
       estado: true,
-      selfieUrl: true,
-      cedulaFrontUrl: true,
-      cedulaBackUrl: true,
+      images: { select: { kind: true } },
       team: { select: { name: true } },
     },
   })
@@ -40,9 +38,9 @@ export async function GET() {
       posicion: j.position,
       estado: j.estado,
       cedula: esAdmin ? j.cedula : null,
-      tieneSelfie: !!j.selfieUrl,
-      tieneCedulaFrente: !!j.cedulaFrontUrl,
-      tieneCedulaReverso: !!j.cedulaBackUrl,
+      tieneSelfie: j.images.some((i) => i.kind === 'selfie'),
+      tieneCedulaFrente: j.images.some((i) => i.kind === 'cedula_front'),
+      tieneCedulaReverso: j.images.some((i) => i.kind === 'cedula_back'),
     })),
   })
 }

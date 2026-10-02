@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const jugadores = await prisma.player.findMany({
       where: { OR: [{ selfieUrl: { not: null } }, { cedulaFrontUrl: { not: null } }, { cedulaBackUrl: { not: null } }] },
       select: {
-        id: true, firstName: true, lastName: true,
+        id: true, firstName: true, lastName: true, team: { select: { name: true } },
         selfieUrl: true, cedulaFrontUrl: true, cedulaBackUrl: true,
         images: { select: { kind: true, sourceId: true } },
       },
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const lote = pendientes.slice(0, LOTE)
     const tareas = lote.flatMap((p) => p.faltan.map((f) => ({ j: p.j, ...f })))
 
-    const fallos: { id: string; nombre: string; tipo: string; motivo: string }[] = []
+    const fallos: { id: string; nombre: string; equipo: string; tipo: string; motivo: string }[] = []
     let copiadas = 0
     let cola = 0
     const trabajador = async () => {
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
           })
           copiadas++
         } catch (e) {
-          fallos.push({ id: t.j.id, nombre, tipo: t.tipo, motivo: e instanceof Error ? e.message : 'error' })
+          fallos.push({ id: t.j.id, nombre, equipo: t.j.team.name, tipo: t.tipo, motivo: e instanceof Error ? e.message : 'error' })
         }
       }
     }
