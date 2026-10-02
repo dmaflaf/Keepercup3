@@ -363,7 +363,7 @@ function carpElegirHoja_(hojas) {
 }
 
 function carpQuitarAcentos_(s) {
-  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 function carpColumna_(encabezados, posibles, respaldo) {
