@@ -209,3 +209,9 @@ Ver carpeta `/docs`:
 - El endpoint copia las fotos de los jugadores tocados (hasta 10 por lote) mientras los enlaces de Drive sean accesibles. Si las carpetas pasan a privadas, hay que enviar las imágenes desde el script (pendiente).
 - Los números de camiseta los guardan los DT desde la página pública (`guardarNumeros` en Codigo.gs escribe en la hoja), por eso la hoja es la fuente de los números.
 - Lógica compartida: `lib/importar.ts` (validación), `lib/importar-db.ts` (escritura), `lib/fotos.ts` (copia de fotos). La usan `/api/admin/import`, `/api/admin/fotos/migrar` y `/api/sync/ingest`.
+
+## Inscripción manual (carpetas de Drive) — Carpetas.gs (2026-10)
+
+- `docs/apps-script/Carpetas.gs` (archivo NUEVO en Apps Script, junto a Codigo.gs y Sync.gs): `REPORTE_CARPETAS_EQUIPOS()` (solo lectura) y `IMPORTAR_NOMINAS_TODOS()` recorren todos los equipos de la hoja, leen la nómina de su carpeta (Hoja de Google / Excel / CSV), agregan jugadores nuevos a "Jugadores" y completan solo vacíos (número, enlaces de fotos nombradas `cédula.jpg`, `cédula CI Frente.jpg`, `cédula CI Reverso.jpg`). Idempotente, con reanudación (`CARP_IDX`). Luego Sync.gs lleva todo al panel.
+- Lo único no verificado contra Drive real: conversión de Excel con `Drive.Files.copy` (v3). Si falla, el resultado lo anota por club.
+- Archivos que el DT sube con su propia cuenta pueden quedar sin permiso de lectura para el panel (`Archivo privado`); reparar con `repararPermisosFotos` de Codigo.gs.
