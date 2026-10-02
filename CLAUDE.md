@@ -201,3 +201,11 @@ Ver carpeta `/docs`:
 - Privacidad: público = solo carnet digital (por hacer, vía QR con `qrToken` aleatorio). Admin ve ficha completa y cédulas. Vocales NO ven cédulas.
 - Pendiente: copiar selfies/cédulas desde Drive a almacenamiento propio (cédulas privadas), ficha de jugador, QR + página pública del carnet, modo verificación iPad, fixture/resultados/tabla.
 - Riesgo: Railway en período de prueba; pasar a plan de pago antes de que se acabe el crédito.
+
+## Sincronización automática desde la hoja (2026-10)
+
+- Apps Script (`docs/apps-script/Sync.gs`, archivo NUEVO en el proyecto de Codigo.gs; no modifica el registro) corre cada 5 min y envía a `POST /api/sync/ingest` solo filas nuevas/cambiadas (hash por fila en hoja oculta `_SyncEstado`). Filas rechazadas se reportan en la hoja `Sync Errores` y se reintentan.
+- Auth: header `x-sync-key` = variable `SYNC_KEY` en Vercel (mínimo 16 caracteres). En Apps Script va en Propiedades del script (`PANEL_URL`, `SYNC_KEY`), nunca en el código.
+- El endpoint copia las fotos de los jugadores tocados (hasta 10 por lote) mientras los enlaces de Drive sean accesibles. Si las carpetas pasan a privadas, hay que enviar las imágenes desde el script (pendiente).
+- Los números de camiseta los guardan los DT desde la página pública (`guardarNumeros` en Codigo.gs escribe en la hoja), por eso la hoja es la fuente de los números.
+- Lógica compartida: `lib/importar.ts` (validación), `lib/importar-db.ts` (escritura), `lib/fotos.ts` (copia de fotos). La usan `/api/admin/import`, `/api/admin/fotos/migrar` y `/api/sync/ingest`.

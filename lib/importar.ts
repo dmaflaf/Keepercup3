@@ -165,6 +165,9 @@ export function procesar(rawEquipos: Fila[], rawJugadores: Fila[], ctx: Contexto
   const nombresEquipo = new Map<string, string>()
   for (const n of ctx.equiposExistentes) nombresEquipo.set(normKey(n), n)
 
+  const errEquipos = new Set<number>()
+  const errJugadores = new Set<number>()
+
   const vistosEquipo = new Map<string, number>()
   rawEquipos.forEach((raw, idx) => {
     const fila = idx + 2
@@ -172,12 +175,14 @@ export function procesar(rawEquipos: Fila[], rawJugadores: Fila[], ctx: Contexto
     const name = val(m, 'Equipo')
     if (!name) {
       if (Array.from(m.values()).some((v) => limpiar(v) !== '')) {
+        errEquipos.add(idx)
         incidencias.push({ hoja: 'Equipos', fila, nivel: 'error', mensaje: 'Fila sin nombre de equipo' })
       }
       return
     }
     const key = normKey(name)
     if (vistosEquipo.has(key)) {
+      errEquipos.add(idx)
       incidencias.push({ hoja: 'Equipos', fila, nivel: 'error', mensaje: `Equipo repetido (también en fila ${vistosEquipo.get(key)})`, detalle: name })
       return
     }
@@ -222,8 +227,10 @@ export function procesar(rawEquipos: Fila[], rawJugadores: Fila[], ctx: Contexto
     if (!nombres && !apellidos && !equipoRaw && !val(m, 'Cédula', 'Cedula')) return
 
     const quien = `${nombres} ${apellidos}`.trim() || '(sin nombre)'
-    const error = (mensaje: string) =>
+    const error = (mensaje: string) => {
+      errJugadores.add(idx)
       incidencias.push({ hoja: 'Jugadores', fila, nivel: 'error', mensaje, detalle: `${quien} · ${equipoRaw}` })
+    }
     const aviso = (mensaje: string) =>
       incidencias.push({ hoja: 'Jugadores', fila, nivel: 'aviso', mensaje, detalle: `${quien} · ${equipoRaw}` })
 
@@ -300,5 +307,10 @@ export function procesar(rawEquipos: Fila[], rawJugadores: Fila[], ctx: Contexto
     } else numeros.set(k, j.fila)
   }
 
-  return { equipos, jugadores, incidencias }
+  return {
+    equipos,
+    jugadores,
+    incidencias,
+    filasConError: { equipos: Array.from(errEquipos), jugadores: Array.from(errJugadores) },
+  }
 }
