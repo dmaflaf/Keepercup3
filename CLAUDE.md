@@ -215,3 +215,14 @@ Ver carpeta `/docs`:
 - `docs/apps-script/Carpetas.gs` (archivo NUEVO en Apps Script, junto a Codigo.gs y Sync.gs): `REPORTE_CARPETAS_EQUIPOS()` (solo lectura) y `IMPORTAR_NOMINAS_TODOS()` recorren todos los equipos de la hoja, leen la nómina de su carpeta (Hoja de Google / Excel / CSV), agregan jugadores nuevos a "Jugadores" y completan solo vacíos (número, enlaces de fotos nombradas `cédula.jpg`, `cédula CI Frente.jpg`, `cédula CI Reverso.jpg`). Idempotente, con reanudación (`CARP_IDX`). Luego Sync.gs lleva todo al panel.
 - Lo único no verificado contra Drive real: conversión de Excel con `Drive.Files.copy` (v3). Si falla, el resultado lo anota por club.
 - Archivos que el DT sube con su propia cuenta pueden quedar sin permiso de lectura para el panel (`Archivo privado`); reparar con `repararPermisosFotos` de Codigo.gs.
+
+---
+
+## 📌 **PLAN ACORDADO (pendiente): dos vías de entrada, una sola base**
+
+1. **Vía automática:** formulario → Sheet → panel (Sync cada 5 min). Ya funciona.
+2. **Vía manual desde PC (por construir):** página admin "Cargar club": elegir club, subir Excel de nómina + fotos nombradas por cédula (`cédula.jpg`, `cédula CI Frente.jpg`, `cédula CI Reverso.jpg`) directo a la BD (sin pasar por Drive). Reutilizar `lib/importar*.ts` y `PlayerImage`. Subir fotos en lotes pequeños (límite 4.5 MB por request en Vercel Hobby), redimensionar en el navegador.
+3. **Base maestra (por construir):** página admin con TODOS los jugadores (ambas vías), filtros y botón Descargar Excel; opcional: llenar un Sheet desde el panel.
+4. **Reglas:** la cédula es clave única; las fotos subidas desde PC mandan sobre enlaces del Sheet (verificar que Sync no las pise); sin carpetas públicas de Drive.
+5. Después: carnet digital con QR, NIX (fixture, resultados, tabla).
+Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (¿fotos nombradas por cédula?).
