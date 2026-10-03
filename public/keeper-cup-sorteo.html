@@ -74,7 +74,6 @@
       <span class="tag">Sorteos Keeper Cup 3</span>
       <h1>Gana premios <span>cada semana</span><br>y el <span>GRAN SORTEO</span> en la final</h1>
       <p>Registra tu boleto: es rápido y gratis con tu entrada.</p>
-      <div class="aviso" id="rangoAviso" style="display:none;text-align:center;margin-top:14px"></div>
     </div>
     <div class="premios">
       <div><b>Cada semana</b>Órdenes en el bar, botellón de agua y entrada gratis</div>
@@ -141,7 +140,7 @@
 <script>
   const $ = id => document.getElementById(id);
   const form = $('sorteoForm'), btn = $('submitBtn'), err = $('formError');
-  let MAX = 4, rango = 6000, DESDE = 1, HASTA = 6000; let colorSel = '', cfg = { coloresActivos: ['negro'], rangoMax: 6000, instagram: '', tiktok: '' };
+  let MAX = 4; let colorSel = '', cfg = { coloresActivos: ['negro'], rangoMax: 6000, instagram: '', tiktok: '' };
   const COL = { negro: '#111', rojo: '#d32f2f' };
 
   function pintarColores(){
@@ -161,7 +160,7 @@
       cfg = c;
       if(c.instagram) $('lnkIg').href = c.instagram;
       if(c.tiktok) $('lnkTk').href = c.tiktok;
-      MAX = c.maxPorSemana || 4; DESDE = c.desde || 1; HASTA = c.hasta || c.rangoMax; const pad4 = n => String(n).padStart(4, '0'); $('rangoAviso').innerHTML = 'Esta semana participan los boletos del <b>' + pad4(DESDE) + '</b> al <b>' + pad4(HASTA) + '</b>'; $('rangoAviso').style.display = 'block'; $('hintNum').textContent = 'Puedes registrar hasta ' + MAX + ' boletos por semana (separa los números con coma o espacio).'; rango = c.rangoMax;
+      MAX = c.maxPorSemana || 4; $('hintNum').textContent = 'Puedes registrar hasta ' + MAX + ' boletos por semana (separa los números con coma o espacio).'; 
       const sel = $('club');
       (c.equipos || []).concat(['Otro']).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n === 'Otro' ? 'Otro / ninguno' : n; sel.appendChild(o); });
     }
@@ -218,8 +217,6 @@
 
   form.addEventListener('submit', async e => {
     e.preventDefault(); err.style.display = 'none';
-    const fuera = parseNums().filter(n => n < DESDE || n > HASTA);
-    if(fuera.length){ showError('Esta semana participan los boletos del ' + String(DESDE).padStart(4,'0') + ' al ' + String(HASTA).padStart(4,'0') + '. No participan: ' + fuera.join(', ') + '.'); return; }
     const tel = form.telefono.value.trim();
     if(!/^09\d{8}$/.test(tel)){ showError('El teléfono debe tener 10 dígitos y empezar con 09.'); return; }
     btn.disabled = true; btn.textContent = 'Registrando...';

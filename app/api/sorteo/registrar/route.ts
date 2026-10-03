@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   if (numeros.some((n) => !Number.isInteger(n) || n < 1 || n > cfg.rangoMax)) return NextResponse.json({ ok: false, message: `Los números de boleto deben estar entre 1 y ${cfg.rangoMax}.` }, { status: 400 })
   const fuera = numeros.filter((n) => n < cfg.desde || n > cfg.hasta)
   if (fuera.length) {
-    return NextResponse.json({ ok: false, message: `Esta semana participan los boletos del ${p4(cfg.desde)} al ${p4(cfg.hasta)}. No participan: ${fuera.map(p4).join(', ')}.` }, { status: 400 })
+    return NextResponse.json({ ok: false, message: `El boleto ${fuera.map(p4).join(', ')} no participa en este sorteo. Revisa el número de tu boleto.` }, { status: 400 })
   }
 
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'sin-ip'
