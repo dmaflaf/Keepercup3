@@ -282,8 +282,8 @@ model SorteoBoleto {
   createdAt DateTime @default(now())
 
   @@unique([color, numero])
-  @@unique([deviceId, semana])
-  @@unique([telefono, semana])
+  @@index([deviceId, semana])
+  @@index([telefono, semana])
   @@index([correo, createdAt])
   @@index([ipHash, createdAt])
 }
@@ -291,4 +291,15 @@ model SorteoBoleto {
 model SorteoConfig {
   key   String @id
   value String
+}
+
+// Teléfonos y dispositivos bloqueados del sorteo (por registrar números que no les pertenecen)
+model SorteoBloqueo {
+  id        String   @id @default(cuid())
+  tipo      String   // telefono | dispositivo
+  valor     String
+  motivo    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@unique([tipo, valor])
 }

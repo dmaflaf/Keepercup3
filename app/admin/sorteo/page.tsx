@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 interface Num { id: string; color: string; numero: number; origen: string; estado: string; codigoCobro: string | null; ganador: { nombres: string; correo: string; telefono: string | null } | null }
 interface Premio { id: string; nombre: string; categoria: string; periodo: string; lugar: string; numeros: Num[] }
-interface Cfg { coloresActivos: string[]; rangoMax: number; instagram: string; tiktok: string }
+interface Cfg { coloresActivos: string[]; rangoMax: number; maxPorSemana: number; instagram: string; tiktok: string }
 
 const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white'
 const btn = 'px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-semibold'
@@ -17,7 +17,7 @@ async function api(url: string, body?: unknown, method = 'POST') {
 }
 
 export default function SorteoAdmin() {
-  const [datos, setDatos] = useState<{ config: Cfg; premios: Premio[]; boletos: Record<string, number>; ganadores: number; clubes: { club: string; total: number }[] } | null>(null)
+  const [datos, setDatos] = useState<{ config: Cfg; premios: Premio[]; boletos: Record<string, number>; ganadores: number; bloqueos: { id: string; telefono: string; motivo: string }[]; clubes: { club: string; total: number }[] } | null>(null)
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
 
@@ -67,8 +67,18 @@ export default function SorteoAdmin() {
   const [codigo, setCodigo] = useState('')
   const [cobro, setCobro] = useState<any>(null)
   const [cobroErr, setCobroErr] = useState('')
-  const buscar = async () => { const r = await api('/api/admin/sorteo/cobrar', { codigo }); setCobroErr(r.ok ? '' : r.message); setCobro(r.ok ? r.info : null) }
-  const entregar = async () => { const r = await api('/api/admin/sorteo/cobrar', { codigo, confirmar: true }); setCobroErr(r.ok ? '' : r.message); if (r.ok) setCobro(r.info); cargar() }
+  const [chk, setChk] = useState([false, false, false])
+  const [bloqTel, setBloqTel] = useState('')
+  const buscar = async () => { setChk([false, false, false]); const r = await api('/api/admin/sorteo/cobrar', { codigo }); setCobroErr(r.ok ? '' : r.message); setCobro(r.ok ? r.info : null) }
+  const entregar = async () => { const r = await api('/api/admin/sorteo/cobrar', { codigo, confirmar: true, verificado: true }); setCobroErr(r.ok ? '' : r.message); if (r.ok) setCobro(r.info); cargar() }
+
+  const bloquear = async (tel: string) => {
+    if (!confirm(`¿Bloquear el teléfono ${tel} durante todo el torneo y liberar sus números?`)) return
+    const r = await api('/api/admin/sorteo/bloqueos', { telefono: tel, liberar: true })
+    setMsg(r.ok ? `Bloqueado. Boletos suyos liberados: ${r.liberados}` : r.message)
+    setCobro(null); cargar()
+  }
+  const desbloquear = async (id: string) => { await api('/api/admin/sorteo/bloqueos?id=' + id, undefined, 'DELETE'); cargar() }
 
   // ---- tómbola
   const [tp, setTp] = useState('')
@@ -123,6 +133,9 @@ export default function SorteoAdmin() {
               </label>
             ))}
             <span className="text-slate-400 text-sm">Rango de números: 1 a {datos.config.rangoMax}</span>
+            <label className="text-sm text-slate-300 flex items-center gap-2">Boletos por semana y teléfono:
+              <input type="number" min={1} className={inp + ' w-20'} defaultValue={datos.config.maxPorSemana} onBlur={(e) => guardarCfg({ maxPorSemana: Number(e.target.value) })} />
+            </label>
           </div>
           <div className="grid md:grid-cols-2 gap-3">
             <input className={inp} placeholder="https://instagram.com/..." value={ig} onChange={(e) => setIg(e.target.value)} />
@@ -183,9 +196,30 @@ export default function SorteoAdmin() {
               <p className="text-2xl font-bold">{cobro.boleto}</p>
               <p>{cobro.premio} <span className="text-slate-400">({cobro.categoria} {cobro.periodo})</span></p>
               <p className="text-slate-300 text-sm">{cobro.nombres} · {cobro.telefono || cobro.correo}</p>
-              {cobro.estado === 'entregado' ? <p className="text-green-400 mt-2">✔ Entregado</p> : <button className={btn + ' mt-3'} onClick={entregar}>Marcar como ENTREGADO</button>}
+              {cobro.estado === 'entregado' ? <p className="text-green-400 mt-2">✔ Entregado</p> : (
+                <div className="mt-3 space-y-2">
+                  {[`Tiene el BOLETO FÍSICO y coincide: ${cobro.boleto}`, 'Muestra el CÓDIGO (celular o comprobante)', `Es el TELÉFONO de registro (termina en ${String(cobro.telefono || '').slice(-4) || '----'})`].map((t, i) => (
+                    <label key={i} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={chk[i]} onChange={(e) => setChk(chk.map((v, j) => (j === i ? e.target.checked : v)))} /> {t}</label>
+                  ))}
+                  <div className="flex gap-2 pt-1">
+                    <button className={btn} disabled={!chk.every(Boolean)} onClick={entregar}>Marcar como ENTREGADO</button>
+                    {cobro.telefono && <button className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg" onClick={() => bloquear(cobro.telefono)}>No coincide: bloquear</button>}
+                  </div>
+                </div>
+              )}
             </div>
           )}
+        </section>
+
+        <section className={sec}>
+          <h2 className="text-xl font-bold mb-3">Teléfonos bloqueados</h2>
+          <div className="flex gap-2 mb-3">
+            <input className={inp} placeholder="09XXXXXXXX" value={bloqTel} onChange={(e) => setBloqTel(e.target.value)} />
+            <button className={btn} onClick={() => { bloquear(bloqTel); setBloqTel('') }}>Bloquear y liberar sus números</button>
+          </div>
+          {datos.bloqueos.length === 0 ? <p className="text-slate-500 text-sm">Ninguno.</p> : datos.bloqueos.map((x) => (
+            <div key={x.id} className="flex justify-between text-sm py-1 border-b border-slate-700"><span>{x.telefono} · {x.motivo}</span><button className="text-green-400" onClick={() => desbloquear(x.id)}>Desbloquear</button></div>
+          ))}
         </section>
 
         <section className={sec}>

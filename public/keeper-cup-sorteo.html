@@ -39,6 +39,13 @@
   select{width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:6px;padding:13px 12px;color:var(--ink);font-family:inherit;font-size:16px}
   input[type=text],input[type=tel],input[type=email],input[type=number]{width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:6px;padding:13px 12px;color:var(--ink);font-family:inherit;font-size:16px}
   input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .hint{font-size:12.5px;color:var(--dim)}
+  .warn{background:rgba(201,119,100,.1);border:1px solid rgba(201,119,100,.45);border-radius:8px;padding:12px;font-size:13.5px;margin-bottom:14px;color:var(--ink)}
+  .lista{text-align:left;margin:14px 0}
+  .item{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px}
+  .item.gano{border-color:var(--gold);background:rgba(217,169,58,.08)}
+  .item.mal{border-color:rgba(201,119,100,.5)}
+  .item b.t{font-family:'League Spartan';font-size:18px}
   .colores{display:flex;gap:10px}
   .color{flex:1;border:2px solid var(--line2);border-radius:8px;padding:12px;text-align:center;cursor:pointer;font-weight:700;background:var(--bg2)}
   .color.sel{border-color:var(--gold)}
@@ -91,8 +98,9 @@
           <div class="colores" id="colores"></div>
         </div>
         <div class="field">
-          <label>Número de boleto <span class="req">*</span></label>
-          <input type="number" name="numero" inputmode="numeric" min="1" placeholder="Ej. 1250" required>
+          <label id="lblNum">Número(s) de tu boleto <span class="req">*</span></label>
+          <input type="text" name="numeros" inputmode="numeric" placeholder="Ej. 1250  (varios: 1250, 1251)" autocomplete="off" required>
+          <span class="hint" id="hintNum"></span>
         </div>
         <div class="field">
           <label>Nombres completos <span class="req">*</span></label>
@@ -110,29 +118,20 @@
           <label>Club que apoyas <span class="req">*</span></label>
           <select name="club" id="club" required><option value="">Elige tu club…</option></select>
         </div>
+        <div class="warn">⚠️ <b>Registra únicamente los boletos que compraste.</b> Si ingresas números que no te pertenecen, tu teléfono y tus datos serán <b>bloqueados durante todo el torneo</b> y perderás cualquier premio. Para cobrar deberás presentar tu <b>boleto físico</b>, tu <b>código</b> y el <b>teléfono</b> con el que te registraste.</div>
         <button type="submit" class="btn" id="submitBtn" disabled>Registrar mi boleto</button>
         <div class="err" id="formError"></div>
       </form>
     </div>
   </div>
 
-  <div class="card result" id="okView">
-    <div class="ic">✓</div>
-    <h2>¡Ya estás participando!</h2>
-    <p>Tu boleto <b id="okBoleto"></b> quedó registrado.</p>
-    <div class="codigo" id="okCodigo"></div>
-    <p>Guarda tu boleto físico y este código. Hay premios cada semana, cada mes y el gran sorteo en la final.</p>
-    <p>Puedes registrar un boleto por semana: la próxima semana vuelve a escanear el QR con tu nuevo número.</p>
-  </div>
-
-  <div class="card result win" id="winView">
-    <div class="ic">🏆</div>
-    <h2>¡GANASTE, FELICIDADES!</h2>
-    <p>Tu boleto <b id="winBoleto"></b> ganó:</p>
-    <h3 id="winPremio" style="font-size:24px;margin:6px 0"></h3>
-    <div class="codigo" id="winCodigo"></div>
-    <div class="aviso">Reclama tu premio en <b id="winLugar"></b>. <b>Debes entregar tu boleto físico</b> y mostrar este código. Este código se usa una sola vez. No cierres esta pantalla sin guardar tu comprobante.</div>
-    <button class="btn" id="btnImg">Descargar mi comprobante</button>
+  <div class="card result" id="resView">
+    <div class="ic" id="resIc">✓</div>
+    <h2 id="resTitulo">¡Ya estás participando!</h2>
+    <p id="resSub"></p>
+    <div class="lista" id="resLista"></div>
+    <div class="aviso" id="resAviso" style="display:none">Para cobrar un premio debes presentar: tu <b>boleto físico</b>, tu <b>código</b> (o el comprobante descargado) y el <b>teléfono</b> con el que te registraste. Cada código se usa una sola vez.</div>
+    <p id="resSemana"></p>
   </div>
 
   <footer>Keeper <span style="color:var(--green)">Cup</span> Series - By NIX</footer>
@@ -141,7 +140,7 @@
 <script>
   const $ = id => document.getElementById(id);
   const form = $('sorteoForm'), btn = $('submitBtn'), err = $('formError');
-  let colorSel = '', cfg = { coloresActivos: ['negro'], rangoMax: 6000, instagram: '', tiktok: '' };
+  let MAX = 4, rango = 6000; let colorSel = '', cfg = { coloresActivos: ['negro'], rangoMax: 6000, instagram: '', tiktok: '' };
   const COL = { negro: '#111', rojo: '#d32f2f' };
 
   function pintarColores(){
@@ -161,7 +160,7 @@
       cfg = c;
       if(c.instagram) $('lnkIg').href = c.instagram;
       if(c.tiktok) $('lnkTk').href = c.tiktok;
-      form.numero.max = c.rangoMax;
+      MAX = c.maxPorSemana || 4; $('hintNum').textContent = 'Puedes registrar hasta ' + MAX + ' boletos por semana (separa los números con coma o espacio).'; rango = c.rangoMax;
       const sel = $('club');
       (c.equipos || []).concat(['Otro']).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n === 'Otro' ? 'Otro / ninguno' : n; sel.appendChild(o); });
     }
@@ -169,8 +168,9 @@
 
   ['lnkIg','lnkTk'].forEach(id => $(id).addEventListener('click', () => $(id).classList.add('hecho')));
 
+  function parseNums(){ return Array.from(new Set(form.numeros.value.split(/[^0-9]+/).filter(Boolean).map(Number))).filter(n => n >= 1); }
   function validar(){
-    const ok = $('sigue').checked && colorSel && form.club.value && /^09\d{8}$/.test(form.telefono.value.trim()) && form.numero.value && form.nombres.value.trim().split(/\s+/).length >= 2 && /^\S+@\S+\.\S{2,}$/.test(form.correo.value.trim());
+    const ok = $('sigue').checked && colorSel && form.club.value && /^09\d{8}$/.test(form.telefono.value.trim()) && parseNums().length && form.nombres.value.trim().split(/\s+/).length >= 2 && /^\S+@\S+\.\S{2,}$/.test(form.correo.value.trim());
     btn.disabled = !ok;
   }
   $('sigue').addEventListener('change', validar);
@@ -185,6 +185,34 @@
     }catch(e){ return ''; }
   }
 
+  function mostrarResultado(r){
+    const lista = $('resLista'); lista.innerHTML = '';
+    const ganadores = r.boletos.filter(x => x.ok && x.gano);
+    r.boletos.forEach(x => {
+      const d = document.createElement('div');
+      d.className = 'item' + (x.ok ? (x.gano ? ' gano' : '') : ' mal');
+      if(x.ok && x.gano){
+        d.innerHTML = '<b class="t">' + x.boleto + '</b> · 🏆 <b>¡GANASTE!</b><br>' + x.premio.nombre + '<div class="codigo">' + x.codigoCobro + '</div><div class="hint">Reclámalo en ' + x.premio.lugar + '</div>';
+        const bt = document.createElement('button'); bt.className = 'btn sec'; bt.textContent = 'Descargar comprobante';
+        bt.onclick = () => comprobante({ boleto: x.boleto, premio: x.premio, codigoCobro: x.codigoCobro }); d.appendChild(bt);
+      } else if(x.ok){
+        d.innerHTML = '<b class="t">' + x.boleto + '</b> · registrado<div class="hint">Código ' + x.codigo + '</div>';
+      } else {
+        d.innerHTML = '<b class="t">' + x.boleto + '</b><div class="hint">' + x.message + '</div>';
+      }
+      lista.appendChild(d);
+    });
+    if(ganadores.length){
+      $('resIc').textContent = '🏆'; $('resTitulo').textContent = '¡GANASTE, FELICIDADES!';
+      $('resView').classList.add('win'); $('resAviso').style.display = 'block';
+      $('resSub').textContent = 'Guarda tu comprobante: no podrás verlo de nuevo.';
+    } else {
+      $('resSub').textContent = 'Tus boletos quedaron registrados. Hay premios cada semana, cada mes y el gran sorteo en la final. Guarda tus boletos físicos.';
+    }
+    $('resSemana').textContent = r.quedanSemana > 0 ? 'Esta semana aún puedes registrar ' + r.quedanSemana + ' boleto(s) más.' : 'Ya usaste tus boletos de esta semana: desde el lunes puedes registrar los nuevos escaneando el QR otra vez.';
+    $('resView').style.display = 'block';
+  }
+
   function showError(m){ err.textContent = m; err.style.display = 'block'; }
 
   form.addEventListener('submit', async e => {
@@ -195,20 +223,12 @@
     try{
       const res = await fetch('/api/sorteo/registrar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ color: colorSel, numero: Number(form.numero.value), nombres: form.nombres.value, correo: form.correo.value, telefono: tel, club: form.club.value, sigue: $('sigue').checked, deviceId: dispositivo() })
+        body: JSON.stringify({ color: colorSel, numeros: parseNums(), nombres: form.nombres.value, correo: form.correo.value, telefono: tel, club: form.club.value, sigue: $('sigue').checked, deviceId: dispositivo() })
       });
       const r = await res.json();
       if(!r.ok) throw new Error(r.message || 'No se pudo registrar.');
       $('formView').style.display = 'none';
-      if(r.gano){
-        $('winBoleto').textContent = r.boleto; $('winPremio').textContent = r.premio.nombre;
-        $('winCodigo').textContent = r.codigoCobro; $('winLugar').textContent = r.premio.lugar;
-        $('winView').style.display = 'block';
-        $('btnImg').onclick = () => comprobante(r);
-      } else {
-        $('okBoleto').textContent = r.boleto; $('okCodigo').textContent = r.codigo;
-        $('okView').style.display = 'block';
-      }
+      mostrarResultado(r);
       window.scrollTo(0, 0);
     }catch(ex){
       showError(ex.message); btn.textContent = 'Registrar mi boleto'; validar();

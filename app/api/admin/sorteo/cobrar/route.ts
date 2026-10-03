@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     estado: n.estado, entregadoAt: n.entregadoAt,
   }
   if (b.confirmar) {
+    if (!b.verificado) return NextResponse.json({ ok: false, message: 'Debes verificar boleto físico, código y teléfono antes de entregar.' }, { status: 400 })
     const r = await prisma.sorteoNumero.updateMany({ where: { id: n.id, estado: 'ganado' }, data: { estado: 'entregado', entregadoAt: new Date() } })
     if (!r.count) return NextResponse.json({ ok: false, message: 'Este premio YA fue entregado.', info }, { status: 409 })
     return NextResponse.json({ ok: true, entregado: true, info: { ...info, estado: 'entregado', entregadoAt: new Date() } })

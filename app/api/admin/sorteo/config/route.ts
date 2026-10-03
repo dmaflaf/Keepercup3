@@ -18,6 +18,11 @@ export async function POST(req: NextRequest) {
     if (!Number.isInteger(n) || n < 1 || n > 100000) return NextResponse.json({ ok: false, message: 'Rango inválido' }, { status: 400 })
     cambios.rangoMax = n
   }
+  if (b.maxPorSemana !== undefined) {
+    const n = Number(b.maxPorSemana)
+    if (!Number.isInteger(n) || n < 1 || n > 100) return NextResponse.json({ ok: false, message: 'Tope inválido (1 a 100)' }, { status: 400 })
+    cambios.maxPorSemana = n
+  }
   for (const k of ['instagram', 'tiktok']) {
     if (typeof b[k] === 'string') {
       const v = b[k].trim()

@@ -7,11 +7,12 @@ export type Color = (typeof COLORES)[number]
 export interface SorteoCfg {
   coloresActivos: Color[]
   rangoMax: number
+  maxPorSemana: number
   instagram: string
   tiktok: string
 }
 
-const DEFAULTS: SorteoCfg = { coloresActivos: ['negro'], rangoMax: 6000, instagram: '', tiktok: '' }
+const DEFAULTS: SorteoCfg = { coloresActivos: ['negro'], rangoMax: 6000, maxPorSemana: 4, instagram: '', tiktok: '' }
 
 export async function leerConfig(): Promise<SorteoCfg> {
   const filas = await prisma.sorteoConfig.findMany()
@@ -21,6 +22,7 @@ export async function leerConfig(): Promise<SorteoCfg> {
   return {
     coloresActivos: colores.length ? colores : DEFAULTS.coloresActivos,
     rangoMax: Number(m.rangoMax) > 0 ? Number(m.rangoMax) : DEFAULTS.rangoMax,
+    maxPorSemana: Number(m.maxPorSemana) > 0 ? Number(m.maxPorSemana) : DEFAULTS.maxPorSemana,
     instagram: m.instagram || '',
     tiktok: m.tiktok || '',
   }
@@ -30,6 +32,7 @@ export async function guardarConfig(cfg: Partial<SorteoCfg>) {
   const pares: [string, string][] = []
   if (cfg.coloresActivos) pares.push(['coloresActivos', cfg.coloresActivos.join(',')])
   if (cfg.rangoMax) pares.push(['rangoMax', String(cfg.rangoMax)])
+  if (cfg.maxPorSemana) pares.push(['maxPorSemana', String(cfg.maxPorSemana)])
   if (cfg.instagram !== undefined) pares.push(['instagram', cfg.instagram])
   if (cfg.tiktok !== undefined) pares.push(['tiktok', cfg.tiktok])
   for (const [key, value] of pares) {

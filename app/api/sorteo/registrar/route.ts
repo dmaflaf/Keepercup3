@@ -7,11 +7,13 @@ import { enviarCorreo } from '@/lib/correo'
 
 export const dynamic = 'force-dynamic'
 
-const MAX_POR_IP_HORA = 60
+const MAX_POR_IP_HORA = 80
+const BLOQUEADO = 'Tus datos están bloqueados en este sorteo. Comunícate con la organización del torneo.'
 
 function esc(s: string) {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))
 }
+const fmt = (color: string, n: number) => `${color.toUpperCase()} ${String(n).padStart(4, '0')}`
 
 export async function POST(req: NextRequest) {
   let b: any
@@ -26,7 +28,8 @@ export async function POST(req: NextRequest) {
   const telefono = String(b.telefono || '').trim()
   const club = String(b.club || '').trim().replace(/\s+/g, ' ')
   const color = b.color
-  const numero = Number(b.numero)
+  const crudos: unknown[] = Array.isArray(b.numeros) ? b.numeros : b.numero !== undefined ? [b.numero] : []
+  const numeros = Array.from(new Set(crudos.map(Number)))
 
   if (!b.sigue) return NextResponse.json({ ok: false, message: 'Debes seguir al torneo en Instagram y TikTok para participar.' }, { status: 400 })
   if (nombres.length < 5 || !/\s/.test(nombres) || nombres.length > 80) return NextResponse.json({ ok: false, message: 'Escribe tu nombre completo.' }, { status: 400 })
@@ -38,73 +41,83 @@ export async function POST(req: NextRequest) {
 
   const cfg = await leerConfig()
   if (!esColor(color) || !cfg.coloresActivos.includes(color)) return NextResponse.json({ ok: false, message: 'Ese color de boleto no está participando en este momento.' }, { status: 400 })
-  if (!Number.isInteger(numero) || numero < 1 || numero > cfg.rangoMax) return NextResponse.json({ ok: false, message: `El número de boleto debe estar entre 1 y ${cfg.rangoMax}.` }, { status: 400 })
+  if (!numeros.length) return NextResponse.json({ ok: false, message: 'Escribe el número de tu boleto.' }, { status: 400 })
+  if (numeros.some((n) => !Number.isInteger(n) || n < 1 || n > cfg.rangoMax)) return NextResponse.json({ ok: false, message: `Los números de boleto deben estar entre 1 y ${cfg.rangoMax}.` }, { status: 400 })
 
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'sin-ip'
   const ipHash = hashIp(ip)
-  const hace1h = new Date(Date.now() - 3600 * 1000)
-  if ((await prisma.sorteoBoleto.count({ where: { ipHash, createdAt: { gt: hace1h } } })) >= MAX_POR_IP_HORA) {
+  if ((await prisma.sorteoBoleto.count({ where: { ipHash, createdAt: { gt: new Date(Date.now() - 3600 * 1000) } } })) >= MAX_POR_IP_HORA) {
     return NextResponse.json({ ok: false, message: 'Demasiados registros desde esta red. Inténtalo más tarde.' }, { status: 429 })
   }
 
-  // Un registro por dispositivo y por teléfono cada semana (lunes a domingo, hora de Ecuador)
-  const semana = semanaActual()
   const valido = (v: unknown) => (typeof v === 'string' && /^[A-Za-z0-9-]{16,64}$/.test(v) ? v : '')
   const deviceIds = Array.from(new Set([valido(req.cookies.get('kc3d')?.value), valido(b.deviceId)].filter(Boolean)))
   const deviceId = deviceIds[0] || randomUUID()
-  const yaEstaSemana = await prisma.sorteoBoleto.findFirst({
-    where: { semana, OR: [{ telefono }, ...(deviceIds.length ? [{ deviceId: { in: deviceIds } }] : [])] },
-    select: { id: true },
+
+  // Bloqueados por registrar números que no les pertenecen
+  const bloq = await prisma.sorteoBloqueo.findFirst({
+    where: { OR: [{ tipo: 'telefono', valor: telefono }, ...(deviceIds.length ? [{ tipo: 'dispositivo', valor: { in: deviceIds } }] : [])] },
   })
-  if (yaEstaSemana) {
-    return NextResponse.json({ ok: false, message: 'Este dispositivo o teléfono ya registró un boleto esta semana. Podrás registrar otro desde el lunes, con tu nuevo número.' }, { status: 429 })
+  if (bloq) return NextResponse.json({ ok: false, message: BLOQUEADO }, { status: 403 })
+
+  // Tope de boletos por semana (lunes a domingo, hora de Ecuador), por teléfono y por dispositivo
+  const semana = semanaActual()
+  const usados = Math.max(
+    await prisma.sorteoBoleto.count({ where: { semana, telefono } }),
+    deviceIds.length ? await prisma.sorteoBoleto.count({ where: { semana, deviceId: { in: deviceIds } } }) : 0
+  )
+  const quedan = cfg.maxPorSemana - usados
+  if (quedan <= 0) {
+    return NextResponse.json({ ok: false, message: `Ya registraste tus ${cfg.maxPorSemana} boletos de esta semana. Podrás registrar más desde el lunes.` }, { status: 429 })
+  }
+  if (numeros.length > quedan) {
+    return NextResponse.json({ ok: false, message: `Esta semana te quedan ${quedan} boleto(s) por registrar (máximo ${cfg.maxPorSemana} por semana). Escribiste ${numeros.length}.` }, { status: 429 })
   }
 
-  try {
-    const r = await prisma.$transaction(async (tx) => {
-      const boleto = await tx.sorteoBoleto.create({
-        data: { color, numero, nombres, correo, telefono, club, codigo: generarCodigo(6, 'KC3-'), ipHash, deviceId, semana },
-      })
-      const gan = await tx.sorteoNumero.findUnique({ where: { color_numero: { color, numero } }, include: { premio: true } })
-      if (gan && gan.estado === 'pendiente') {
-        const cobro = generarCodigo(8)
-        const upd = await tx.sorteoNumero.updateMany({
-          where: { id: gan.id, estado: 'pendiente' },
-          data: { estado: 'ganado', boletoId: boleto.id, codigoCobro: cobro, ganadoAt: new Date() },
+  const resultados: any[] = []
+  for (const numero of numeros) {
+    try {
+      const r = await prisma.$transaction(async (tx) => {
+        const boleto = await tx.sorteoBoleto.create({
+          data: { color, numero, nombres, correo, telefono, club, codigo: generarCodigo(6, 'KC3-'), ipHash, deviceId, semana },
         })
-        if (upd.count === 1) return { boleto, premio: gan.premio, cobro }
+        const gan = await tx.sorteoNumero.findUnique({ where: { color_numero: { color, numero } }, include: { premio: true } })
+        if (gan && gan.estado === 'pendiente') {
+          const cobro = generarCodigo(8)
+          const upd = await tx.sorteoNumero.updateMany({
+            where: { id: gan.id, estado: 'pendiente' },
+            data: { estado: 'ganado', boletoId: boleto.id, codigoCobro: cobro, ganadoAt: new Date() },
+          })
+          if (upd.count === 1) return { boleto, premio: gan.premio, cobro }
+        }
+        return { boleto, premio: null, cobro: null }
+      })
+      resultados.push({
+        ok: true, boleto: fmt(color, numero), codigo: r.boleto.codigo, gano: !!r.premio,
+        premio: r.premio ? { nombre: r.premio.nombre, categoria: r.premio.categoria, periodo: r.premio.periodo, lugar: r.premio.lugar } : null,
+        codigoCobro: r.cobro,
+      })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        resultados.push({ ok: false, boleto: fmt(color, numero), message: 'Ya estaba registrado. Si este boleto es tuyo, preséntalo en el bar del complejo.' })
+      } else {
+        resultados.push({ ok: false, boleto: fmt(color, numero), message: 'No se pudo registrar. Inténtalo de nuevo.' })
       }
-      return { boleto, premio: null, cobro: null }
-    })
-
-    const etiqueta = `${r.boleto.color.toUpperCase()} ${String(r.boleto.numero).padStart(4, '0')}`
-    if (r.premio) {
-      void enviarCorreo(correo, '¡Ganaste en el sorteo Keeper Cup 3!',
-        `<h2>¡Felicidades ${esc(nombres)}!</h2><p>Tu boleto <b>${etiqueta}</b> ganó: <b>${esc(r.premio.nombre)}</b>.</p><p>Código de cobro: <b style="font-size:22px">${r.cobro}</b></p><p>Reclámalo en ${esc(r.premio.lugar)} presentando tu <b>boleto físico</b> y este código.</p>`)
-    } else {
-      void enviarCorreo(correo, 'Ya participas en el sorteo Keeper Cup 3',
-        `<h2>¡Listo ${esc(nombres)}!</h2><p>Tu boleto <b>${etiqueta}</b> quedó registrado.</p><p>Código de confirmación: <b>${r.boleto.codigo}</b></p><p>Guarda tu boleto físico: lo necesitas si ganas.</p>`)
     }
-
-    const resp = NextResponse.json({
-      ok: true,
-      gano: !!r.premio,
-      codigo: r.boleto.codigo,
-      boleto: etiqueta,
-      nombres,
-      premio: r.premio ? { nombre: r.premio.nombre, categoria: r.premio.categoria, periodo: r.premio.periodo, lugar: r.premio.lugar } : null,
-      codigoCobro: r.cobro,
-    })
-    resp.cookies.set('kc3d', deviceId, { maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: 'lax', secure: true, path: '/' })
-    return resp
-  } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-      const campos = JSON.stringify(e.meta?.target || '')
-      if (/telefono|deviceId|semana/.test(campos)) {
-        return NextResponse.json({ ok: false, message: 'Este dispositivo o teléfono ya registró un boleto esta semana. Podrás registrar otro desde el lunes.' }, { status: 429 })
-      }
-      return NextResponse.json({ ok: false, message: 'Ese boleto ya fue registrado. Cada número solo puede registrarse una vez.' }, { status: 409 })
-    }
-    return NextResponse.json({ ok: false, message: 'No se pudo registrar. Inténtalo de nuevo.' }, { status: 500 })
   }
+
+  const buenos = resultados.filter((r) => r.ok)
+  if (!buenos.length) {
+    return NextResponse.json({ ok: false, message: resultados.map((r) => `${r.boleto}: ${r.message}`).join(' ') }, { status: 409 })
+  }
+
+  const lineas = buenos.map((r) => (r.gano
+    ? `<li><b>${r.boleto}</b>: ¡GANÓ ${esc(r.premio.nombre)}! Código de cobro <b style="font-size:20px">${r.codigoCobro}</b> — reclámalo en ${esc(r.premio.lugar)} con tu boleto físico, tu código y el teléfono con el que te registraste.</li>`
+    : `<li><b>${r.boleto}</b>: registrado (código ${r.codigo})</li>`)).join('')
+  void enviarCorreo(correo, buenos.some((r) => r.gano) ? '¡Ganaste en el sorteo Keeper Cup 3!' : 'Ya participas en el sorteo Keeper Cup 3',
+    `<h2>Hola ${esc(nombres)}</h2><ul>${lineas}</ul><p>Guarda tus boletos físicos: son necesarios para cobrar cualquier premio.</p>`)
+
+  const resp = NextResponse.json({ ok: true, nombres, boletos: resultados, quedanSemana: Math.max(0, quedan - buenos.length) })
+  resp.cookies.set('kc3d', deviceId, { maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: 'lax', secure: true, path: '/' })
+  return resp
 }
