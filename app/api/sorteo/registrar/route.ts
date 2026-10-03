@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/db'
-import { esColor, generarCodigo, hashIp, leerConfig, semanaActual } from '@/lib/sorteo'
+import { esColor, generarCodigo, hashIp, leerConfig, p4, semanaActual } from '@/lib/sorteo'
 import { enviarCorreo } from '@/lib/correo'
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +43,10 @@ export async function POST(req: NextRequest) {
   if (!esColor(color) || !cfg.coloresActivos.includes(color)) return NextResponse.json({ ok: false, message: 'Ese color de boleto no está participando en este momento.' }, { status: 400 })
   if (!numeros.length) return NextResponse.json({ ok: false, message: 'Escribe el número de tu boleto.' }, { status: 400 })
   if (numeros.some((n) => !Number.isInteger(n) || n < 1 || n > cfg.rangoMax)) return NextResponse.json({ ok: false, message: `Los números de boleto deben estar entre 1 y ${cfg.rangoMax}.` }, { status: 400 })
+  const fuera = numeros.filter((n) => n < cfg.desde || n > cfg.hasta)
+  if (fuera.length) {
+    return NextResponse.json({ ok: false, message: `Esta semana participan los boletos del ${p4(cfg.desde)} al ${p4(cfg.hasta)}. No participan: ${fuera.map(p4).join(', ')}.` }, { status: 400 })
+  }
 
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'sin-ip'
   const ipHash = hashIp(ip)

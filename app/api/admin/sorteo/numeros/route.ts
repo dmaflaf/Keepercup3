@@ -24,10 +24,11 @@ export async function POST(req: NextRequest) {
       ...(await prisma.sorteoNumero.findMany({ where: { color }, select: { numero: true } })).map((n) => n.numero),
       ...(await prisma.sorteoBoleto.findMany({ where: { color }, select: { numero: true } })).map((n) => n.numero),
     ])
-    if (cfg.rangoMax - ocupados.size < cant) return NextResponse.json({ ok: false, message: 'No quedan suficientes números libres en el rango' }, { status: 400 })
+    const libres = cfg.hasta - cfg.desde + 1 - Array.from(ocupados).filter((n) => n >= cfg.desde && n <= cfg.hasta).length
+    if (libres < cant) return NextResponse.json({ ok: false, message: 'No quedan suficientes números libres en el rango de esta semana' }, { status: 400 })
     const elegidos = new Set<number>()
     while (elegidos.size < cant) {
-      const n = randomInt(1, cfg.rangoMax + 1)
+      const n = randomInt(cfg.desde, cfg.hasta + 1)
       if (!ocupados.has(n)) elegidos.add(n)
     }
     lista = Array.from(elegidos)
@@ -58,7 +59,8 @@ export async function POST(req: NextRequest) {
       repetidos.push(numero)
     }
   }
-  return NextResponse.json({ ok: true, creados, repetidos, yaRegistrados })
+  const fueraDeSemana = lista.filter((n) => n < cfg.desde || n > cfg.hasta)
+  return NextResponse.json({ ok: true, creados, repetidos, yaRegistrados, fueraDeSemana })
 }
 
 export async function DELETE(req: NextRequest) {

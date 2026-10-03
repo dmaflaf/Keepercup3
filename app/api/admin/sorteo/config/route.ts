@@ -18,6 +18,16 @@ export async function POST(req: NextRequest) {
     if (!Number.isInteger(n) || n < 1 || n > 100000) return NextResponse.json({ ok: false, message: 'Rango inválido' }, { status: 400 })
     cambios.rangoMax = n
   }
+  if (b.desde !== undefined || b.hasta !== undefined) {
+    const actual = await leerConfig()
+    const d = Number(b.desde ?? actual.desde)
+    const h = Number(b.hasta ?? actual.hasta)
+    if (!Number.isInteger(d) || !Number.isInteger(h) || d < 1 || h < d || h > actual.rangoMax) {
+      return NextResponse.json({ ok: false, message: `Rango inválido: debe ser de 1 a ${actual.rangoMax} y "hasta" no puede ser menor que "desde".` }, { status: 400 })
+    }
+    cambios.desde = d
+    cambios.hasta = h
+  }
   if (b.maxPorSemana !== undefined) {
     const n = Number(b.maxPorSemana)
     if (!Number.isInteger(n) || n < 1 || n > 100) return NextResponse.json({ ok: false, message: 'Tope inválido (1 a 100)' }, { status: 400 })

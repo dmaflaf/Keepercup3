@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 interface Num { id: string; color: string; numero: number; origen: string; estado: string; codigoCobro: string | null; ganador: { nombres: string; correo: string; telefono: string | null } | null }
 interface Premio { id: string; nombre: string; categoria: string; periodo: string; lugar: string; numeros: Num[] }
-interface Cfg { coloresActivos: string[]; rangoMax: number; maxPorSemana: number; instagram: string; tiktok: string }
+interface Cfg { coloresActivos: string[]; rangoMax: number; desde: number; hasta: number; maxPorSemana: number; instagram: string; tiktok: string }
 
 const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white'
 const btn = 'px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-semibold'
@@ -31,7 +31,9 @@ export default function SorteoAdmin() {
   // ---- config
   const [ig, setIg] = useState('')
   const [tk, setTk] = useState('')
-  useEffect(() => { if (datos) { setIg(datos.config.instagram); setTk(datos.config.tiktok) } }, [datos])
+  const [rd, setRd] = useState('')
+  const [rh, setRh] = useState('')
+  useEffect(() => { if (datos) { setIg(datos.config.instagram); setTk(datos.config.tiktok); setRd(String(datos.config.desde)); setRh(String(datos.config.hasta)) } }, [datos])
   const guardarCfg = async (c: Partial<Cfg>) => { const r = await api('/api/admin/sorteo/config', c); setMsg(r.ok ? 'Guardado' : r.message); cargar() }
 
   // ---- premio nuevo
@@ -53,6 +55,7 @@ export default function SorteoAdmin() {
     if (!r.ok) setMsg(r.message)
     else {
       let t = `Cargados: ${r.creados}.`
+      if (r.fueraDeSemana?.length) t += ` ⚠ Fuera del rango de esta semana (no podrán ganar hasta que cambies el rango): ${r.fueraDeSemana.join(', ')}.`
       if (r.repetidos.length) t += ` Ya existían: ${r.repetidos.join(', ')}.`
       if (r.yaRegistrados.length) t += ` ¡Ya estaban registrados y GANAN ahora!: ${r.yaRegistrados.map((y: any) => `${pad(y.numero)} (${y.nombres}, ${y.correo}, código ${y.codigoCobro})`).join('; ')}`
       setMsg(t)
@@ -139,10 +142,17 @@ export default function SorteoAdmin() {
                 }} /> {c}
               </label>
             ))}
-            <span className="text-slate-400 text-sm">Rango de números: 1 a {datos.config.rangoMax}</span>
+            <span className="text-slate-400 text-sm">Boletos impresos: 1 a {datos.config.rangoMax}</span>
             <label className="text-sm text-slate-300 flex items-center gap-2">Boletos por semana y teléfono:
               <input type="number" min={1} className={inp + ' w-20'} defaultValue={datos.config.maxPorSemana} onBlur={(e) => guardarCfg({ maxPorSemana: Number(e.target.value) })} />
             </label>
+          </div>
+          <div className="bg-slate-700/50 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-3">
+            <b>Boletos que participan ESTA semana:</b>
+            <label className="flex items-center gap-2 text-sm">del <input type="number" min={1} className={inp + ' w-28'} value={rd} onChange={(e) => setRd(e.target.value)} /></label>
+            <label className="flex items-center gap-2 text-sm">al <input type="number" min={1} className={inp + ' w-28'} value={rh} onChange={(e) => setRh(e.target.value)} /></label>
+            <button className={btn} onClick={() => guardarCfg({ desde: Number(rd), hasta: Number(rh) })}>Guardar rango</button>
+            <span className="text-slate-400 text-xs w-full">Solo estos números se pueden registrar y los sorteos al azar eligen dentro de este rango. Cámbialo cada semana (ej. 1 al 800, luego 801 al 1600).</span>
           </div>
           <div className="grid md:grid-cols-2 gap-3">
             <input className={inp} placeholder="https://instagram.com/..." value={ig} onChange={(e) => setIg(e.target.value)} />

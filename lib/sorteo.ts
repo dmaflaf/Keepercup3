@@ -8,20 +8,27 @@ export interface SorteoCfg {
   coloresActivos: Color[]
   rangoMax: number
   maxPorSemana: number
+  desde: number // boletos que participan esta semana (inclusive)
+  hasta: number
   instagram: string
   tiktok: string
 }
 
-const DEFAULTS: SorteoCfg = { coloresActivos: ['negro'], rangoMax: 6000, maxPorSemana: 4, instagram: '', tiktok: '' }
+const DEFAULTS: SorteoCfg = { coloresActivos: ['negro'], rangoMax: 6000, maxPorSemana: 4, desde: 1, hasta: 6000, instagram: '', tiktok: '' }
 
 export async function leerConfig(): Promise<SorteoCfg> {
   const filas = await prisma.sorteoConfig.findMany()
   const m: Record<string, string> = {}
   filas.forEach((f) => (m[f.key] = f.value))
   const colores = (m.coloresActivos || '').split(',').filter((c): c is Color => (COLORES as readonly string[]).includes(c))
+  const rangoMax = Number(m.rangoMax) > 0 ? Number(m.rangoMax) : DEFAULTS.rangoMax
+  const desde = Number(m.desde) >= 1 ? Number(m.desde) : 1
+  const hasta = Number(m.hasta) >= desde ? Math.min(Number(m.hasta), rangoMax) : rangoMax
   return {
     coloresActivos: colores.length ? colores : DEFAULTS.coloresActivos,
-    rangoMax: Number(m.rangoMax) > 0 ? Number(m.rangoMax) : DEFAULTS.rangoMax,
+    desde,
+    hasta,
+    rangoMax,
     maxPorSemana: Number(m.maxPorSemana) > 0 ? Number(m.maxPorSemana) : DEFAULTS.maxPorSemana,
     instagram: m.instagram || '',
     tiktok: m.tiktok || '',
@@ -32,6 +39,8 @@ export async function guardarConfig(cfg: Partial<SorteoCfg>) {
   const pares: [string, string][] = []
   if (cfg.coloresActivos) pares.push(['coloresActivos', cfg.coloresActivos.join(',')])
   if (cfg.rangoMax) pares.push(['rangoMax', String(cfg.rangoMax)])
+  if (cfg.desde) pares.push(['desde', String(cfg.desde)])
+  if (cfg.hasta) pares.push(['hasta', String(cfg.hasta)])
   if (cfg.maxPorSemana) pares.push(['maxPorSemana', String(cfg.maxPorSemana)])
   if (cfg.instagram !== undefined) pares.push(['instagram', cfg.instagram])
   if (cfg.tiktok !== undefined) pares.push(['tiktok', cfg.tiktok])
@@ -52,6 +61,8 @@ export function generarCodigo(largo: number, prefijo = ''): string {
 export function hashIp(ip: string): string {
   return createHash('sha256').update(ip + (process.env.JWT_SECRET || 'kc3')).digest('hex').slice(0, 24)
 }
+
+export const p4 = (n: number) => String(n).padStart(4, '0')
 
 export function esColor(c: unknown): c is Color {
   return typeof c === 'string' && (COLORES as readonly string[]).includes(c)
