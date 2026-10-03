@@ -78,6 +78,13 @@ export default function SorteoAdmin() {
     setMsg(r.ok ? `Bloqueado. Boletos suyos liberados: ${r.liberados}` : r.message)
     setCobro(null); cargar()
   }
+  const reiniciar = async () => {
+    const t = prompt('Esto BORRA todos los boletos registrados, los bloqueos y los ganadores de la tómbola, y deja los premios cargados como nuevos.\n\nEscribe BORRAR para confirmar:')
+    if (t !== 'BORRAR') return
+    const r = await api('/api/admin/sorteo/reiniciar', { confirmar: 'BORRAR' })
+    setMsg(r.ok ? `Sorteo reiniciado. Boletos borrados: ${r.boletos}. Premios devueltos a pendiente: ${r.premiosReiniciados}.` : r.message)
+    cargar()
+  }
   const desbloquear = async (id: string) => { await api('/api/admin/sorteo/bloqueos?id=' + id, undefined, 'DELETE'); cargar() }
 
   // ---- tómbola
@@ -220,6 +227,12 @@ export default function SorteoAdmin() {
           {datos.bloqueos.length === 0 ? <p className="text-slate-500 text-sm">Ninguno.</p> : datos.bloqueos.map((x) => (
             <div key={x.id} className="flex justify-between text-sm py-1 border-b border-slate-700"><span>{x.telefono} · {x.motivo}</span><button className="text-green-400" onClick={() => desbloquear(x.id)}>Desbloquear</button></div>
           ))}
+        </section>
+
+        <section className={sec + ' border-red-900'}>
+          <h2 className="text-xl font-bold mb-2">Reiniciar después de las pruebas</h2>
+          <p className="text-slate-400 text-sm mb-3">Borra los boletos de prueba y deja los premios y números cargados listos para el sorteo real. Hazlo UNA vez, antes de dar el QR al público.</p>
+          <button className="px-4 py-2 bg-slate-600 hover:bg-red-700 rounded-lg" onClick={reiniciar}>Reiniciar sorteo…</button>
         </section>
 
         <section className={sec}>
