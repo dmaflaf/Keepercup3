@@ -226,3 +226,14 @@ Ver carpeta `/docs`:
 4. **Reglas:** la cédula es clave única; las fotos subidas desde PC mandan sobre enlaces del Sheet (verificar que Sync no las pise); sin carpetas públicas de Drive.
 5. Después: carnet digital con QR, NIX (fixture, resultados, tabla).
 Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (¿fotos nombradas por cédula?).
+
+---
+
+## 🎟️ **SORTEO (rifa de boletos)**
+
+- Público: `public/keeper-cup-sorteo.html` (QR) → `POST /api/sorteo/registrar`. Obligatorio marcar que sigue IG/TikTok (no verificable por API; se verifica al cobrar). Boletos impresos 0001–6000 en dos colores (negro primero, luego rojo): la clave única es **color + número**.
+- Premios instantáneos: admin carga números ganadores por premio (semanal/mensual) pegando lista o al azar; se revisan en el servidor al registrar. Al ganar: código de cobro de un solo uso + imagen descargable; el premio se entrega contra el boleto físico.
+- Gran sorteo (final): tómbola en `/admin/sorteo` (el servidor elige entre boletos registrados que no han ganado). Ganadores no repiten.
+- Panel: `/admin/sorteo` (solo admin): configuración (colores activos, rango, enlaces IG/TikTok), premios y números, cobrar, tómbola, export CSV.
+- Correo con código: opcional con env `RESEND_API_KEY` (+ `SORTEO_FROM`); sin eso, el código solo se muestra en pantalla.
+- Pendiente: poner en el panel los enlaces reales de IG/TikTok; dominio verificado en Resend para enviar correos; `public/sorteo-demo.html` es solo demo.

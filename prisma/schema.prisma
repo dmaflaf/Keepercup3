@@ -232,3 +232,58 @@ model Standing {
 
   @@index([teamId])
 }
+
+// ---------- SORTEO (rifa de boletos) ----------
+
+model SorteoPremio {
+  id        String   @id @default(cuid())
+  nombre    String
+  categoria String   // semanal | mensual | final
+  periodo   String   @default("") // ej. "Semana 3", "Octubre"
+  lugar     String   @default("el bar del complejo")
+  activo    Boolean  @default(true)
+  numeros   SorteoNumero[]
+  createdAt DateTime @default(now())
+}
+
+// Número (color + número) que gana un premio: cargado de antemano (instantáneo) o sacado en la tómbola.
+model SorteoNumero {
+  id           String   @id @default(cuid())
+  premioId     String
+  premio       SorteoPremio @relation(fields: [premioId], references: [id], onDelete: Cascade)
+  color        String   // negro | rojo
+  numero       Int
+  origen       String   @default("instantaneo") // instantaneo | tombola
+  estado       String   @default("pendiente")   // pendiente | ganado | entregado
+  codigoCobro  String?  @unique
+  boletoId     String?  @unique
+  boleto       SorteoBoleto? @relation(fields: [boletoId], references: [id])
+  ganadoAt     DateTime?
+  entregadoAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  @@unique([color, numero])
+  @@index([premioId])
+}
+
+model SorteoBoleto {
+  id        String   @id @default(cuid())
+  color     String   // negro | rojo
+  numero    Int
+  nombres   String
+  correo    String
+  telefono  String?
+  codigo    String   @unique
+  ipHash    String?
+  ganador   SorteoNumero?
+  createdAt DateTime @default(now())
+
+  @@unique([color, numero])
+  @@index([correo, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+model SorteoConfig {
+  key   String @id
+  value String
+}
