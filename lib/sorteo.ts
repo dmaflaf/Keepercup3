@@ -69,3 +69,11 @@ export async function exigirAdmin(): Promise<NextResponse | null> {
   if (u.rol !== 'admin') return NextResponse.json({ ok: false, message: 'Solo el administrador' }, { status: 403 })
   return null
 }
+
+/** Lunes (YYYY-MM-DD) de la semana actual en hora de Ecuador (UTC-5, sin horario de verano). */
+export function semanaActual(ahora = new Date()): string {
+  const d = new Date(ahora.getTime() - 5 * 3600 * 1000)
+  const dow = (d.getUTCDay() + 6) % 7 // lunes = 0
+  d.setUTCDate(d.getUTCDate() - dow)
+  return d.toISOString().slice(0, 10)
+}

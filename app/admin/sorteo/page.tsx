@@ -17,7 +17,7 @@ async function api(url: string, body?: unknown, method = 'POST') {
 }
 
 export default function SorteoAdmin() {
-  const [datos, setDatos] = useState<{ config: Cfg; premios: Premio[]; boletos: Record<string, number>; ganadores: number } | null>(null)
+  const [datos, setDatos] = useState<{ config: Cfg; premios: Premio[]; boletos: Record<string, number>; ganadores: number; clubes: { club: string; total: number }[] } | null>(null)
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
 
@@ -105,6 +105,9 @@ export default function SorteoAdmin() {
           Boletos registrados: {Object.entries(datos.boletos).map(([c, n]) => `${c}: ${n}`).join(' · ') || '0'} · Premios ganados: {datos.ganadores} ·{' '}
           <a className="underline" href="/api/admin/sorteo/export">Descargar boletos (Excel/CSV)</a>
         </p>
+        {datos.clubes.length > 0 && (
+          <p className="text-slate-400 text-sm mb-4">Club que apoyan: {datos.clubes.slice(0, 8).map((c) => `${c.club} (${c.total})`).join(' · ')}</p>
+        )}
         {msg && <div className="bg-slate-700 border border-slate-500 rounded-lg p-3 mb-4 text-sm" onClick={() => setMsg('')}>{msg}</div>}
 
         <section className={sec}>

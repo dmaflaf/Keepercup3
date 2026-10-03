@@ -36,6 +36,7 @@
   .chk input{margin-top:4px;width:18px;height:18px;accent-color:var(--gold)}
   .field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
   label{font-size:13px;color:var(--dim)} .req{color:var(--brick)}
+  select{width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:6px;padding:13px 12px;color:var(--ink);font-family:inherit;font-size:16px}
   input[type=text],input[type=tel],input[type=email],input[type=number]{width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:6px;padding:13px 12px;color:var(--ink);font-family:inherit;font-size:16px}
   input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   .colores{display:flex;gap:10px}
@@ -102,8 +103,12 @@
           <input type="email" name="correo" placeholder="tucorreo@ejemplo.com" autocomplete="email" required>
         </div>
         <div class="field">
-          <label>Teléfono (opcional)</label>
-          <input type="tel" name="telefono" placeholder="09XXXXXXXX" inputmode="numeric" maxlength="10" autocomplete="tel">
+          <label>Teléfono <span class="req">*</span></label>
+          <input type="tel" name="telefono" placeholder="09XXXXXXXX" inputmode="numeric" maxlength="10" autocomplete="tel" required>
+        </div>
+        <div class="field">
+          <label>Club que apoyas <span class="req">*</span></label>
+          <select name="club" id="club" required><option value="">Elige tu club…</option></select>
         </div>
         <button type="submit" class="btn" id="submitBtn" disabled>Registrar mi boleto</button>
         <div class="err" id="formError"></div>
@@ -117,6 +122,7 @@
     <p>Tu boleto <b id="okBoleto"></b> quedó registrado.</p>
     <div class="codigo" id="okCodigo"></div>
     <p>Guarda tu boleto físico y este código. Hay premios cada semana, cada mes y el gran sorteo en la final.</p>
+    <p>Puedes registrar un boleto por semana: la próxima semana vuelve a escanear el QR con tu nuevo número.</p>
   </div>
 
   <div class="card result win" id="winView">
@@ -156,29 +162,40 @@
       if(c.instagram) $('lnkIg').href = c.instagram;
       if(c.tiktok) $('lnkTk').href = c.tiktok;
       form.numero.max = c.rangoMax;
+      const sel = $('club');
+      (c.equipos || []).concat(['Otro']).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n === 'Otro' ? 'Otro / ninguno' : n; sel.appendChild(o); });
     }
   }).catch(() => {}).finally(pintarColores);
 
   ['lnkIg','lnkTk'].forEach(id => $(id).addEventListener('click', () => $(id).classList.add('hecho')));
 
   function validar(){
-    const ok = $('sigue').checked && colorSel && form.numero.value && form.nombres.value.trim().split(/\s+/).length >= 2 && /^\S+@\S+\.\S{2,}$/.test(form.correo.value.trim());
+    const ok = $('sigue').checked && colorSel && form.club.value && /^09\d{8}$/.test(form.telefono.value.trim()) && form.numero.value && form.nombres.value.trim().split(/\s+/).length >= 2 && /^\S+@\S+\.\S{2,}$/.test(form.correo.value.trim());
     btn.disabled = !ok;
   }
   $('sigue').addEventListener('change', validar);
   form.addEventListener('input', validar);
+
+  // Identificador del dispositivo (para permitir un solo registro por semana)
+  function dispositivo(){
+    try{
+      let d = localStorage.getItem('kc3d');
+      if(!d){ d = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2) + '0123456789abcdef'); localStorage.setItem('kc3d', d); }
+      return d;
+    }catch(e){ return ''; }
+  }
 
   function showError(m){ err.textContent = m; err.style.display = 'block'; }
 
   form.addEventListener('submit', async e => {
     e.preventDefault(); err.style.display = 'none';
     const tel = form.telefono.value.trim();
-    if(tel && !/^09\d{8}$/.test(tel)){ showError('El teléfono debe tener 10 dígitos y empezar con 09.'); return; }
+    if(!/^09\d{8}$/.test(tel)){ showError('El teléfono debe tener 10 dígitos y empezar con 09.'); return; }
     btn.disabled = true; btn.textContent = 'Registrando...';
     try{
       const res = await fetch('/api/sorteo/registrar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ color: colorSel, numero: Number(form.numero.value), nombres: form.nombres.value, correo: form.correo.value, telefono: tel, sigue: $('sigue').checked })
+        body: JSON.stringify({ color: colorSel, numero: Number(form.numero.value), nombres: form.nombres.value, correo: form.correo.value, telefono: tel, club: form.club.value, sigue: $('sigue').checked, deviceId: dispositivo() })
       });
       const r = await res.json();
       if(!r.ok) throw new Error(r.message || 'No se pudo registrar.');

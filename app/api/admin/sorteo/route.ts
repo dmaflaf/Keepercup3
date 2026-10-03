@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const no = await exigirAdmin()
   if (no) return no
-  const [config, premios, porColor, ganadores] = await Promise.all([
+  const [config, premios, porColor, ganadores, porClub] = await Promise.all([
     leerConfig(),
     prisma.sorteoPremio.findMany({
       orderBy: { createdAt: 'desc' },
@@ -15,12 +15,14 @@ export async function GET() {
     }),
     prisma.sorteoBoleto.groupBy({ by: ['color'], _count: true }),
     prisma.sorteoNumero.count({ where: { estado: { in: ['ganado', 'entregado'] } } }),
+    prisma.sorteoBoleto.groupBy({ by: ['club'], _count: true, orderBy: { _count: { club: 'desc' } } }),
   ])
   return NextResponse.json({
     ok: true,
     config,
     boletos: Object.fromEntries(porColor.map((c) => [c.color, c._count])),
     ganadores,
+    clubes: porClub.map((c) => ({ club: c.club || '(sin club)', total: c._count })),
     premios: premios.map((p) => ({
       id: p.id, nombre: p.nombre, categoria: p.categoria, periodo: p.periodo, lugar: p.lugar, activo: p.activo,
       numeros: p.numeros.map((n) => ({

@@ -273,12 +273,17 @@ model SorteoBoleto {
   nombres   String
   correo    String
   telefono  String?
+  club      String?
   codigo    String   @unique
   ipHash    String?
+  deviceId  String?
+  semana    String?  // lunes de la semana (YYYY-MM-DD, hora de Ecuador): 1 registro por dispositivo y por teléfono cada semana
   ganador   SorteoNumero?
   createdAt DateTime @default(now())
 
   @@unique([color, numero])
+  @@unique([deviceId, semana])
+  @@unique([telefono, semana])
   @@index([correo, createdAt])
   @@index([ipHash, createdAt])
 }
