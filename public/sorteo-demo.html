@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Keeper Cup 3 — Sorteo en vivo (DEMO)</title>
+<link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#051225;--card:#0F223D;--line:rgba(224,232,240,.16);--ink:#F3F6F8;--dim:#93A4B8;--gold:#D9A93A;--green:#3ECB3B}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#12305a 0%,var(--bg) 60%);color:var(--ink);font-family:'Work Sans',sans-serif;min-height:100vh}
+  h1,h2,.num{font-family:'League Spartan',sans-serif;font-weight:900;margin:0}
+  .wrap{max-width:900px;margin:0 auto;padding:24px 20px 60px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .badge{background:rgba(217,169,58,.14);border:1px solid var(--gold);color:var(--gold);padding:4px 10px;border-radius:99px;font-size:12px;font-weight:700;letter-spacing:.06em}
+  h1{font-size:clamp(28px,5vw,44px);margin:18px 0 4px}
+  .sub{color:var(--dim);margin:0 0 22px}
+  .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+  label{font-size:13px;color:var(--dim);display:block;margin-bottom:6px}
+  select{width:100%;background:#0B1B33;border:1px solid var(--line);color:var(--ink);padding:12px;border-radius:6px;font-size:15px;font-family:inherit}
+  .drum{margin:18px 0;border:2px solid var(--gold);border-radius:14px;padding:26px 10px;text-align:center;background:linear-gradient(180deg,#0A1830,#07101f);box-shadow:0 0 40px rgba(217,169,58,.15) inset}
+  .num{font-size:clamp(64px,16vw,120px);letter-spacing:.04em;color:var(--gold);line-height:1}
+  .num.spin{filter:blur(1.2px)}
+  .name{margin-top:10px;min-height:28px;font-size:18px;color:var(--ink)}
+  button{width:100%;background:var(--gold);color:#211603;border:none;padding:16px;border-radius:6px;font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .win{animation:pop .6s ease}
+  @keyframes pop{0%{transform:scale(.8)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+  ul{list-style:none;margin:0;padding:0;max-height:340px;overflow:auto}
+  li{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+  li b{color:var(--gold)}
+  .small{color:var(--dim);font-size:12.5px;margin-top:10px}
+  canvas{position:fixed;inset:0;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="confeti"></canvas>
+<div class="wrap">
+  <div class="top"><span class="badge">DEMO · DATOS FICTICIOS</span><span class="small" id="quedan"></span></div>
+  <h1>Sorteo en vivo</h1>
+  <p class="sub">Keeper Cup 3 · El ganador sale de los boletos registrados que aún no han ganado.</p>
+  <div class="grid">
+    <div class="card">
+      <label for="premio">Premio que se sortea</label>
+      <select id="premio">
+        <option>Camiseta oficial Keeper Cup</option>
+        <option>Consumo en el bar del complejo</option>
+        <option>Balón oficial</option>
+        <option>GRAN PREMIO DE LA FINAL</option>
+      </select>
+      <div class="drum"><div class="num" id="num">----</div><div class="name" id="nombre">Presiona el botón para sortear</div></div>
+      <button id="btn">Sortear</button>
+      <p class="small">El número se elige con aleatoriedad criptográfica del navegador. Un ganador sale del sorteo y no puede repetir.</p>
+    </div>
+    <div class="card">
+      <h2 style="font-size:20px;margin-bottom:8px">Ganadores</h2>
+      <ul id="lista"><li style="color:var(--dim)">Aún no hay ganadores</li></ul>
+    </div>
+  </div>
+</div>
+<script>
+  // Participantes ficticios de la demo (en el sistema real salen de la base de datos)
+  const nombres = ['Ana','Luis','Marco','Sofía','Diego','Camila','Mateo','Valeria','Andrés','Paula','Jorge','Daniela'];
+  const apellidos = ['P.','G.','R.','M.','S.','T.','V.','C.'];
+  let pool = [];
+  const usados = new Set();
+  while(pool.length < 150){
+    const n = 1 + Math.floor(Math.random()*3000);
+    if(usados.has(n)) continue; usados.add(n);
+    pool.push({boleto: String(n).padStart(4,'0'), nombre: nombres[pool.length%12]+' '+apellidos[pool.length%8]});
+  }
+  const $ = id => document.getElementById(id);
+  const btn = $('btn'), num = $('num'), nombre = $('nombre'), lista = $('lista');
+  function quedan(){ $('quedan').textContent = pool.length + ' boletos participando'; }
+  quedan();
+
+  function azar(max){ const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % max; }
+
+  btn.addEventListener('click', () => {
+    if(!pool.length){ nombre.textContent = 'No quedan boletos'; return; }
+    btn.disabled = true; num.classList.remove('win'); num.classList.add('spin');
+    const idx = azar(pool.length), ganador = pool[idx];
+    const total = 60; let paso = 0;
+    (function tick(){
+      paso++;
+      const f = pool[azar(pool.length)];
+      num.textContent = f.boleto; nombre.textContent = '…';
+      if(paso < total){ setTimeout(tick, 40 + Math.pow(paso/total, 3) * 380); return; }
+      num.classList.remove('spin'); num.textContent = ganador.boleto; num.classList.add('win');
+      nombre.textContent = '🏆 ' + ganador.nombre;
+      pool.splice(idx, 1); quedan();
+      if(lista.children[0] && lista.children[0].style.color) lista.innerHTML = '';
+      const li = document.createElement('li');
+      li.innerHTML = '<span>' + $('premio').value + '</span><b>#' + ganador.boleto + ' · ' + ganador.nombre + '</b>';
+      lista.prepend(li);
+      confeti(); btn.disabled = false;
+    })();
+  });
+
+  function confeti(){
+    const c = $('confeti'), x = c.getContext('2d'); c.width = innerWidth; c.height = innerHeight;
+    const col = ['#D9A93A','#3ECB3B','#F3F6F8','#C97764'];
+    const ps = Array.from({length:140}, () => ({x:Math.random()*c.width,y:-20-Math.random()*200,v:2+Math.random()*4,s:5+Math.random()*6,c:col[azar(4)],r:Math.random()*6}));
+    let t = 0;
+    (function dib(){
+      x.clearRect(0,0,c.width,c.height);
+      ps.forEach(p => { p.y += p.v; p.r += .1; x.fillStyle = p.c; x.save(); x.translate(p.x,p.y); x.rotate(p.r); x.fillRect(0,0,p.s,p.s*.6); x.restore(); });
+      if(++t < 160) requestAnimationFrame(dib); else x.clearRect(0,0,c.width,c.height);
+    })();
+  }
+</script>
+</body>
+</html>
