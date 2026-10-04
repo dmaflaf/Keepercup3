@@ -185,6 +185,9 @@
     }catch(e){ return ''; }
   }
 
+  // 'NEGRO 0077' -> 'Boleto color NEGRO · N.º 0077'
+  function etiqueta(b){ const p = String(b).split(' '); return 'Boleto color ' + p[0] + ' · N.º ' + p[1]; }
+
   function mostrarResultado(r){
     const lista = $('resLista'); lista.innerHTML = '';
     const ganadores = r.boletos.filter(x => x.ok && x.gano);
@@ -192,7 +195,7 @@
       const d = document.createElement('div');
       d.className = 'item' + (x.ok ? (x.gano ? ' gano' : '') : ' mal');
       if(x.ok && x.gano){
-        d.innerHTML = '<b class="t">' + x.boleto + '</b> · 🏆 <b>¡GANASTE!</b><br>' + x.premio.nombre + '<div class="codigo">' + x.codigoCobro + '</div><div class="hint">Reclámalo en ' + x.premio.lugar + '</div>';
+        d.innerHTML = '<b class="t">' + etiqueta(x.boleto) + '</b><br>🏆 <b>¡GANASTE!</b> ' + x.premio.nombre + '<div class="hint" style="margin-top:8px">Código de cobro:</div><div class="codigo">' + x.codigoCobro + '</div><div class="hint">Reclámalo en ' + x.premio.lugar + '</div>';
         const bt = document.createElement('button'); bt.className = 'btn sec'; bt.textContent = 'Descargar comprobante';
         bt.onclick = () => comprobante({ boleto: x.boleto, premio: x.premio, codigoCobro: x.codigoCobro }); d.appendChild(bt);
       } else if(x.ok){
@@ -246,8 +249,9 @@
     x.fillText('KEEPER CUP 3', 450, 150);
     x.fillStyle = '#F3F6F8'; x.font = '700 40px Arial'; x.fillText('COMPROBANTE DE PREMIO', 450, 220);
     x.font = '120px Arial'; x.fillText('🏆', 450, 380);
-    x.fillStyle = '#93A4B8'; x.font = '30px Arial'; x.fillText('Boleto ganador', 450, 470);
-    x.fillStyle = '#D9A93A'; x.font = '900 110px "League Spartan", Arial'; x.fillText(r.boleto, 450, 580);
+    const pb = String(r.boleto).split(' ');
+    x.fillStyle = '#93A4B8'; x.font = '30px Arial'; x.fillText('Boleto ganador · color ' + pb[0], 450, 470);
+    x.fillStyle = '#D9A93A'; x.font = '900 120px "League Spartan", Arial'; x.fillText(pb[1], 450, 585);
     x.fillStyle = '#F3F6F8'; x.font = '700 44px Arial';
     const lineas = []; let linea = '';
     r.premio.nombre.split(' ').forEach(p => { if((linea + ' ' + p).length > 26){ lineas.push(linea); linea = p; } else linea = (linea + ' ' + p).trim(); });

@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
   }
 
   const lineas = buenos.map((r) => (r.gano
-    ? `<li><b>${r.boleto}</b>: ¡GANÓ ${esc(r.premio.nombre)}! Código de cobro <b style="font-size:20px">${r.codigoCobro}</b> — reclámalo en ${esc(r.premio.lugar)} con tu boleto físico, tu código y el teléfono con el que te registraste.</li>`
+    ? `<li><b>Boleto color ${r.boleto.split(' ')[0]}, N.º ${r.boleto.split(' ')[1]}</b>: ¡GANÓ ${esc(r.premio.nombre)}! Código de cobro: <b style="font-size:20px">${r.codigoCobro}</b> — reclámalo en ${esc(r.premio.lugar)} con tu boleto físico, tu código y el teléfono con el que te registraste.</li>`
     : `<li><b>${r.boleto}</b>: registrado (código ${r.codigo})</li>`)).join('')
   void enviarCorreo(correo, buenos.some((r) => r.gano) ? '¡Ganaste en el sorteo Keeper Cup 3!' : 'Ya participas en el sorteo Keeper Cup 3',
     `<h2>Hola ${esc(nombres)}</h2><ul>${lineas}</ul><p>Guarda tus boletos físicos: son necesarios para cobrar cualquier premio.</p>`)
