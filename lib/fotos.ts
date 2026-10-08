@@ -42,7 +42,8 @@ export async function copiarFotos(
       j,
       faltan: CAMPOS.filter((c) => {
         const id = driveId(j[c.campo])
-        return id && !j.images.some((i) => i.kind === c.tipo && i.sourceId === id)
+        // Las fotos subidas a mano desde el panel ('manual') mandan sobre los enlaces de Drive
+        return id && !j.images.some((i) => i.kind === c.tipo && (i.sourceId === id || i.sourceId === 'manual'))
       }),
     }))
     .filter((p) => p.faltan.length > 0 && !omitir.has(p.j.id))

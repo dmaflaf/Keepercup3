@@ -221,7 +221,7 @@ Ver carpeta `/docs`:
 ## 📌 **PLAN ACORDADO (pendiente): dos vías de entrada, una sola base**
 
 1. **Vía automática:** formulario → Sheet → panel (Sync cada 5 min). Ya funciona.
-2. **Vía manual desde PC (por construir):** página admin "Cargar club": elegir club, subir Excel de nómina + fotos nombradas por cédula (`cédula.jpg`, `cédula CI Frente.jpg`, `cédula CI Reverso.jpg`) directo a la BD (sin pasar por Drive). Reutilizar `lib/importar*.ts` y `PlayerImage`. Subir fotos en lotes pequeños (límite 4.5 MB por request en Vercel Hobby), redimensionar en el navegador.
+2. **Vía manual desde PC (HECHA: `/admin/cargar`):** página admin "Cargar club": elegir club, subir Excel de nómina + fotos nombradas por cédula (`cédula.jpg`, `cédula CI Frente.jpg`, `cédula CI Reverso.jpg`) directo a la BD (sin pasar por Drive). Reutilizar `lib/importar*.ts` y `PlayerImage`. Subir fotos en lotes pequeños (límite 4.5 MB por request en Vercel Hobby), redimensionar en el navegador.
 3. **Base maestra (por construir):** página admin con TODOS los jugadores (ambas vías), filtros y botón Descargar Excel; opcional: llenar un Sheet desde el panel.
 4. **Reglas:** la cédula es clave única; las fotos subidas desde PC mandan sobre enlaces del Sheet (verificar que Sync no las pise); sin carpetas públicas de Drive.
 5. Después: carnet digital con QR, NIX (fixture, resultados, tabla).
@@ -239,3 +239,5 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 - Pendiente: poner en el panel los enlaces reales de IG/TikTok; dominio verificado en Resend para enviar correos; `public/sorteo-demo.html` es solo demo.
 - Reglas vigentes: máx. **4 boletos por semana** por teléfono y por dispositivo (configurable en el panel; semana lunes-domingo hora Ecuador); varios números en un solo registro; teléfono y club obligatorios. **Cobro: boleto físico + código + teléfono de registro** (el panel exige verificar los 3). Quien registre números ajenos se bloquea todo el torneo (panel: "Teléfonos bloqueados"; al bloquear se liberan sus números y un premio no entregado vuelve a quedar pendiente).
 - **Rango semanal:** el admin define en Configuración qué boletos participan esa semana (ej. 0001–0800); fuera de ese rango no se puede registrar y los números al azar se eligen dentro de él. Cambiarlo cada semana.
+
+- **Cargar club desde PC (`/admin/cargar`)**: elegir club (o nuevo) → subir Excel de nómina (hoja Nómina; salta la fila de ejemplo) con revisión previa → subir fotos nombradas por cédula (el navegador las reduce; se guardan en `PlayerImage` con `sourceId='manual'`, que manda sobre los enlaces de Drive del Sheet). Pendiente: Base maestra (listado único con descarga Excel).
