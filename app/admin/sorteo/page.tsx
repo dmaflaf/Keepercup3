@@ -123,6 +123,7 @@ export default function SorteoAdmin() {
         <h1 className="text-3xl font-bold mt-3 mb-1">🎟️ Sorteo</h1>
         <p className="text-slate-400 mb-4">
           Boletos registrados: {Object.entries(datos.boletos).map(([c, n]) => `${c}: ${n}`).join(' · ') || '0'} · Premios ganados: {datos.ganadores} ·{' '}
+          <Link className="underline text-yellow-300 font-semibold" href="/admin/sorteo/participantes">Ver participantes</Link> ·{' '}
           <a className="underline" href="/api/admin/sorteo/export">Descargar boletos (Excel/CSV)</a>
         </p>
         {datos.clubes.length > 0 && (
