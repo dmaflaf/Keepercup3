@@ -241,3 +241,12 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 - **Rango semanal:** el admin define en Configuración qué boletos participan esa semana (ej. 0001–0800); fuera de ese rango no se puede registrar y los números al azar se eligen dentro de él. Cambiarlo cada semana.
 
 - **Cargar club desde PC (`/admin/cargar`)**: elegir club (o nuevo) → subir Excel de nómina (hoja Nómina; salta la fila de ejemplo) con revisión previa → subir fotos nombradas por cédula (el navegador las reduce; se guardan en `PlayerImage` con `sourceId='manual'`, que manda sobre los enlaces de Drive del Sheet). Pendiente: Base maestra (listado único con descarga Excel).
+
+---
+
+## ⚽ **MÓDULO TORNEO (configurable)**
+
+- Modelo: `Torneo` → `Fase` (grupos | eliminatoria; criterios de ubicación ordenables) → `Grupo` → `GrupoEquipo` (+ `posManual`) → `Partido` → `Evento` (gol, gol_penal, autogol, amarilla, doble_amarilla, roja). Tablas, goleadores y sanciones se **calculan al vuelo** (`lib/torneo.ts`, pruebas en `lib/torneo.test.ts`, `npx tsx lib/torneo.test.ts`); `lib/torneo-data.ts` carga y arma todo.
+- Panel: `/admin/torneo` (admin crea fases/grupos/equipos/fixture, edita partidos; vocal solo ve) y `/admin/torneo/partido/[id]` (planilla: goles y tarjetas por jugador; vocal permitido; jugador suspendido bloqueado salvo admin con confirmación). Público: `/torneo` (fixture, tablas, goleadores, sanciones; sin datos personales) vía `/api/torneo/publico`.
+- Keeper Cup 3: 4 grupos de 8; pasan 1°–4° a Copa Oro y 5°–8° a Copa Plata ("Traer clasificados" por posiciones). Puntos 3-1-0. Sanción: 3 amarillas acumuladas = 1 partido (doble amarilla 1, roja directa 2; configurables en Reglas).
+- PENDIENTE: criterios de ubicación oficiales (el usuario los tiene definidos; default puntos, dg, gf, h2h), generador de cruces eliminatorios, planilla imprimible, Excel/PDF.

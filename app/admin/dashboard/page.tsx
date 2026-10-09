@@ -82,10 +82,7 @@ export default function AdminDashboard() {
             { icono: '📷', titulo: 'Fotos', texto: 'Copiar fotos de Drive al sistema', ruta: '/admin/fotos', solo: 'admin' },
             { icono: '👥', titulo: 'Jugadores', texto: 'Ver y revisar fichas de jugadores', ruta: '/admin/jugadores' },
             { icono: '🎟️', titulo: 'Sorteo', texto: 'Premios, números ganadores y tómbola', ruta: '/admin/sorteo', solo: 'admin' },
-            { icono: '⚽', titulo: 'Fixture', texto: 'Próximamente', solo: 'admin' },
-            { icono: '📊', titulo: 'Resultados', texto: 'Próximamente' },
-            { icono: '🏆', titulo: 'Tabla', texto: 'Próximamente' },
-            { icono: '⚠️', titulo: 'Sanciones', texto: 'Próximamente', solo: 'admin' },
+            { icono: '🏆', titulo: 'Torneo', texto: 'Fases, grupos, fixture, resultados, tablas y sanciones', ruta: '/admin/torneo' },
           ]
             .filter((c) => !c.solo || c.solo === usuario?.rol)
             .map((c) =>

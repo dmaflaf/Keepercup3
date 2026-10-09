@@ -303,3 +303,91 @@ model SorteoBloqueo {
 
   @@unique([tipo, valor])
 }
+
+// ---------- TORNEO (configurable: fases, grupos, partidos, eventos) ----------
+
+model Torneo {
+  id                    String   @id @default(cuid())
+  nombre                String
+  activo                Boolean  @default(true)
+  publico               Boolean  @default(true)
+  puntosVictoria        Int      @default(3)
+  puntosEmpate          Int      @default(1)
+  puntosDerrota         Int      @default(0)
+  amarillasSuspension   Int      @default(3) // cada N amarillas acumuladas = 1 partido de suspensión
+  partidosDobleAmarilla Int      @default(1)
+  partidosRojaDirecta   Int      @default(2)
+  createdAt             DateTime @default(now())
+}
+
+model Fase {
+  id        String   @id @default(cuid())
+  torneoId  String
+  orden     Int      @default(1)
+  nombre    String
+  tipo      String   @default("grupos") // grupos | eliminatoria
+  criterios String   @default("puntos,dg,gf,h2h") // orden de ubicación: puntos,dg,gf,gc,ganados,h2h,fairplay
+  createdAt DateTime @default(now())
+
+  @@index([torneoId])
+}
+
+model Grupo {
+  id      String @id @default(cuid())
+  faseId  String
+  nombre  String
+  orden   Int    @default(1)
+
+  @@index([faseId])
+}
+
+model GrupoEquipo {
+  id        String @id @default(cuid())
+  grupoId   String
+  teamId    String
+  posManual Int?   // ajuste manual de posición (desempates decididos por la organización)
+
+  @@unique([grupoId, teamId])
+  @@index([teamId])
+}
+
+model Partido {
+  id               String   @id @default(cuid())
+  torneoId         String
+  faseId           String
+  grupoId          String?
+  jornada          String   // etiqueta: "Fecha 1", "Cuartos de final"
+  jornadaNum       Int      @default(0)
+  fecha            String?  // YYYY-MM-DD
+  hora             String?
+  escenario        String?
+  veedor           String?
+  observaciones    String?  @db.Text
+  localId          String
+  visitanteId      String
+  estado           String   @default("programado") // programado | finalizado | suspendido
+  golesLocal       Int?
+  golesVisitante   Int?
+  marcadorManual   Boolean  @default(false)
+  penalesLocal     Int?
+  penalesVisitante Int?
+  createdAt        DateTime @default(now())
+
+  @@index([torneoId])
+  @@index([grupoId])
+  @@index([localId])
+  @@index([visitanteId])
+}
+
+model Evento {
+  id        String   @id @default(cuid())
+  partidoId String
+  teamId    String
+  playerId  String?
+  tipo      String   // gol | gol_penal | autogol | amarilla | doble_amarilla | roja
+  minuto    Int?
+  createdAt DateTime @default(now())
+
+  @@index([partidoId])
+  @@index([playerId])
+}

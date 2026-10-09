@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Rutas públicas (sin protección)
-  if (pathname === '/' || pathname.startsWith('/registro') || pathname.startsWith('/carnets')) {
+  if (pathname === '/' || pathname.startsWith('/registro') || pathname.startsWith('/carnets') || pathname.startsWith('/torneo') || pathname.startsWith('/api/torneo/publico')) {
     return NextResponse.next()
   }
 
