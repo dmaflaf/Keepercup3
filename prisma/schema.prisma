@@ -391,3 +391,9 @@ model Evento {
   @@index([partidoId])
   @@index([playerId])
 }
+
+// Ajustes generales (clave/valor): logos de auspiciantes del carnet, etc.
+model Ajuste {
+  key   String @id
+  value String @db.Text
+}

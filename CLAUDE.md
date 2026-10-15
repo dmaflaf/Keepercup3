@@ -250,3 +250,12 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 - Panel: `/admin/torneo` (admin crea fases/grupos/equipos/fixture, edita partidos; vocal solo ve) y `/admin/torneo/partido/[id]` (planilla: goles y tarjetas por jugador; vocal permitido; jugador suspendido bloqueado salvo admin con confirmación). Público: `/torneo` (fixture, tablas, goleadores, sanciones; sin datos personales) vía `/api/torneo/publico`.
 - Keeper Cup 3: 4 grupos de 8; pasan 1°–4° a Copa Oro y 5°–8° a Copa Plata ("Traer clasificados" por posiciones). Puntos 3-1-0. Sanción: 3 amarillas acumuladas = 1 partido (doble amarilla 1, roja directa 2; configurables en Reglas).
 - PENDIENTE: criterios de ubicación oficiales (el usuario los tiene definidos; default puntos, dg, gf, h2h), generador de cruces eliminatorios, planilla imprimible, Excel/PDF.
+
+---
+
+## 🪪 **MÓDULO CARNETS**
+
+- Cada jugador tiene `qrToken` secreto (se crea al importar o al habilitar). El QR del carnet es `https://keeper.com.ec/j/<qrToken>` (env `NEXT_PUBLIC_SITE_URL` para cambiar la base). Generar QR no tiene costo (librería `qrcode`).
+- Público `/j/[token]`: carnet digital (foto, nombre, número, club, estado: habilitado verde / pendiente amarillo / suspendido rojo, también por tarjetas). Con sesión admin/vocal muestra además "Control" (amarillas, rojas, suspensión). Nunca expone cédula, correo ni teléfono. API: `/api/carnet/[token]` y `/api/carnet/[token]/foto`.
+- Admin `/admin/carnets`: auspiciantes (4 logos, tabla `Ajuste` claves `aus_1..4`), escudo por club (`Team.logo` PNG base64; sin escudo sale con iniciales), habilitar jugadores (en bloque a los que tienen foto y cédulas) y **PDF A4** por club (`lib/carnet.ts`, pdf-lib): 9 carnets 54×85,6 mm por hoja; tras cada hoja de frentes va su hoja de dorsos con columnas espejadas (doble cara, voltear por el lado largo). Solo jugadores `habilitado` salvo selección manual.
+- Pendiente: quitar fondo de fotos (modelo gratuito en el navegador + pantalla de revisión), modo iPad de verificación en cancha, regenerar QR de un jugador, subir escudos desde Cargar club.
