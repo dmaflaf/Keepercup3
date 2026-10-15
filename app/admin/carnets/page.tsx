@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 
 interface J { id: string; nombre: string; numero: number | null; estado: string; tieneQr: boolean; selfie: boolean; cedulas: boolean }
-interface Aus { slot: number; imagen: string }
 
 const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm'
 const btn = 'px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-semibold text-sm'
@@ -16,7 +15,7 @@ export default function Carnets() {
   const [club, setClub] = useState('')
   const [jug, setJug] = useState<J[]>([])
   const [escudo, setEscudo] = useState<string | null>(null)
-  const [aus, setAus] = useState<Aus[]>([])
+  const [lote, setLote] = useState<{ ok: boolean; texto: string }[] | null>(null)
   const [sel, setSel] = useState<string[]>([])
   const [msg, setMsg] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -24,7 +23,7 @@ export default function Carnets() {
   const cargar = useCallback(async (nombre: string) => {
     const r = await fetch('/api/admin/carnets/club' + (nombre ? '?equipo=' + encodeURIComponent(nombre) : '')).then((x) => x.json()).catch(() => null)
     if (!r?.ok) { setMsg(r?.message || 'No se pudo cargar (¿eres administrador?)'); return }
-    setEquipos(r.equipos); setAus(r.auspicios || [])
+    setEquipos(r.equipos)
     if (nombre) { setJug(r.jugadores || []); setEscudo(r.escudo || null) }
   }, [])
   useEffect(() => { cargar('') }, [cargar])
@@ -53,6 +52,22 @@ export default function Carnets() {
     cargar(club)
   }
 
+  const normal = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\.[a-z0-9]+$/i, '').replace(/[^a-z0-9]+/g, ' ').trim()
+  async function subirLote(archivos: File[]) {
+    setOcupado(true)
+    const res: { ok: boolean; texto: string }[] = []
+    for (const a of archivos) {
+      const t = equipos.find((e) => normal(e) === normal(a.name))
+      if (!t) { res.push({ ok: false, texto: `"${a.name}": no coincide con ningún club (revisa el nombre del archivo)` }); continue }
+      const fd = new FormData()
+      fd.append('equipo', t); fd.append('file', a)
+      const r = await fetch('/api/admin/carnets/escudo', { method: 'POST', body: fd }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Error de conexión' }))
+      res.push({ ok: !!r.ok, texto: r.ok ? `${t}: escudo guardado` : `${t}: ${r.message}` })
+    }
+    setLote(res); setOcupado(false)
+    if (club) cargar(club)
+  }
+
   const pdf = (ids: string[], todos = false) => window.open(`/api/admin/carnets/pdf?equipo=${encodeURIComponent(club)}${ids.length ? '&ids=' + ids.join(',') : ''}${todos ? '&todos=1' : ''}`, '_blank')
   const badge = (e: string) => (e === 'habilitado' ? 'text-green-400' : e === 'suspendido' ? 'text-red-400' : 'text-yellow-300')
 
@@ -61,23 +76,18 @@ export default function Carnets() {
       <div className="max-w-5xl mx-auto px-6 py-10">
         <Link href="/admin/dashboard" className="text-slate-400 text-sm hover:text-white">← Volver al panel</Link>
         <h1 className="text-3xl font-bold mt-3 mb-1">🪪 Carnets</h1>
-        <p className="text-slate-400 mb-5">Genera los carnets de un club en PDF (hoja A4, 9 por hoja, con QR). Solo se imprimen los jugadores <b>habilitados</b>.</p>
+        <p className="text-slate-400 mb-5">Genera los carnets de un club en PDF (hoja A4, 9 por hoja con 2 mm de separación, con QR). Solo se imprimen los jugadores <b>habilitados</b>.</p>
         {msg && <div className="bg-slate-700 border border-slate-500 rounded-lg p-3 mb-4 text-sm" onClick={() => setMsg('')}>{msg}</div>}
 
         <section className={sec}>
-          <h2 className="font-bold mb-3">Auspiciantes (se repiten en todos los carnets, hasta 4)</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[1, 2, 3, 4].map((slot) => {
-              const a = aus.find((x) => x.slot === slot)
-              return (
-                <div key={slot} className="bg-slate-900/60 rounded-lg p-3 text-center text-sm">
-                  <div className="h-16 flex items-center justify-center bg-white/90 rounded mb-2">{a ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={a.imagen} alt="" className="max-h-14 max-w-full" /> : <span className="text-slate-500">Auspicio {slot}</span>}</div>
-                  <label className="cursor-pointer underline text-yellow-300">{a ? 'Cambiar' : 'Subir logo'}<input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && subir('/api/admin/carnets/auspicios', { slot: String(slot) }, e.target.files[0])} /></label>
-                  {a && <button className="ml-3 text-red-400" onClick={async () => { await fetch('/api/admin/carnets/auspicios?slot=' + slot, { method: 'DELETE' }); cargar(club) }}>Quitar</button>}
-                </div>
-              )
-            })}
+          <div className="flex flex-wrap gap-3 items-center justify-between">
+            <div><h2 className="font-bold">Escudos de todos los clubes</h2><p className="text-slate-400 text-sm">Sube varios PNG sin fondo de una vez. Cada archivo debe llamarse como el club (ej. <code>Legacy FC.png</code>).</p></div>
+            <div className="flex gap-2">
+              <label className={btn2 + ' cursor-pointer'}>Subir escudos en lote<input type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && subirLote(Array.from(e.target.files))} /></label>
+              <Link href="/admin/carnets/diseno" className={btn2}>Diseño del carnet</Link>
+            </div>
           </div>
+          {lote && <div className="mt-3 text-sm space-y-1">{lote.map((l, i) => <p key={i} className={l.ok ? 'text-green-400' : 'text-yellow-300'}>{l.ok ? '✔' : '⚠'} {l.texto}</p>)}</div>}
         </section>
 
         <section className={sec}>

@@ -1,4 +1,5 @@
-import { PDFDocument, PDFFont, PDFImage, StandardFonts, rgb } from 'pdf-lib'
+import { PDFDocument, PDFFont, PDFImage, PDFPage, rgb, popGraphicsState, pushGraphicsState, moveTo, lineTo, appendBezierCurve, closePath, clip, endPath } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 import QRCode from 'qrcode'
 import sharp from 'sharp'
 
@@ -8,157 +9,224 @@ export const urlCarnet = (token: string) => `${siteUrl()}/j/${token}`
 export interface JugadorCarnet {
   nombres: string
   apellidos: string
+  cedula: string | null
+  fechaNacimiento: string | null // YYYY-MM-DD
   numero: number | null
-  estado: string
   qrToken: string
   selfie: Buffer | null
 }
 export interface DatosPdf {
   club: string
-  escudo: Buffer | null // PNG
-  auspicios: Buffer[] // PNG
-  logoTorneo: Buffer | null // PNG
+  escudo: Buffer | null // PNG sin fondo
   jugadores: JugadorCarnet[]
+  plantilla: Uint8Array // PDF vectorial con el arte del carnet (frente y dorso)
+  fuentes: { negrita: Uint8Array; normal: Uint8Array; numero: Uint8Array }
+  layout?: Partial<Layout>
 }
 
+// ---------------------------------------------------------------------------------------------
+// Medidas, en puntos (1 pt = 1/72 pulgada), tomadas del PDF "Carnet 26" (Illustrator).
+// Todas las posiciones son relativas a la esquina superior izquierda de cada tarjeta.
+// ---------------------------------------------------------------------------------------------
+export interface Layout {
+  foto: { x: number; y: number; w: number; h: number; inset: number; radio: number }
+  texto: { cx: number; maxW: number; tam: number; base: [number, number, number, number] }
+  escudoFrente: { cx: number; cy: number; w: number; h: number }
+  numero: { cx: number; base: number; cap: number; maxW: number }
+  banda: { cx: number; base: number; cap: number; maxW: number }
+  qr: { cx: number; cy: number; lado: number }
+  escudoDorso: { cx: number; cy: number; w: number; h: number }
+  nombreDorso: { cx: number; base: number; tam: number; maxW: number }
+  /** Rectángulo que tapa el nombre de ejemplo ('Damián Mafla - 25') que trae la franja gris del dorso en la plantilla */
+  cubrirDorso: { x0: number; x1: number; y0: number; y1: number }
+}
+
+export const LAYOUT_DEFECTO: Layout = {
+  foto: { x: 9.6, y: 47.4, w: 78.3, h: 98.1, inset: 1.9, radio: 8 },
+  texto: { cx: 48.8, maxW: 76, tam: 11.2, base: [158.6, 168.6, 178.9, 188.8] },
+  escudoFrente: { cx: 118.1, cy: 94.8, w: 52, h: 55 },
+  numero: { cx: 116.5, base: 190.5, cap: 40.6, maxW: 54 },
+  banda: { cx: 78.0, base: 210.9, cap: 11.4, maxW: 140 },
+  qr: { cx: 79.4, cy: 117.4, lado: 72 },
+  escudoDorso: { cx: 79.4, cy: 36.1, w: 40, h: 42 },
+  nombreDorso: { cx: 79.4, base: 210.9, tam: 7.6, maxW: 90 },
+  cubrirDorso: { x0: 14, x1: 146, y0: 201.6, y1: 213.9 },
+}
+
+// Geometría de la plantilla (página de 328,169 x 254,223 pt): tarjeta frente y dorso
+const PLANTILLA = { alto: 254.223, tarjetaW: 155.98, tarjetaH: 240.94, top: 4.2, frenteX: 4.92, dorsoX: 166.78 }
 const MM = 72 / 25.4
-const mm = (n: number) => n * MM
-const NAVY = rgb(0.024, 0.075, 0.149)
-const GOLD = rgb(0.851, 0.663, 0.227)
-const GREEN = rgb(0.184, 0.702, 0.267)
-const AMBER = rgb(0.95, 0.72, 0.1)
-const RED = rgb(0.85, 0.2, 0.2)
-const DIM = rgb(0.56, 0.63, 0.71)
-const W = 54
-const H = 85.6
-const GAP = 4
-const A4 = { w: 210, h: 297 }
+const A4 = { w: 595.276, h: 841.89 }
+const SEPARACION = 2 * MM // 2 mm entre carnets
+const NAVY = rgb(0.039, 0.071, 0.106)
+const ROJO = rgb(0.749, 0.106, 0.173)
+const BLANCO = rgb(1, 1, 1)
+const GRIS_FRANJA = rgb(0.482, 0.475, 0.475) // #7b7979, color de la franja del dorso
 
-const sinTildesRaros = (s: string) => s.replace(/[^ -ÿ]/g, '')
-
-function colorEstado(e: string) {
-  return e === 'habilitado' ? GREEN : e === 'suspendido' ? RED : AMBER
+export function mezclarLayout(parcial?: Partial<Layout>): Layout {
+  const out = JSON.parse(JSON.stringify(LAYOUT_DEFECTO)) as Layout
+  if (!parcial) return out
+  for (const k of Object.keys(parcial) as (keyof Layout)[]) Object.assign(out[k], parcial[k])
+  return out
 }
 
-/** Hoja A4 con 9 carnets (3x3). Primero las hojas de frentes y, tras cada una, la de dorsos con columnas espejadas (impresión a doble cara, voltear por el lado largo). */
+type Fuentes = { negrita: PDFFont; normal: PDFFont; numero: PDFFont }
+
+function capRatio(f: PDFFont): number {
+  const e = (f as unknown as { embedder?: { font?: { capHeight?: number; unitsPerEm?: number } } }).embedder?.font
+  return e?.capHeight && e.unitsPerEm ? e.capHeight / e.unitsPerEm : 0.7
+}
+function seguro(f: PDFFont, t: string): string {
+  try { f.widthOfTextAtSize(t, 10); return t } catch { return t.replace(/[^ -ÿ]/g, '') }
+}
+function ajustarTam(f: PDFFont, t: string, tam: number, maxW: number, min = 5) {
+  let s = tam
+  while (s > min && f.widthOfTextAtSize(t, s) > maxW) s -= 0.25
+  return s
+}
+const primera = (s: string) => (s || '').trim().split(/\s+/)[0] || ''
+const fechaDMY = (iso: string | null) => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}-${iso.slice(5, 7)}-${iso.slice(0, 4)}` : '')
+
+/** Hoja A4 con 9 carnets (3x3) con 2 mm entre ellos. Cada hoja de frentes va seguida de su hoja de dorsos (columnas espejadas, voltear por el lado largo). */
 export async function construirPdf(d: DatosPdf): Promise<Uint8Array> {
+  const L = mezclarLayout(d.layout)
   const pdf = await PDFDocument.create()
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-  const normal = await pdf.embedFont(StandardFonts.Helvetica)
-  const emb = async (b: Buffer | null) => (b ? await pdf.embedPng(b).catch(() => null) : null)
-  const escudo = await emb(d.escudo)
-  const logo = await emb(d.logoTorneo)
-  const aus = (await Promise.all(d.auspicios.slice(0, 4).map(emb))).filter(Boolean) as PDFImage[]
+  pdf.registerFontkit(fontkit)
+  const fu: Fuentes = {
+    negrita: await pdf.embedFont(d.fuentes.negrita, { subset: true }),
+    normal: await pdf.embedFont(d.fuentes.normal, { subset: true }),
+    numero: await pdf.embedFont(d.fuentes.numero, { subset: true }),
+  }
+  const origen = await PDFDocument.load(d.plantilla)
+  const pagOrigen = origen.getPages()[0]
+  const caja = (x0: number) => ({ left: x0 - 0.25, right: x0 + PLANTILLA.tarjetaW + 0.25, top: PLANTILLA.alto - PLANTILLA.top + 0.25, bottom: PLANTILLA.alto - (PLANTILLA.top + PLANTILLA.tarjetaH) - 0.25 })
+  const artFrente = await pdf.embedPage(pagOrigen, caja(PLANTILLA.frenteX))
+  const artDorso = await pdf.embedPage(pagOrigen, caja(PLANTILLA.dorsoX))
+  const escudo = d.escudo ? await pdf.embedPng(d.escudo).catch(() => null) : null
 
-  const x0 = (A4.w - (3 * W + 2 * GAP)) / 2
-  const y0 = (A4.h - (3 * H + 2 * GAP)) / 2
-  const porHoja = 9
+  const W = PLANTILLA.tarjetaW
+  const H = PLANTILLA.tarjetaH
+  const x0 = (A4.w - (3 * W + 2 * SEPARACION)) / 2
+  const y0 = (A4.h - (3 * H + 2 * SEPARACION)) / 2
+  const club = seguro(fu.numero, primera(d.club).toUpperCase())
 
-  for (let i = 0; i < d.jugadores.length; i += porHoja) {
-    const lote = d.jugadores.slice(i, i + porHoja)
-    const frente = pdf.addPage([mm(A4.w), mm(A4.h)])
-    const dorso = pdf.addPage([mm(A4.w), mm(A4.h)])
+  for (let i = 0; i < d.jugadores.length; i += 9) {
+    const lote = d.jugadores.slice(i, i + 9)
+    const pf = pdf.addPage([A4.w, A4.h])
+    const pd = pdf.addPage([A4.w, A4.h])
     for (let k = 0; k < lote.length; k++) {
       const r = Math.floor(k / 3)
       const c = k % 3
-      const top = y0 + r * (H + GAP)
-      await dibujarFrente(pdf, frente, x0 + c * (W + GAP), top, lote[k], { bold, logo })
-      await dibujarDorso(pdf, dorso, x0 + (2 - c) * (W + GAP), top, lote[k], { bold, normal, escudo, logo, aus, club: d.club })
+      const top = y0 + r * (H + SEPARACION)
+      await dibujarFrente(pdf, pf, artFrente, x0 + c * (W + SEPARACION), top, lote[k], L, fu, escudo, club)
+      await dibujarDorso(pdf, pd, artDorso, x0 + (2 - c) * (W + SEPARACION), top, lote[k], L, fu, escudo)
     }
   }
-  if (!d.jugadores.length) pdf.addPage([mm(A4.w), mm(A4.h)])
+  if (!d.jugadores.length) pdf.addPage([A4.w, A4.h])
   return pdf.save()
 }
 
-type Pag = ReturnType<PDFDocument['addPage']>
-const Y = (top: number, alto = 0) => mm(A4.h - top - alto)
+type Origen = { x: number; top: number }
+const yPdf = (o: Origen, relTop: number) => A4.h - (o.top + relTop)
 
-function ajustar(font: PDFFont, texto: string, maxMm: number, tam: number, min = 6) {
-  let t = tam
-  while (t > min && font.widthOfTextAtSize(texto, t) > mm(maxMm)) t -= 0.5
-  return t
+function texto(p: PDFPage, o: Origen, f: PDFFont, t: string, cx: number, base: number, tam: number, color = NAVY) {
+  const s = seguro(f, t)
+  p.drawText(s, { x: o.x + cx - f.widthOfTextAtSize(s, tam) / 2, y: yPdf(o, base), size: tam, font: f, color })
 }
-function centrado(p: Pag, font: PDFFont, texto: string, cx: number, top: number, tam: number, color = rgb(1, 1, 1)) {
-  const w = font.widthOfTextAtSize(texto, tam)
-  p.drawText(texto, { x: mm(cx) - w / 2, y: Y(top), size: tam, font, color })
-}
-function contener(img: PDFImage, boxW: number, boxH: number) {
-  const k = Math.min(mm(boxW) / img.width, mm(boxH) / img.height)
+function contener(img: PDFImage, w: number, h: number) {
+  const k = Math.min(w / img.width, h / img.height)
   return { w: img.width * k, h: img.height * k }
 }
-
-async function dibujarFrente(pdf: PDFDocument, p: Pag, x: number, top: number, j: JugadorCarnet, f: { bold: PDFFont; logo: PDFImage | null }) {
-  p.drawRectangle({ x: mm(x), y: Y(top, H), width: mm(W), height: mm(H), color: NAVY })
-  p.drawRectangle({ x: mm(x + 6), y: Y(top, 0.8), width: mm(W - 12), height: mm(0.8), color: GOLD })
-  if (f.logo) {
-    const s = contener(f.logo, 30, 8)
-    p.drawImage(f.logo, { x: mm(x + W / 2) - s.w / 2, y: Y(top + 3, 0) - s.h, width: s.w, height: s.h })
-  } else centrado(p, f.bold, 'KEEPER CUP 3', x + W / 2, top + 8, 9, GOLD)
-
-  // Foto (recorte exacto 36 x 43 mm)
-  const fw = 36, fh = 43
-  if (j.selfie) {
-    try {
-      const jpg = await sharp(j.selfie).rotate().resize(432, 516, { fit: 'cover', position: 'attention' }).jpeg({ quality: 82 }).toBuffer()
-      const img = await pdf.embedJpg(jpg)
-      p.drawImage(img, { x: mm(x + (W - fw) / 2), y: Y(top + 14, fh), width: mm(fw), height: mm(fh) })
-    } catch { /* sin foto */ }
-  } else {
-    p.drawRectangle({ x: mm(x + (W - fw) / 2), y: Y(top + 14, fh), width: mm(fw), height: mm(fh), color: rgb(0.08, 0.16, 0.29) })
-    centrado(p, f.bold, 'SIN FOTO', x + W / 2, top + 37, 7, DIM)
-  }
-
-  centrado(p, f.bold, j.numero !== null ? String(j.numero) : '-', x + W / 2, top + 66, 26, GOLD)
-  const l1 = sinTildesRaros(j.nombres.toUpperCase())
-  const l2 = sinTildesRaros(j.apellidos.toUpperCase())
-  centrado(p, f.bold, l1, x + W / 2, top + 72.5, ajustar(f.bold, l1, W - 6, 9.5), rgb(1, 1, 1))
-  centrado(p, f.bold, l2, x + W / 2, top + 77, ajustar(f.bold, l2, W - 6, 9.5), GOLD)
-  p.drawRectangle({ x: mm(x), y: Y(top, H), width: mm(W), height: mm(2.2), color: colorEstado(j.estado) })
+function rectRedondeado(p: PDFPage, x: number, y: number, w: number, h: number, r: number) {
+  const k = 0.5523 * r
+  p.pushOperators(
+    pushGraphicsState(),
+    moveTo(x + r, y), lineTo(x + w - r, y), appendBezierCurve(x + w - r + k, y, x + w, y + r - k, x + w, y + r),
+    lineTo(x + w, y + h - r), appendBezierCurve(x + w, y + h - r + k, x + w - r + k, y + h, x + w - r, y + h),
+    lineTo(x + r, y + h), appendBezierCurve(x + r - k, y + h, x, y + h - r + k, x, y + h - r),
+    lineTo(x, y + r), appendBezierCurve(x, y + r - k, x + r - k, y, x + r, y),
+    closePath(), clip(), endPath()
+  )
 }
 
-async function dibujarDorso(pdf: PDFDocument, p: Pag, x: number, top: number, j: JugadorCarnet, f: { bold: PDFFont; normal: PDFFont; escudo: PDFImage | null; logo: PDFImage | null; aus: PDFImage[]; club: string }) {
-  p.drawRectangle({ x: mm(x), y: Y(top, H), width: mm(W), height: mm(H), color: rgb(1, 1, 1), borderColor: rgb(0.85, 0.87, 0.9), borderWidth: 0.5 })
-  const cx = x + W / 2
-  // Escudo (o iniciales)
-  if (f.escudo) {
-    const s = contener(f.escudo, 13, 13)
-    p.drawImage(f.escudo, { x: mm(cx) - s.w / 2, y: Y(top + 4) - s.h, width: s.w, height: s.h })
-  } else {
-    p.drawCircle({ x: mm(cx), y: Y(top + 10.5), size: mm(6.2), color: NAVY, borderColor: GOLD, borderWidth: 1 })
-    const ini = f.club.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'KC'
-    centrado(p, f.bold, sinTildesRaros(ini), cx, top + 12, 9, rgb(1, 1, 1))
-  }
-  const club = sinTildesRaros(f.club.toUpperCase())
-  centrado(p, f.bold, club, cx, top + 21.5, ajustar(f.bold, club, W - 6, 8), NAVY)
+async function dibujarFrente(pdf: PDFDocument, p: PDFPage, art: Awaited<ReturnType<PDFDocument['embedPage']>>, x: number, top: number, j: JugadorCarnet, L: Layout, f: Fuentes, escudo: PDFImage | null, club: string) {
+  const o: Origen = { x, top }
+  p.drawPage(art, { x: x - 0.25, y: A4.h - top - PLANTILLA.tarjetaH - 0.25 })
 
-  // QR (vectorial, negro sobre blanco)
+  // Foto recortada al marco redondeado
+  const F = L.foto
+  const iw = F.w - 2 * F.inset
+  const ih = F.h - 2 * F.inset
+  if (j.selfie) {
+    try {
+      const jpg = await sharp(j.selfie).rotate().resize(Math.round(iw * 10), Math.round(ih * 10), { fit: 'cover', position: 'attention' }).jpeg({ quality: 88 }).toBuffer()
+      const img = await pdf.embedJpg(jpg)
+      rectRedondeado(p, x + F.x + F.inset, yPdf(o, F.y + F.inset + ih), iw, ih, Math.max(F.radio - F.inset, 1))
+      p.drawImage(img, { x: x + F.x + F.inset, y: yPdf(o, F.y + F.inset + ih), width: iw, height: ih })
+      p.pushOperators(popGraphicsState())
+    } catch { /* sin foto */ }
+  }
+
+  // Datos: nombres (negrita), apellidos, cédula y fecha de nacimiento
+  const T = L.texto
+  const lineas: [string, PDFFont][] = [
+    [j.nombres, f.negrita], [j.apellidos, f.normal], [j.cedula || '', f.normal], [fechaDMY(j.fechaNacimiento), f.normal],
+  ]
+  lineas.forEach(([t, fu], i) => {
+    if (!t) return
+    const s = seguro(fu, t)
+    texto(p, o, fu, s, T.cx, T.base[i], ajustarTam(fu, s, T.tam, T.maxW))
+  })
+
+  // Escudo del club (PNG sin fondo)
+  if (escudo) {
+    const E = L.escudoFrente
+    const s = contener(escudo, E.w, E.h)
+    p.drawImage(escudo, { x: x + E.cx - s.w / 2, y: yPdf(o, E.cy) - s.h / 2, width: s.w, height: s.h })
+  }
+
+  // Número grande (rojo)
+  if (j.numero !== null) {
+    const N = L.numero
+    const t = String(j.numero)
+    const tam = ajustarTam(f.numero, t, N.cap / capRatio(f.numero), N.maxW)
+    texto(p, o, f.numero, t, N.cx, N.base, tam, ROJO)
+  }
+
+  // Franja: primera palabra del club, siempre del mismo tamaño
+  const B = L.banda
+  const tamB = ajustarTam(f.numero, club, B.cap / capRatio(f.numero), B.maxW, 8)
+  texto(p, o, f.numero, club, B.cx, B.base, tamB, BLANCO)
+}
+
+async function dibujarDorso(pdf: PDFDocument, p: PDFPage, art: Awaited<ReturnType<PDFDocument['embedPage']>>, x: number, top: number, j: JugadorCarnet, L: Layout, f: Fuentes, escudo: PDFImage | null) {
+  const o: Origen = { x, top }
+  p.drawPage(art, { x: x - 0.25, y: A4.h - top - PLANTILLA.tarjetaH - 0.25 })
+
+  if (escudo) {
+    const E = L.escudoDorso
+    const s = contener(escudo, E.w, E.h)
+    p.drawImage(escudo, { x: x + E.cx - s.w / 2, y: yPdf(o, E.cy) - s.h / 2, width: s.w, height: s.h })
+  }
+
+  // QR vectorial (negro sobre blanco) dentro del marco
   const qr = QRCode.create(urlCarnet(j.qrToken), { errorCorrectionLevel: 'M' })
   const n = qr.modules.size
-  const lado = 30
+  const lado = L.qr.lado
   const cell = lado / n
-  const qx = cx - lado / 2
-  const qy = top + 25
+  const qx = x + L.qr.cx - lado / 2
+  const qTop = L.qr.cy - lado / 2
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
-    if (qr.modules.get(r, c)) p.drawRectangle({ x: mm(qx + c * cell), y: Y(qy + r * cell, cell) - 0.15, width: mm(cell) + 0.3, height: mm(cell) + 0.3, color: rgb(0, 0, 0) })
+    if (qr.modules.get(r, c)) p.drawRectangle({ x: qx + c * cell - 0.05, y: yPdf(o, qTop + (r + 1) * cell) - 0.05, width: cell + 0.1, height: cell + 0.1, color: rgb(0, 0, 0) })
   }
-  centrado(p, f.bold, 'ESCANEA PARA VERIFICAR', cx, top + 60, 5.2, rgb(0.4, 0.43, 0.5))
-  p.drawRectangle({ x: mm(x + 6), y: Y(top + 66, 0.2), width: mm(W - 12), height: mm(0.2), color: rgb(0.88, 0.9, 0.93) })
 
-  // Logo del torneo sobre franja azul
-  p.drawRectangle({ x: mm(cx - 11), y: Y(top + 67.5, 6.2), width: mm(22), height: mm(6.2), color: NAVY })
-  if (f.logo) {
-    const s = contener(f.logo, 18, 4)
-    p.drawImage(f.logo, { x: mm(cx) - s.w / 2, y: Y(top + 68.6) - s.h, width: s.w, height: s.h })
-  }
-  // Auspicios (hasta 4)
-  const bw = 11, bh = 7, gap = 1.3
-  const total = Math.min(4, Math.max(f.aus.length, 0))
-  if (total) {
-    const ancho = total * bw + (total - 1) * gap
-    f.aus.slice(0, 4).forEach((img, i) => {
-      const s = contener(img, bw - 1, bh - 1)
-      const bx = cx - ancho / 2 + i * (bw + gap)
-      p.drawImage(img, { x: mm(bx + bw / 2) - s.w / 2, y: Y(top + 75.8 + bh / 2) - s.h / 2, width: s.w, height: s.h })
-    })
-  }
+  // Tapa el nombre de ejemplo de la plantilla con el gris de la franja
+  const C = L.cubrirDorso
+  p.drawRectangle({ x: x + C.x0, y: yPdf(o, C.y1), width: C.x1 - C.x0, height: C.y1 - C.y0, color: GRIS_FRANJA })
+
+  // Identificación para el corte: "Nombre Apellido - Número"
+  const nombre = `${primera(j.nombres)} ${primera(j.apellidos)}`.trim() + (j.numero !== null ? ` - ${j.numero}` : '')
+  const D = L.nombreDorso
+  const s = seguro(f.negrita, nombre)
+  texto(p, o, f.negrita, s, D.cx, D.base, ajustarTam(f.negrita, s, D.tam, D.maxW), NAVY)
 }
