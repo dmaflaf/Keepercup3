@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Keeper Cup 3 — Carnet de juego (DEMO)</title>
+<link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;700;900&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#051225;--navy2:#0B1B33;--gold:#D9A93A;--green:#3ECB3B;--ink:#F3F6F8;--dim:#93A4B8}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9edf2;font-family:'Work Sans',sans-serif;color:#111;padding:24px 16px 60px}
+  h1{font-family:'League Spartan',sans-serif;font-weight:900;text-align:center;margin:0 0 4px;font-size:26px}
+  .sub{text-align:center;color:#556;font-size:14px;margin:0 0 22px}
+  .fila{display:flex;gap:28px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+  .lado{text-align:center;font-size:12px;color:#556;margin-top:8px}
+  /* Tamaño tarjeta estándar CR80: 85,6 x 54 mm. Aquí 1 mm = 4 px en pantalla; en impresión se usa mm reales. */
+  .carnet{width:342.4px;height:216px;border-radius:12px;overflow:hidden;position:relative;box-shadow:0 8px 24px rgba(0,0,0,.25);print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .frente{background:radial-gradient(260px 160px at 85% -10%,#1d4a85 0%,var(--navy) 62%);color:var(--ink)}
+  .frente::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.03) 0 2px,transparent 2px 14px)}
+  .franja{position:absolute;left:0;right:0;top:0;height:6px;background:linear-gradient(90deg,var(--gold),#f3d27a,var(--gold))}
+  .logo{position:absolute;left:14px;top:14px;height:26px}
+  .torneo{position:absolute;right:14px;top:16px;text-align:right;font-family:'League Spartan';font-weight:900;font-size:10px;letter-spacing:.14em;color:var(--gold);line-height:1.25}
+  .foto{position:absolute;left:14px;top:52px;width:86px;height:108px;border-radius:8px;border:2px solid var(--gold);overflow:hidden;background:#13294a}
+  .foto svg{width:100%;height:100%;display:block}
+  .datos{position:absolute;left:112px;top:50px;right:12px}
+  .nombre{font-family:'League Spartan';font-weight:900;font-size:19px;line-height:1.02;text-transform:uppercase}
+  .apellido{font-family:'League Spartan';font-weight:900;font-size:19px;line-height:1.02;text-transform:uppercase;color:var(--gold)}
+  .club{margin-top:8px;font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.04em}
+  .club b{color:var(--ink)}
+  .fila-n{display:flex;align-items:flex-end;gap:10px;margin-top:6px}
+  .num{font-family:'League Spartan';font-weight:900;font-size:46px;line-height:.9;color:var(--ink)}
+  .pos{font-size:10px;color:var(--dim);line-height:1.5;padding-bottom:3px}
+  .pos b{color:var(--ink);font-size:11px}
+  .estado{position:absolute;left:0;right:0;bottom:0;height:30px;background:linear-gradient(90deg,#128a2c,var(--green));color:#04210a;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-family:'League Spartan';font-weight:900;letter-spacing:.08em;font-size:11px}
+  .estado span:last-child{font-weight:700;font-size:9px;letter-spacing:.06em}
+  .dorso{background:#fff;color:#0b1b33}
+  .dorso .franja{background:linear-gradient(90deg,var(--navy),#1d4a85,var(--navy))}
+  .qrbox{position:absolute;left:14px;top:20px;width:130px;height:130px;padding:6px;background:#fff;border:2px solid var(--navy);border-radius:8px}
+  .qrbox svg{width:100%;height:100%;display:block}
+  .scan{position:absolute;left:8px;top:156px;width:142px;text-align:center;font-family:"League Spartan",sans-serif;font-weight:900;font-size:9.5px;letter-spacing:.04em;white-space:nowrap}
+  .cod{position:absolute;left:14px;top:181px;width:130px;text-align:center;font-size:9px;color:#556;font-family:ui-monospace,monospace}
+  .info{position:absolute;left:162px;top:20px;right:14px}
+  .info h3{font-family:'League Spartan';font-weight:900;font-size:13px;margin:0 0 6px;letter-spacing:.04em}
+  .info p{font-size:9.5px;line-height:1.45;margin:0 0 6px;color:#334}
+  .info ul{margin:0;padding-left:14px;font-size:9.5px;line-height:1.5;color:#334}
+  .pie{position:absolute;left:162px;right:14px;bottom:12px;font-size:8.5px;color:#667;border-top:1px solid #d5dbe4;padding-top:6px;line-height:1.35}
+  .nota{max-width:760px;margin:26px auto 0;background:#fff;border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.55;color:#334;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  .nota b{color:#111}
+  @media print{
+    body{background:#fff;padding:0}
+    h1,.sub,.lado,.nota{display:none}
+    .fila{gap:6mm;justify-content:flex-start}
+    .carnet{width:85.6mm;height:54mm;border-radius:3mm;box-shadow:none;zoom:1.0}
+  }
+</style>
+</head>
+<body>
+  <h1>Carnet de juego · Keeper Cup 3</h1>
+  <p class="sub">DEMO con datos ficticios · tamaño tarjeta estándar 85,6 × 54 mm</p>
+
+  <div class="fila">
+    <div>
+      <div class="carnet frente">
+        <div class="franja"></div>
+        <img class="logo" src="logo-kc3.png" alt="Keeper Cup 3">
+        <div class="torneo">CARNET DE<br>JUGADOR</div>
+        <div class="foto">
+          <svg viewBox="0 0 86 108" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a5a99"/><stop offset="1" stop-color="#0d2144"/></linearGradient></defs><rect width="86" height="108" fill="url(#g)"/><circle cx="43" cy="42" r="19" fill="#9fb3cc"/><path d="M6 108c0-28 16-40 37-40s37 12 37 40z" fill="#9fb3cc"/></svg>
+        </div>
+        <div class="datos">
+          <div class="nombre">Juan Carlos</div>
+          <div class="apellido">Pérez Andrade</div>
+          <div class="club">CLUB · <b>Legacy FC</b></div>
+          <div class="fila-n">
+            <div class="num">10</div>
+            <div class="pos">POSICIÓN<br><b>Delantero</b></div>
+          </div>
+        </div>
+        <div class="estado"><span>✔ JUGADOR HABILITADO</span><span>TEMPORADA 2026</span></div>
+      </div>
+      <div class="lado">FRENTE</div>
+    </div>
+
+    <div>
+      <div class="carnet dorso">
+        <div class="franja"></div>
+        <div class="qrbox"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 33" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h33v33H0z"/><path stroke="#000000" d="M0 0.5h7m1 0h6m1 0h1m2 0h1m1 0h1m1 0h2m2 0h7M0 1.5h1m5 0h1m3 0h2m1 0h2m1 0h1m1 0h2m6 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m2 0h2m3 0h2m1 0h3m1 0h1m1 0h2m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m1 0h4m4 0h2m3 0h3m2 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h2m6 0h2m1 0h1m3 0h1m2 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m1 0h2m1 0h5m1 0h1m2 0h2m2 0h1m1 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h3m6 0h6m1 0h1M0 8.5h1m3 0h1m1 0h5m1 0h1m2 0h1m1 0h1m2 0h2m1 0h7m2 0h1M0 9.5h1m1 0h1m1 0h1m2 0h1m1 0h4m1 0h2m1 0h2m2 0h1m1 0h1m1 0h1m3 0h2M2 10.5h1m1 0h3m4 0h1m1 0h3m2 0h1m1 0h1m2 0h1m1 0h2m2 0h1M1 11.5h1m2 0h2m2 0h1m3 0h2m6 0h1m1 0h2m7 0h2M2 12.5h1m3 0h1m2 0h1m2 0h2m1 0h2m2 0h1m2 0h1m1 0h1m1 0h1m2 0h1m1 0h1M2 13.5h4m2 0h1m3 0h3m2 0h5m5 0h1m2 0h1M0 14.5h2m2 0h1m1 0h2m3 0h1m3 0h1m4 0h1m2 0h1m1 0h2m1 0h4M0 15.5h3m2 0h1m1 0h1m2 0h3m2 0h3m3 0h2m1 0h4M1 16.5h2m3 0h4m1 0h1m1 0h1m3 0h6m3 0h1m1 0h1m2 0h1M0 17.5h1m4 0h1m2 0h5m3 0h1m1 0h1m4 0h1m1 0h1m3 0h4M1 18.5h1m1 0h5m1 0h2m3 0h2m1 0h1m3 0h4m2 0h1m1 0h1m1 0h1M1 19.5h1m5 0h1m2 0h2m3 0h1m1 0h5m1 0h2m2 0h1m3 0h2M4 20.5h4m1 0h3m3 0h1m2 0h1m1 0h1m5 0h4m1 0h2M0 21.5h1m1 0h2m1 0h1m5 0h3m2 0h2m1 0h1m2 0h2m2 0h1m2 0h1m1 0h1M2 22.5h2m1 0h2m1 0h1m1 0h1m2 0h2m1 0h1m1 0h2m2 0h2m2 0h3m2 0h1M2 23.5h4m3 0h2m1 0h2m3 0h5m1 0h5m3 0h1M0 24.5h4m2 0h10m4 0h3m1 0h7M8 25.5h6m2 0h3m1 0h2m2 0h1m3 0h1m1 0h1M0 26.5h7m1 0h1m3 0h1m2 0h1m2 0h1m1 0h1m3 0h1m1 0h1m1 0h2M0 27.5h1m5 0h1m3 0h1m1 0h1m1 0h2m4 0h1m1 0h1m1 0h1m3 0h1m3 0h1M0 28.5h1m1 0h3m1 0h1m1 0h1m1 0h4m2 0h1m5 0h1m1 0h6m2 0h1M0 29.5h1m1 0h3m1 0h1m2 0h1m2 0h1m5 0h4m1 0h2m1 0h3m1 0h2M0 30.5h1m1 0h3m1 0h1m2 0h1m2 0h4m1 0h2m1 0h1m5 0h3M0 31.5h1m5 0h1m2 0h1m1 0h1m1 0h1m1 0h3m3 0h1m2 0h2M0 32.5h7m1 0h1m2 0h1m1 0h2m4 0h4m1 0h3m2 0h1m2 0h1"/></svg>
+</div>
+        <div class="scan">ESCANEA PARA VERIFICAR</div>
+        <div class="cod">DEMO-8f3K2mQx</div>
+        <div class="info">
+          <h3>CARNET OFICIAL</h3>
+          <p>Este carnet identifica al jugador inscrito en la Keeper Cup 3 y debe presentarse antes de cada partido.</p>
+          <ul>
+            <li>Personal e intransferible</li>
+            <li>Verifica foto y estado con el QR</li>
+            <li>Un carnet perdido se reemplaza con la organización</li>
+          </ul>
+        </div>
+        <div class="pie">keeper.com.ec · Keeper Cup Series — By NIX</div>
+      </div>
+      <div class="lado">DORSO</div>
+    </div>
+  </div>
+
+  <div class="nota">
+    <b>Qué estás viendo:</b> el frente lleva foto, nombre, club, número, posición y el estado del jugador. El dorso lleva el QR (negro sobre blanco, para que lo lea cualquier celular) y un código corto de respaldo.
+    El QR de este demo es real y apunta a una dirección de ejemplo; en el sistema definitivo cada jugador tendrá el suyo, único, que abre su carnet digital y su estado (habilitado, pendiente o suspendido).
+    Para imprimir esta página: Ctrl+P → tamaño real, sin márgenes.
+  </div>
+</body>
+</html>
