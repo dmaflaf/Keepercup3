@@ -7,11 +7,13 @@ import * as XLSX from 'xlsx'
 interface JugadorClub { id: string; nombre: string; cedula: string | null; numero: number | null; selfie: boolean; frente: boolean; reverso: boolean }
 interface Incidencia { hoja: string; fila: number; nivel: 'error' | 'aviso'; mensaje: string; detalle?: string }
 type Tipo = 'selfie' | 'cedula_front' | 'cedula_back'
-interface Foto { archivo: File; cedula: string; crudo: string; tipo: Tipo; aprox?: boolean }
+interface Foto { archivo: File; cedula: string; crudo: string; tipo: Tipo; aprox?: boolean; manual?: boolean }
+interface SinPareja { archivo: File; tipo: Tipo; crudo?: string }
 
 const sinAcentos = (s: unknown) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 const CEDULA_EJEMPLO = '1003399134'
-const RE_FOTO = /(?:^|[\s_\-.])(\d{8,10}(?:[\s]?-[\s]?\d)?)(?:[\s_\-]*(?:ci[\s_\-]*)?(frente|front|anverso|reverso|atras|posterior|back))?\s*\.(?:jpe?g|png|webp|heic|heif|gif)$/i
+const claveArchivo = (a: File) => `${a.name}|${a.size}|${a.lastModified}`
+const EXT_IMAGEN = /\.(jpe?g|png|webp|heic|heif|gif)$/i
 
 // Une dos números si el más corto es el más largo con un dígito de menos (cédulas mal tecleadas en el nombre del archivo)
 const unDigitoMenos = (corto: string, largo: string) => {
@@ -33,15 +35,18 @@ function resolverCedula(crudo: string, roster: string[]): { cedula: string; apro
   return null
 }
 
+/** Lee el nombre del archivo con tolerancia a errores humanos: guiones, espacios, «(1)», «copia», mayúsculas, «CI Frente», «Cédula reverso»… */
 function clasificar(nombre: string): { cedula: string; crudo: string; tipo: Tipo } | null {
-  const m = nombre.match(RE_FOTO)
+  if (!EXT_IMAGEN.test(nombre)) return null
+  const base = nombre.replace(/\.[a-z0-9]{3,5}$/i, '').replace(/\(\d+\)/g, ' ').replace(/copia( de)?/gi, ' ')
+  const m = base.match(/\d[\d.\s-]{6,14}\d/) // «040168841-1», «1003 831 698», «100383169-8»
   if (!m) return null
-  let crudo = m[1].replace(/\D/g, '') // «040140984-2» → 0401409842
-  if (crudo.length === 11) crudo = crudo.slice(0, 10) // «1003831698-1» = cédula + número de foto
-  const cedula = crudo.padStart(10, '0')
-  const marca = sinAcentos(m[2])
-  const tipo: Tipo = !marca ? 'selfie' : /^(frente|front|anverso)$/.test(marca) ? 'cedula_front' : 'cedula_back'
-  return { cedula, crudo, tipo }
+  let crudo = m[0].replace(/\D/g, '')
+  if (crudo.length === 11) crudo = crudo.slice(0, 10) // cédula + número de foto («1003831698-1»)
+  if (crudo.length < 8 || crudo.length > 10) return null
+  const t = sinAcentos(base)
+  const tipo: Tipo = /frente|front|anverso/.test(t) ? 'cedula_front' : /reverso|atras|posterior|back|dorso|trasera/.test(t) ? 'cedula_back' : 'selfie'
+  return { cedula: crudo.padStart(10, '0'), crudo, tipo }
 }
 
 function fechaTexto(v: unknown): string {
@@ -80,8 +85,8 @@ export default function CargarClub() {
   const [importado, setImportado] = useState(false)
 
   // fotos
-  const [fotos, setFotos] = useState<Foto[]>([])
-  const [sinNombre, setSinNombre] = useState<string[]>([])
+  const [archivos, setArchivos] = useState<File[]>([])
+  const [manuales, setManuales] = useState<Record<string, { cedula: string; tipo: Tipo }>>({}) // fotos que el administrador asigna a mano
   const [progreso, setProgreso] = useState<{ hechas: number; total: number; fallos: string[] } | null>(null)
 
   const nombreClub = nuevo.activo ? nuevo.nombre.trim() : club
@@ -157,25 +162,30 @@ export default function CargarClub() {
   }
 
   function alElegirFotos(e: React.ChangeEvent<HTMLInputElement>) {
-    const lista = Array.from(e.target.files || [])
-    const porClave = new Map<string, Foto>()
-    const raras: string[] = []
-    for (const a of lista) {
-      const c = clasificar(a.name)
-      if (!c) { raras.push(a.name); continue }
-      const k = `${c.cedula}|${c.tipo}`
-      const previa = porClave.get(k)
-      if (!previa || a.lastModified > previa.archivo.lastModified) porClave.set(k, { archivo: a, ...c })
-    }
-    setFotos(Array.from(porClave.values())); setSinNombre(raras); setProgreso(null)
+    setArchivos(Array.from(e.target.files || [])); setManuales({}); setProgreso(null)
   }
 
   const porCedula = useMemo(() => new Map(jugadores.filter((j) => j.cedula).map((j) => [j.cedula as string, j])), [jugadores])
-  // Cada foto se empareja con un jugador de la nómina del club (aunque la cédula del nombre tenga guion, falte el cero o un dígito)
-  const emparejadas = useMemo(() => fotos.map((f) => { const r = resolverCedula(f.crudo, Array.from(porCedula.keys())); return r ? { ...f, cedula: r.cedula, aprox: r.aprox } : f }), [fotos, porCedula])
-  const aSubir = emparejadas.filter((f) => porCedula.has(f.cedula))
-  const ajenas = emparejadas.filter((f) => !porCedula.has(f.cedula))
+  // Cada archivo se empareja con un jugador de la nómina (tolerando guiones, ceros, un dígito mal escrito) o queda «sin pareja» para asignarlo a mano
+  const { aSubir, sinPareja } = useMemo(() => {
+    const roster = Array.from(porCedula.keys())
+    const porClave = new Map<string, Foto>()
+    const sin: SinPareja[] = []
+    for (const a of archivos) {
+      const c = clasificar(a.name)
+      const r = c ? resolverCedula(c.crudo, roster) : null
+      if (!r) sin.push({ archivo: a, tipo: c?.tipo ?? 'selfie', crudo: c?.crudo })
+      const man = manuales[claveArchivo(a)]
+      const foto: Foto | null = man?.cedula ? { archivo: a, cedula: man.cedula, crudo: man.cedula, tipo: man.tipo, manual: true } : c && r ? { archivo: a, ...c, cedula: r.cedula, aprox: r.aprox } : null
+      if (!foto) continue
+      const k = `${foto.cedula}|${foto.tipo}`
+      const previa = porClave.get(k)
+      if (!previa || a.lastModified > previa.archivo.lastModified) porClave.set(k, foto)
+    }
+    return { aSubir: Array.from(porClave.values()), sinPareja: sin }
+  }, [archivos, manuales, porCedula])
   const aproximadas = aSubir.filter((f) => f.aprox)
+  const sinResolver = sinPareja.filter((s) => !manuales[claveArchivo(s.archivo)]?.cedula)
   const enCola = (j: JugadorClub, t: Tipo) => aSubir.some((f) => f.cedula === j.cedula && f.tipo === t)
   const marca = (ya: boolean, nueva: boolean) => (nueva ? <span className="text-yellow-300" title="Se subirá">⬆</span> : ya ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>)
 
@@ -203,7 +213,7 @@ export default function CargarClub() {
     }
     await Promise.all([trabajador(), trabajador(), trabajador()])
     setOcupado(false)
-    setFotos([]); setSinNombre([])
+    setArchivos([]); setManuales({})
     cargarClub(nombreClub)
   }
 
@@ -222,7 +232,7 @@ export default function CargarClub() {
         <section className={sec}>
           <h2 className="text-xl font-bold mb-3">1. Club</h2>
           <div className="flex flex-wrap gap-3 items-center">
-            <select className={inp} disabled={nuevo.activo} value={club} onChange={(e) => { setClub(e.target.value); setFilas(null); setResumen(null); setFotos([]) }}>
+            <select className={inp} disabled={nuevo.activo} value={club} onChange={(e) => { setClub(e.target.value); setFilas(null); setResumen(null); setArchivos([]); setManuales({}) }}>
               <option value="">— Elige el club —</option>{equipos.map((e) => <option key={e}>{e}</option>)}
             </select>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={nuevo.activo} onChange={(e) => setNuevo({ ...nuevo, activo: e.target.checked })} /> Es un club nuevo</label>
@@ -260,11 +270,32 @@ export default function CargarClub() {
               <input type="file" accept="image/*" multiple className="hidden" onChange={alElegirFotos} />
               Elegir las fotos (puedes seleccionar toda la carpeta con Ctrl+A)
             </label>
-            {(sinNombre.length > 0 || ajenas.length > 0) && (
-              <div className="mt-3 text-sm text-yellow-200/90 space-y-1">
-                {sinNombre.length > 0 && <p>⚠ {sinNombre.length} archivo(s) no tienen la cédula en el nombre y se ignoran: {sinNombre.slice(0, 5).join(', ')}{sinNombre.length > 5 && '…'}</p>}
-                {ajenas.length > 0 && <p>⚠ {ajenas.length} foto(s) son de cédulas que no están en este club y se ignoran: {Array.from(new Set(ajenas.map((f) => f.crudo))).slice(0, 8).join(', ')}{new Set(ajenas.map((f) => f.crudo)).size > 8 && '…'}</p>}
-                {aproximadas.length > 0 && <p className="text-yellow-300">ℹ {aproximadas.length} foto(s) se emparejaron por parecido de cédula (guion, cero inicial o un dígito distinto). Revisa: {aproximadas.slice(0, 6).map((f) => `${f.archivo.name} → ${f.cedula}`).join(' · ')}</p>}
+            {aproximadas.length > 0 && <p className="mt-3 text-sm text-yellow-300">ℹ {aproximadas.length} foto(s) se emparejaron por parecido de cédula (cero inicial o un dígito distinto). Revisa: {aproximadas.slice(0, 6).map((f) => `${f.archivo.name} → ${f.cedula}`).join(' · ')}</p>}
+            {sinPareja.length > 0 && (
+              <div className="mt-3 border border-yellow-600/60 bg-yellow-900/10 rounded-xl p-4">
+                <p className="text-yellow-200 font-semibold">⚠ {sinPareja.length} foto(s) sin pareja automática{sinResolver.length < sinPareja.length && ` (${sinPareja.length - sinResolver.length} ya asignadas a mano)`}</p>
+                {filas && !importado && <p className="text-sm text-yellow-100 mt-1">Casi todas son de jugadores de la nómina que <b>todavía no guardaste</b>. Pulsa primero «Guardar {resumen?.jugadoresValidos ?? ''} jugadores» (paso 2) y vuelve a elegir las fotos.</p>}
+                <p className="text-sm text-slate-300 mt-1">El nombre del archivo no coincide con ninguna cédula del club. Elige a qué jugador pertenece cada una (o déjala sin asignar para ignorarla).</p>
+                <div className="mt-3 space-y-2 max-h-[28rem] overflow-auto">
+                  {sinPareja.slice(0, 80).map((sp) => {
+                    const k = claveArchivo(sp.archivo)
+                    const man = manuales[k]
+                    return (
+                      <div key={k} className="flex items-center gap-3 bg-slate-800/70 rounded-lg p-2 flex-wrap">
+                        <Miniatura archivo={sp.archivo} />
+                        <span className="text-xs text-slate-300 w-48 break-all">{sp.archivo.name}{sp.crudo && <span className="text-yellow-300"> · cédula leída: {sp.crudo}</span>}</span>
+                        <select className={inp + ' !py-1 text-sm'} value={man?.tipo ?? sp.tipo} onChange={(e) => setManuales({ ...manuales, [k]: { cedula: man?.cedula ?? '', tipo: e.target.value as Tipo } })}>
+                          <option value="selfie">Selfie</option><option value="cedula_front">Cédula frente</option><option value="cedula_back">Cédula reverso</option>
+                        </select>
+                        <select className={inp + ' !py-1 text-sm flex-1 min-w-[12rem]'} value={man?.cedula ?? ''} onChange={(e) => setManuales({ ...manuales, [k]: { cedula: e.target.value, tipo: man?.tipo ?? sp.tipo } })}>
+                          <option value="">— sin asignar (se ignora) —</option>
+                          {jugadores.map((j) => <option key={j.id} value={j.cedula || ''}>{j.nombre} · {j.cedula}</option>)}
+                        </select>
+                      </div>
+                    )
+                  })}
+                </div>
+                {sinPareja.length > 80 && <p className="text-slate-400 text-xs mt-2">Se muestran 80 de {sinPareja.length}.</p>}
               </div>
             )}
             <div className="overflow-x-auto mt-4">
@@ -292,4 +323,11 @@ export default function CargarClub() {
       </div>
     </div>
   )
+}
+
+function Miniatura({ archivo }: { archivo: File }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => { const u = URL.createObjectURL(archivo); setUrl(u); return () => URL.revokeObjectURL(u) }, [archivo])
+  // eslint-disable-next-line @next/next/no-img-element
+  return url ? <img src={url} alt="" className="w-14 h-14 object-cover rounded bg-slate-700" /> : <span className="w-14 h-14 rounded bg-slate-700" />
 }
