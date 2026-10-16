@@ -277,3 +277,17 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 - `/admin/carnets`: botón Editar por jugador (nombres, apellidos, cédula, número, fecha de nacimiento, posición, correo, teléfono, estado y "generar QR nuevo"). API `PATCH /api/admin/carnets/jugador` (solo admin). Valida cédula de 10 dígitos (avisa si no pasa la validación oficial), cédula y número únicos, fecha válida.
 - **El panel manda sobre la hoja:** al editar se marca `Player.editadoManual = true`; la sincronización (`lib/importar-db.ts`) ya no pisa sus datos (solo acepta enlaces de fotos). Si se cambia la cédula, la anterior queda en `PlayerAlias` para que la sync no cree un duplicado con la cédula errónea. Los cambios NO se escriben de vuelta en la Hoja de Google.
 - Regenerar el QR invalida el carnet impreso anterior (`/j/<token viejo>` responde 404).
+
+---
+
+## 📋 **PENDIENTE (NO OLVIDAR): PLANILLA DE JUEGO EN VIVO**
+Pedido del usuario (2026-10): una **hoja en vivo como planilla de juego** para usar desde **iPad o celular** durante el partido, que reemplace la casilla "jugó":
+- Registrar la **alineación**: titulares y suplentes de cada equipo (con número y posición).
+- Registrar **cambios** (quién sale y quién entra) **con el minuto**.
+- Registrar **goles, tarjetas y sanciones al minuto**, en tiempo real.
+- De ahí salen solos: **partidos jugados**, minutos, quién fue reemplazado, goles recibidos y vallas invictas de porteros, mejores porteros, y el marcador/tabla en vivo.
+- Hoy el módulo de torneo (`/admin/torneo/partido/[id]`) solo registra goles y tarjetas (eventos `gol, gol_penal, autogol, amarilla, doble_amarilla, roja`). Extender `Evento` con `titular`, `entra`, `sale` (con minuto) y mostrar "Partidos jugados" en la ficha del carnet cuando haya alineaciones (`lib/ficha.ts` ya cuenta `titular`/`entra` si existen).
+- Hasta entonces la ficha NO muestra "partidos jugados" ni datos de porteros (para no mostrar cifras incorrectas).
+
+## 🪪 **FICHA DEPORTIVA (carnet digital /j/[token])**
+- Ver `lib/ficha.ts`. Público: carnet con el mismo arte del impreso, estado, edad, posición, goles/penales, amarillas/rojas con barra hacia la suspensión, suspensión actual y cumplidas, próximo partido, últimos resultados, tabla del grupo, historial al minuto, insignias (goleador top, sin tarjetas). Árbitro/vocal con sesión: panel de control (fecha de nacimiento, documentos ✔/✖, sanción). Admin: cédula completa y "Ver documentos" (foto de la cédula solo tras tocar el botón, con marca de agua, cierre automático y registro en `AccesoDocumento`). Sesión de personal se cierra sola tras 5 min sin uso en esta página.

@@ -411,3 +411,15 @@ model PlayerAlias {
 
   @@index([playerId])
 }
+
+// Registro de quién abrió las fotos de la cédula de un jugador (auditoría)
+model AccesoDocumento {
+  id        String   @id @default(cuid())
+  adminEmail String
+  playerId  String
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@index([playerId])
+  @@index([createdAt])
+}
