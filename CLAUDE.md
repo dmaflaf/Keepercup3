@@ -266,3 +266,9 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 - Medidas editables en `/admin/carnets/diseno` (guardadas en `Ajuste` clave `carnet_layout`; vista previa con jugador ficticio). Fuentes gratuitas en `public/fonts/` (Roboto Condensed y Barlow Condensed ExtraBold) como sustitutas de Acumin Variable Concept y FB Rush del diseño original; si el usuario entrega los archivos TTF/OTF originales, reemplazarlos.
 - Escudos: PNG sin fondo por club; carga en lote en `/admin/carnets` nombrando cada archivo como el club.
 - Pendiente: que la página pública `/j/[token]` copie este diseño; quitar fondo de fotos (el usuario dijo que el fondo no importa por ahora).
+
+### Encuadre automático de fotos (carnets)
+- `/admin/encuadre`: detecta el rostro en el navegador (MediaPipe BlazeFace, gratuito; modelo en `public/mediapipe/`, wasm autoalojado en `public/mediapipe/wasm`) y calcula el recorte con `lib/encuadre.ts` (calibrado con el carnet de referencia aprobado: cara = 46 % de la altura del marco, ojos a 46 % desde arriba, centrada). Pruebas: `npx tsx lib/encuadre.test.ts`.
+- Se guarda en `PlayerImage` (selfie): `crop` (fracciones 0..1), `cropEstado` (auto | revisar | manual | otra_foto), `cropMotivo`. La foto original no se toca. Al reemplazar la selfie, el encuadre se borra. El PDF de carnets usa el recorte si existe (si no, recorte por atención).
+- Se marcan a revisar: sin rostro, más de una persona, rostro cortado, cabeza pegada al borde, resolución baja (< 240 px de ancho útil). En la pantalla se puede aceptar, ajustar (mover/acercar) o marcar "pedir otra foto".
+- Pendiente: ejecutarlo automáticamente al subir fotos desde Cargar club; subir el tope de 800 px de las selfies nuevas si hay muchas fotos lejanas.

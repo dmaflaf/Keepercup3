@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 import { driveId, obtenerImagenReducida, TipoFoto } from './drive'
 
 const CAMPOS: { tipo: TipoFoto; campo: 'selfieUrl' | 'cedulaFrontUrl' | 'cedulaBackUrl' }[] = [
@@ -69,7 +69,7 @@ export async function copiarFotos(
         await prisma.playerImage.upsert({
           where: { playerId_kind: { playerId: t.j.id, kind: t.tipo } },
           create: { playerId: t.j.id, kind: t.tipo, sourceId: id, mime: img.mime, data: img.data, bytes: img.data.length },
-          update: { sourceId: id, mime: img.mime, data: img.data, bytes: img.data.length },
+          update: { sourceId: id, mime: img.mime, data: img.data, bytes: img.data.length, crop: Prisma.DbNull, cropEstado: null, cropMotivo: null },
         })
         copiadas++
       } catch (e) {

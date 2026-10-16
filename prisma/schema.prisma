@@ -93,6 +93,10 @@ model PlayerImage {
   mime      String
   data      Bytes
   bytes     Int
+  // Encuadre de la foto para el carnet (fracciones 0..1 de la imagen guardada): { x, y, w, h }
+  crop       Json?
+  cropEstado String? // auto | revisar | manual | otra_foto
+  cropMotivo String?
   createdAt DateTime @default(now())
 
   @@unique([playerId, kind])

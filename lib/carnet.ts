@@ -2,6 +2,7 @@ import { PDFDocument, PDFFont, PDFImage, PDFPage, rgb, popGraphicsState, pushGra
 import fontkit from '@pdf-lib/fontkit'
 import QRCode from 'qrcode'
 import sharp from 'sharp'
+import { recorteAPixeles } from '@/lib/encuadre'
 
 export const siteUrl = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://keeper.com.ec').replace(/\/+$/, '')
 export const urlCarnet = (token: string) => `${siteUrl()}/j/${token}`
@@ -14,6 +15,7 @@ export interface JugadorCarnet {
   numero: number | null
   qrToken: string
   selfie: Buffer | null
+  crop?: { x: number; y: number; w: number; h: number } | null // encuadre automático/manual (fracciones de la imagen)
 }
 export interface DatosPdf {
   club: string
@@ -159,7 +161,13 @@ async function dibujarFrente(pdf: PDFDocument, p: PDFPage, art: Awaited<ReturnTy
   const ih = F.h - 2 * F.inset
   if (j.selfie) {
     try {
-      const jpg = await sharp(j.selfie).rotate().resize(Math.round(iw * 10), Math.round(ih * 10), { fit: 'cover', position: 'attention' }).jpeg({ quality: 88 }).toBuffer()
+      let base = sharp(j.selfie).rotate()
+      if (j.crop) {
+        const norm = await sharp(j.selfie).rotate().toBuffer({ resolveWithObject: true })
+        const r = recorteAPixeles(j.crop, norm.info.width, norm.info.height)
+        base = sharp(norm.data).extract(r)
+      }
+      const jpg = await base.resize(Math.round(iw * 10), Math.round(ih * 10), { fit: 'cover', position: 'attention' }).jpeg({ quality: 88 }).toBuffer()
       const img = await pdf.embedJpg(jpg)
       rectRedondeado(p, x + F.x + F.inset, yPdf(o, F.y + F.inset + ih), iw, ih, Math.max(F.radio - F.inset, 1))
       p.drawImage(img, { x: x + F.x + F.inset, y: yPdf(o, F.y + F.inset + ih), width: iw, height: ih })

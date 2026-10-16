@@ -56,13 +56,13 @@ export async function GET(req: NextRequest) {
     const jugadores = await prisma.player.findMany({
       where: { team: { name: equipo }, ...(ids.length ? { id: { in: ids } } : todos ? {} : { estado: 'habilitado' }), qrToken: { not: null } },
       orderBy: [{ number: 'asc' }, { lastName: 'asc' }],
-      select: { firstName: true, lastName: true, cedula: true, birthDate: true, number: true, qrToken: true, images: { where: { kind: 'selfie' }, select: { data: true } } },
+      select: { firstName: true, lastName: true, cedula: true, birthDate: true, number: true, qrToken: true, images: { where: { kind: 'selfie' }, select: { data: true, crop: true } } },
     })
     if (!jugadores.length) return NextResponse.json({ ok: false, message: 'No hay jugadores habilitados con código QR en este club' }, { status: 404 })
 
     const pdf = await construirPdf({
       ...base, club: team.name, escudo: dePng(team.logo),
-      jugadores: jugadores.map((j) => ({ nombres: j.firstName, apellidos: j.lastName, cedula: j.cedula, fechaNacimiento: j.birthDate, numero: j.number, qrToken: j.qrToken as string, selfie: j.images[0] ? Buffer.from(j.images[0].data) : null })),
+      jugadores: jugadores.map((j) => ({ nombres: j.firstName, apellidos: j.lastName, cedula: j.cedula, fechaNacimiento: j.birthDate, numero: j.number, qrToken: j.qrToken as string, selfie: j.images[0] ? Buffer.from(j.images[0].data) : null, crop: (j.images[0]?.crop as { x: number; y: number; w: number; h: number } | null) ?? null })),
     })
     return new NextResponse(Buffer.from(pdf), {
       headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="carnets-${equipo.replace(/[^a-z0-9]+/gi, '-')}.pdf"` },

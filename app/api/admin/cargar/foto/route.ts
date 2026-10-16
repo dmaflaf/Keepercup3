@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { exigirAdmin } from '@/lib/sorteo'
 import { normCedula } from '@/lib/importar'
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     await prisma.playerImage.upsert({
       where: { playerId_kind: { playerId: jugador.id, kind } },
       create: { playerId: jugador.id, kind, sourceId: 'manual', mime: 'image/jpeg', data, bytes: data.length },
-      update: { sourceId: 'manual', mime: 'image/jpeg', data, bytes: data.length },
+      update: { sourceId: 'manual', mime: 'image/jpeg', data, bytes: data.length, crop: Prisma.DbNull, cropEstado: null, cropMotivo: null },
     })
     return NextResponse.json({ ok: true })
   } catch (e) {
