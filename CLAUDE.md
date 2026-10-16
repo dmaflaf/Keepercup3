@@ -304,3 +304,6 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 
 ## 🧹 DEPURACIÓN DE DATOS
 - `/admin/depuracion` (solo admin, solo lectura; API `/api/admin/auditoria`, reglas en `lib/auditoria.ts`): clubes sin nómina/<11 jugadores/sin escudo/duplicados; jugadores sin cédula, cédula inválida (dígito verificador), misma cédula o nombre+nacimiento en varios clubes, sin número/nacimiento/posición/foto/cédula, edades raras, nombres mal escritos; torneo: equipos sin grupo, grupos desiguales, partidos sin fecha, choques de horario/cancha, sin resultado. Descarga CSV y copia de resumen sin datos personales.
+
+## 🏷️ NOMBRE DEL CLUB EN EL CARNET
+- `lib/club-nombre.ts` (`nombreClubCarnet`): quita «Club», «Fútbol/Futbol», «FC», «Sporting», «SC», «CD», «CF» y los «de/del» de los bordes, y conserva el resto (Barcelona Fútbol Club → BARCELONA; Barrio Fino Sporting Club → BARRIO FINO; Club Deportivo Cuenca → DEPORTIVO CUENCA). Si un nombre largo no cabe en la franja, se reduce la letra. Se usa en el PDF (`lib/carnet.ts`) y en la ficha `/j/[token]`. Para cambiar las palabras que se quitan, editar `GENERICAS` en ese archivo.

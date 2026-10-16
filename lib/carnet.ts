@@ -1,3 +1,4 @@
+import { nombreClubCarnet } from '@/lib/club-nombre'
 import { PDFDocument, PDFFont, PDFImage, PDFPage, rgb, popGraphicsState, pushGraphicsState, moveTo, lineTo, appendBezierCurve, closePath, clip, endPath } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 import QRCode from 'qrcode'
@@ -110,7 +111,7 @@ export async function construirPdf(d: DatosPdf): Promise<Uint8Array> {
   const H = PLANTILLA.tarjetaH
   const x0 = (A4.w - (3 * W + 2 * SEPARACION)) / 2
   const y0 = (A4.h - (3 * H + 2 * SEPARACION)) / 2
-  const club = seguro(fu.numero, primera(d.club).toUpperCase())
+  const club = seguro(fu.numero, nombreClubCarnet(d.club))
 
   for (let i = 0; i < d.jugadores.length; i += 9) {
     const lote = d.jugadores.slice(i, i + 9)
@@ -201,7 +202,7 @@ async function dibujarFrente(pdf: PDFDocument, p: PDFPage, art: Awaited<ReturnTy
     texto(p, o, f.numero, t, N.cx, N.base, tam, ROJO)
   }
 
-  // Franja: primera palabra del club, siempre del mismo tamaño
+  // Franja: nombre del club sin «Fútbol Club», «Sporting Club», «FC»…; si es largo se reduce para que quepa
   const B = L.banda
   const tamB = ajustarTam(f.numero, club, B.cap / capRatio(f.numero), B.maxW, 8)
   texto(p, o, f.numero, club, B.cx, B.base, tamB, BLANCO)

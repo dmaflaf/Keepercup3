@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { nombreClubCarnet } from '@/lib/club-nombre'
 
 interface Ficha {
   torneo: string; goles: number; penales: number; amarillas: number; rojas: number
@@ -139,7 +140,7 @@ export default function FichaDeportiva() {
   const est = c.estado === 'habilitado' ? { cls: 'e-ok', ic: '✔', t: 'JUGADOR HABILITADO', s: 'Puede jugar el próximo partido' }
     : c.estado === 'suspendido' ? { cls: 'e-susp', ic: '⛔', t: f && f.suspendidoPartidos > 0 ? `SUSPENDIDO · ${f.suspendidoPartidos} PARTIDO${f.suspendidoPartidos > 1 ? 'S' : ''}` : 'SUSPENDIDO', s: 'No puede jugar su próximo partido' }
       : { cls: 'e-pend', ic: '⚠', t: 'PENDIENTE DE DOCUMENTOS', s: 'Falta completar su inscripción para jugar' }
-  const primera = (c.club || '').trim().split(/\s+/)[0]?.toUpperCase() || ''
+  const primera = nombreClubCarnet(c.club)
   const crop = c.crop
   const iniciales = c.club.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
   const ciclo = f ? (f.suspendidoPartidos > 0 ? f.amarillasParaSuspension : f.enCiclo) : 0
@@ -182,7 +183,7 @@ export default function FichaDeportiva() {
           <div><b>{c.edad ?? '–'}</b><span>Edad</span></div>
           <div><b>{(c.posicion || '–').slice(0, 10)}</b><span>Posición</span></div>
           <div><b>{c.numero ?? '–'}</b><span>Número</span></div>
-          <div><b>{primera.slice(0, 8)}</b><span>Club</span></div>
+          <div><b style={{ fontSize: primera.length > 8 ? 14 : undefined }}>{primera}</b><span>Club</span></div>
         </div>
 
         {f && (
