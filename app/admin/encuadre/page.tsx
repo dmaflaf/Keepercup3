@@ -13,8 +13,8 @@ const btn2 = 'px-3 py-2 bg-slate-600 hover:bg-slate-500 disabled:opacity-50 roun
 const sec = 'bg-slate-800 border border-slate-700 rounded-xl p-5 mb-5'
 const ETIQ: Record<string, string> = { auto: 'Automático', manual: 'Ajustado a mano', revisar: 'Revisar', otra_foto: 'Pedir otra foto' }
 
-async function cargarImagen(id: string): Promise<ImageBitmap> {
-  const r = await fetch(`/api/admin/fotos/${id}/selfie`)
+async function cargarImagen(id: string, v = 0): Promise<ImageBitmap> {
+  const r = await fetch(`/api/admin/fotos/${id}/selfie?t=${v}`)
   if (!r.ok) throw new Error('No se pudo leer la foto')
   return createImageBitmap(await r.blob())
 }
@@ -36,6 +36,7 @@ export default function Encuadre() {
   const [proceso, setProceso] = useState<{ hechas: number; total: number; sinRostro: number } | null>(null)
   const [rehacer, setRehacer] = useState(false)
   const [filtro, setFiltro] = useState<'revisar' | 'todos' | 'auto' | 'manual' | 'otra_foto' | 'sin'>('revisar')
+  const [version, setVersion] = useState(0) // sube al girar una foto, para recargar la imagen
   const detector = useRef<Detector | null>(null)
   const parar = useRef(false)
 
@@ -103,6 +104,30 @@ export default function Encuadre() {
     cargar(club)
   }
 
+  // Gira la selfie y la vuelve a encuadrar sola (el rostro se vuelve a buscar con la foto ya derecha)
+  async function girar(id: string, grados = 90) {
+    const r = await fetch('/api/admin/encuadre/girar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: id, grados }) }).then((x) => x.json()).catch(() => null)
+    if (!r?.ok) { setMsg(r?.message || 'No se pudo girar la foto'); return }
+    const v = Date.now()
+    setVersion(v)
+    try {
+      const det = await obtenerDetector()
+      const img = await cargarImagen(id, v)
+      const caras = det.detect(img).detections.filter((d) => d.boundingBox).sort((a, b) => b.boundingBox!.width * b.boundingBox!.height - a.boundingBox!.width * a.boundingBox!.height)
+      let item: { playerId: string; crop: Recorte | null; estado: string; motivo: string }
+      if (!caras.length) item = { playerId: id, crop: null, estado: 'revisar', motivo: 'No se detectó ningún rostro tras girar' }
+      else {
+        const b = caras[0].boundingBox!
+        const ojos = caras[0].keypoints.length >= 2 ? ((caras[0].keypoints[0].y + caras[0].keypoints[1].y) / 2) * img.height : null
+        const rr = calcularRecorte(img.width, img.height, { x: b.originX, y: b.originY, w: b.width, h: b.height }, ojos)
+        item = { playerId: id, crop: rr.crop, estado: rr.motivos.length ? 'revisar' : 'auto', motivo: rr.motivos.join(' · ') }
+      }
+      img.close()
+      await fetch('/api/admin/encuadre', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: [item] }) })
+    } catch { /* queda sin encuadrar; se puede encuadrar a mano o con el botón automático */ }
+    cargar(club)
+  }
+
   const cuenta = (e: string | null) => lista.filter((j) => (e === null ? !j.estado : j.estado === e)).length
   const visibles = lista.filter((j) => filtro === 'todos' || (filtro === 'sin' ? !j.estado : j.estado === filtro))
 
@@ -137,7 +162,7 @@ export default function Encuadre() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {visibles.slice(0, 120).map((j) => <Tarjeta key={j.id} j={j} alGuardar={() => cargar(club)} />)}
+          {visibles.slice(0, 120).map((j) => <Tarjeta key={j.id} j={j} v={version} alGirar={(g) => girar(j.id, g)} alGuardar={() => cargar(club)} />)}
         </div>
         {visibles.length > 120 && <p className="text-slate-400 text-sm mt-3">Se muestran 120 de {visibles.length}. Filtra por club para ver el resto.</p>}
         {!visibles.length && <p className="text-slate-500">Nada en esta lista.</p>}
@@ -146,7 +171,7 @@ export default function Encuadre() {
   )
 }
 
-function Tarjeta({ j, alGuardar }: { j: J; alGuardar: () => void }) {
+function Tarjeta({ j, v, alGirar, alGuardar }: { j: J; v: number; alGirar: (grados?: number) => void; alGuardar: () => void }) {
   const cv = useRef<HTMLCanvasElement>(null)
   const img = useRef<ImageBitmap | null>(null)
   const [editando, setEditando] = useState(false)
@@ -155,9 +180,11 @@ function Tarjeta({ j, alGuardar }: { j: J; alGuardar: () => void }) {
 
   useEffect(() => {
     let vivo = true
-    cargarImagen(j.id).then((b) => { if (!vivo) return; img.current = b; setListo(true) }).catch(() => {})
+    setListo(false)
+    cargarImagen(j.id, v).then((b) => { if (!vivo) return; img.current = b; setCrop(j.crop); setListo(true) }).catch(() => {})
     return () => { vivo = false }
-  }, [j.id])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [j.id, v])
   useEffect(() => { if (listo && cv.current && img.current) dibujarRecorte(cv.current, img.current, crop, editando ? 300 : 140) }, [listo, crop, editando])
 
   async function guardar(estado: string, c: Recorte | null, motivo = '') {
@@ -186,6 +213,7 @@ function Tarjeta({ j, alGuardar }: { j: J; alGuardar: () => void }) {
         <div className="flex flex-wrap gap-1 mt-1">
           {j.estado !== 'auto' && j.crop && <button className={btn2 + ' !py-1 !px-2'} onClick={() => guardar('manual', j.crop, 'Aceptada')}>Aceptar</button>}
           <button className={btn2 + ' !py-1 !px-2'} onClick={() => { setCrop(j.crop ?? { x: 0, y: 0, w: 1, h: Math.min(1, 1) }); setEditando(true) }}>Ajustar</button>
+          <button className={btn2 + ' !py-1 !px-2'} title="Girar 90° a la derecha" onClick={() => alGirar(90)}>⟳ Girar</button>
           {j.estado !== 'otra_foto' && <button className="text-red-400 underline" onClick={() => guardar('otra_foto', j.crop, 'Pedir otra foto')}>Otra foto</button>}
         </div>
       ) : (
@@ -193,6 +221,7 @@ function Tarjeta({ j, alGuardar }: { j: J; alGuardar: () => void }) {
           <div className="flex gap-1 flex-wrap">
             <button className={btn2 + ' !py-1 !px-2'} onClick={() => mover(-0.02, 0)}>◀</button><button className={btn2 + ' !py-1 !px-2'} onClick={() => mover(0.02, 0)}>▶</button>
             <button className={btn2 + ' !py-1 !px-2'} onClick={() => mover(0, -0.02)}>▲</button><button className={btn2 + ' !py-1 !px-2'} onClick={() => mover(0, 0.02)}>▼</button>
+            <button className={btn2 + ' !py-1 !px-2'} title="Girar 90° a la derecha" onClick={() => { setEditando(false); alGirar(90) }}>⟳ Girar</button>
             <button className={btn2 + ' !py-1 !px-2'} onClick={() => zoom(0.92)}>＋ Acercar</button><button className={btn2 + ' !py-1 !px-2'} onClick={() => zoom(1.08)}>－ Alejar</button>
           </div>
           <div className="flex gap-1"><button className={btn + ' !py-1 !px-2'} onClick={() => guardar('manual', crop, 'Ajustada a mano')}>Guardar</button><button className={btn2 + ' !py-1 !px-2'} onClick={() => { setCrop(j.crop); setEditando(false) }}>Cancelar</button></div>
