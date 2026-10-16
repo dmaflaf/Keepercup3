@@ -69,7 +69,7 @@ export async function copiarFotos(
         await prisma.playerImage.upsert({
           where: { playerId_kind: { playerId: t.j.id, kind: t.tipo } },
           create: { playerId: t.j.id, kind: t.tipo, sourceId: id, mime: img.mime, data: img.data, bytes: img.data.length },
-          update: { sourceId: id, mime: img.mime, data: img.data, bytes: img.data.length, crop: Prisma.DbNull, cropEstado: null, cropMotivo: null },
+          update: { sourceId: id, mime: img.mime, data: img.data, bytes: img.data.length, crop: Prisma.DbNull, cropEstado: null, cropMotivo: null, original: null, originalMime: null },
         })
         copiadas++
       } catch (e) {

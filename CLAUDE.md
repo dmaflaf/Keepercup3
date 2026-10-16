@@ -291,3 +291,14 @@ Pedido del usuario (2026-10): una **hoja en vivo como planilla de juego** para u
 
 ## 🪪 **FICHA DEPORTIVA (carnet digital /j/[token])**
 - Ver `lib/ficha.ts`. Público: carnet con el mismo arte del impreso, estado, edad, posición, goles/penales, amarillas/rojas con barra hacia la suspensión, suspensión actual y cumplidas, próximo partido, últimos resultados, tabla del grupo, historial al minuto, insignias (goleador top, sin tarjetas). Árbitro/vocal con sesión: panel de control (fecha de nacimiento, documentos ✔/✖, sanción). Admin: cédula completa y "Ver documentos" (foto de la cédula solo tras tocar el botón, con marca de agua, cierre automático y registro en `AccesoDocumento`). Sesión de personal se cierra sola tras 5 min sin uso en esta página.
+
+---
+
+## 🪪 ENCUADRE DE CÉDULAS (frente y reverso)
+
+- Panel: `/admin/cedulas` (botón en Carnets). OpenCV.js autoalojado en `public/opencv/opencv.js` (~10 MB, solo se descarga al usarlo).
+- Detecta la cédula (tarjeta ID-1, proporción 1,586), corrige perspectiva/rotación y deja una imagen horizontal de 1200 px (`lib/cedula.ts`). Frente: si el retrato queda abajo la gira 180°; reverso con rostro → "¿invertidos?".
+- La foto original del jugador se conserva en `PlayerImage.original`; `data` pasa a ser la versión enderezada (la que ve el admin en la ficha). "Volver al original" la restaura.
+- Estados (`cropEstado`): auto / revisar / manual / otra_foto. Dudosas (no se halló, muy pequeña, borrosa, forma rara) van a la cola "A revisar" con edición de 4 esquinas arrastrables.
+- "Probar con 20 jugadores" para calibrar antes de procesar todo. Si el jugador sube otra foto, se reinicia el estado y el original.
+- Pendiente: ejecutar automáticamente al subir desde Cargar club / registro.

@@ -108,6 +108,7 @@ export default function Carnets() {
               <label className={btn2 + ' cursor-pointer'}>Subir escudos en lote<input type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && subirLote(Array.from(e.target.files))} /></label>
               <Link href="/admin/carnets/diseno" className={btn2}>Diseño del carnet</Link>
               <Link href="/admin/encuadre" className={btn2}>📸 Encuadrar fotos</Link>
+              <Link href="/admin/cedulas" className={btn2}>🪪 Encuadrar cédulas</Link>
             </div>
           </div>
           {lote && <div className="mt-3 text-sm space-y-1">{lote.map((l, i) => <p key={i} className={l.ok ? 'text-green-400' : 'text-yellow-300'}>{l.ok ? '✔' : '⚠'} {l.texto}</p>)}</div>}

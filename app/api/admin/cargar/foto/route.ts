@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     await prisma.playerImage.upsert({
       where: { playerId_kind: { playerId: jugador.id, kind } },
       create: { playerId: jugador.id, kind, sourceId: 'manual', mime: 'image/jpeg', data, bytes: data.length },
-      update: { sourceId: 'manual', mime: 'image/jpeg', data, bytes: data.length, crop: Prisma.DbNull, cropEstado: null, cropMotivo: null },
+      update: { sourceId: 'manual', mime: 'image/jpeg', data, bytes: data.length, crop: Prisma.DbNull, cropEstado: null, cropMotivo: null, original: null, originalMime: null },
     })
     return NextResponse.json({ ok: true })
   } catch (e) {

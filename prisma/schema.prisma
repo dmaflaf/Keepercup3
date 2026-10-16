@@ -98,6 +98,9 @@ model PlayerImage {
   crop       Json?
   cropEstado String? // auto | revisar | manual | otra_foto
   cropMotivo String?
+  // Cédulas: la foto subida por el jugador se conserva aquí cuando `data` pasa a ser la versión encuadrada/enderezada
+  original     Bytes?
+  originalMime String?
   createdAt DateTime @default(now())
 
   @@unique([playerId, kind])
