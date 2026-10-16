@@ -43,9 +43,14 @@ export async function GET() {
   for (const j of jugadores) { const c = (j.cedula || '').replace(/\D/g, ''); if (c.length >= 6) porCedula.set(c, [...(porCedula.get(c) || []), j]) }
   add({ id: 'cedula_repetida', titulo: 'Misma cédula en más de un club', gravedad: 'alta', ayuda: 'Un jugador no puede estar inscrito en dos clubes. Decide en cuál se queda y elimina o corrige el otro.', items: Array.from(porCedula.values()).filter((v) => new Set(v.map((x) => x.teamId)).size > 1).flatMap((v) => v.map((j) => fila(j))) })
 
+  // Mismo nombre aunque esté en otro orden («Darwin Javier Noquez» / «Noquez Darwin Javier»): útil cuando unos se registran por la web y otros por la nómina
+  const claveNombre = (j: (typeof jugadores)[number]) => normalizar(nom(j)).split(' ').filter(Boolean).sort().join(' ')
   const porNombre = new Map<string, typeof jugadores>()
-  for (const j of jugadores) { if (!j.birthDate) continue; const k = `${normalizar(nom(j))}|${j.birthDate}`; porNombre.set(k, [...(porNombre.get(k) || []), j]) }
+  for (const j of jugadores) { if (!j.birthDate) continue; const k = `${claveNombre(j)}|${j.birthDate}`; porNombre.set(k, [...(porNombre.get(k) || []), j]) }
   add({ id: 'nombre_repetido', titulo: 'Mismo nombre y fecha de nacimiento en distintos clubes', gravedad: 'alta', ayuda: 'Posible jugador inscrito dos veces con cédulas distintas.', items: Array.from(porNombre.values()).filter((v) => new Set(v.map((x) => x.teamId)).size > 1).flatMap((v) => v.map((j) => fila(j))) })
+  const porNombreClub = new Map<string, typeof jugadores>()
+  for (const j of jugadores) { const k = `${j.teamId}|${claveNombre(j)}`; porNombreClub.set(k, [...(porNombreClub.get(k) || []), j]) }
+  add({ id: 'nombre_repetido_club', titulo: 'Jugador repetido dentro del mismo club (mismo nombre, otra cédula o registro)', gravedad: 'alta', ayuda: 'Suele pasar cuando alguien se registró por la web y también viene en la nómina con la cédula mal escrita. Deja un solo registro.', items: Array.from(porNombreClub.values()).filter((v) => v.length > 1).flatMap((v) => v.map((j) => fila(j, ` · cédula ${j.cedula || 'sin dato'}`))) })
 
   add({ id: 'sin_numero', titulo: 'Jugadores sin número de camiseta', gravedad: 'media', ayuda: 'El carnet y la planilla necesitan el número.', items: jugadores.filter((j) => j.number === null).map((j) => fila(j)) })
   add({ id: 'sin_nacimiento', titulo: 'Jugadores sin fecha de nacimiento', gravedad: 'media', ayuda: 'No se puede calcular la edad.', items: jugadores.filter((j) => !j.birthDate).map((j) => fila(j)) })
