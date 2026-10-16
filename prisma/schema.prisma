@@ -437,3 +437,21 @@ model AccesoDocumento {
   @@index([playerId])
   @@index([createdAt])
 }
+
+// Traspasos: cambio de club de un jugador (solo administrador). El jugador conserva su QR, fotos e historial.
+model Traspaso {
+  id              String   @id @default(cuid())
+  playerId        String
+  deTeamId        String
+  aTeamId         String
+  deClub          String
+  aClub           String
+  numeroAnterior  Int?
+  numeroNuevo     Int?
+  motivo          String?
+  usuario         String
+  carnetReimpreso Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([playerId])
+}

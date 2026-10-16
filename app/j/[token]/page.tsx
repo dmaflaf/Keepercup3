@@ -17,7 +17,7 @@ interface Carnet {
   ok: boolean; message?: string; nombres: string; apellidos: string; numero: number | null; posicion: string | null; club: string; edad: number | null
   escudo: string | null; estado: string; suspendidoPorSancion: boolean; tieneFoto: boolean; crop: { x: number; y: number; w: number; h: number } | null
   cedulaOculta: string; ficha: Ficha | null
-  control: { rol: string; fechaNacimiento: string | null; documentos: { selfie: boolean; cedulaFrente: boolean; cedulaReverso: boolean }; cedula?: string; jugadorId?: string; usuario?: string } | null
+  control: { rol: string; fechaNacimiento: string | null; traspasoPendiente?: { deClub: string; aClub: string } | null; documentos: { selfie: boolean; cedulaFrente: boolean; cedulaReverso: boolean }; cedula?: string; jugadorId?: string; usuario?: string } | null
 }
 
 const EVENTO: Record<string, [string, string]> = { gol: ['gol', 'Gol'], gol_penal: ['gol', 'Gol de penal'], autogol: ['ro', 'Autogol'], amarilla: ['am', 'Tarjeta amarilla'], doble_amarilla: ['ro', 'Doble amarilla (expulsión)'], roja: ['ro', 'Tarjeta roja'] }
@@ -243,6 +243,7 @@ export default function FichaDeportiva() {
             <ul>
               <li>{c.control.documentos.selfie ? '✔' : '✖'} Foto registrada · compárala con el jugador</li>
               <li>{c.control.documentos.cedulaFrente && c.control.documentos.cedulaReverso ? '✔ Cédula verificada (frente y reverso)' : '✖ Cédula incompleta: no habilitar sin documentos'}</li>
+              {c.control.traspasoPendiente && <li style={{ color: '#fbbf24', fontWeight: 700 }}>🔁 CARNET DESACTUALIZADO: pasó de {c.control.traspasoPendiente.deClub} a {c.control.traspasoPendiente.aClub}. El carnet impreso puede mostrar el club anterior; reimprimir.</li>}
               <li>🎂 Nació el {c.control.fechaNacimiento ? fechaCorta(c.control.fechaNacimiento).replace(/^\S+\s/, '') + ' ' + c.control.fechaNacimiento.slice(0, 4) : 'sin dato'}</li>
               <li>{f && f.suspendidoPartidos > 0 ? '⛔ SUSPENDIDO: no autorizar para el próximo partido' : f && f.enCiclo === f.amarillasParaSuspension - 1 ? '⚠ En precaución: una amarilla más y se suspende' : '✔ Sin sanciones pendientes'}</li>
               {c.control.cedula !== undefined && <li>🪪 Cédula: <b>{c.control.cedula || 'sin dato'}</b></li>}

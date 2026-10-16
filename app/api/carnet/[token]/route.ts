@@ -32,6 +32,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   const selfie = j.images.find((i) => i.kind === 'selfie')
   const suspendidoPorSancion = (ficha?.suspendidoPartidos ?? 0) > 0
   const cedula = j.cedula || ''
+  const traspasoPend = staff ? await prisma.traspaso.findFirst({ where: { playerId: j.id, carnetReimpreso: false }, orderBy: { createdAt: 'desc' }, select: { deClub: true, aClub: true } }) : null
 
   return NextResponse.json({
     ok: true,
@@ -48,6 +49,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       ? {
           rol: staff.rol,
           fechaNacimiento: j.birthDate,
+          traspasoPendiente: traspasoPend ? { deClub: traspasoPend.deClub, aClub: traspasoPend.aClub } : null,
           documentos: { selfie: !!selfie, cedulaFrente: j.images.some((i) => i.kind === 'cedula_front'), cedulaReverso: j.images.some((i) => i.kind === 'cedula_back') },
           ...(esAdmin ? { cedula, jugadorId: j.id, usuario: staff.email } : {}),
         }

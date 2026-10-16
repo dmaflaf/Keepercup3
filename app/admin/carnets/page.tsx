@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 
 interface Edit { id: string; firstName: string; lastName: string; cedula: string; number: string; position: string; birthDate: string; email: string; phone: string; estado: string; equipo: string; editadoManual: boolean; regenerarQr: boolean }
-interface J { id: string; nombre: string; numero: number | null; estado: string; tieneQr: boolean; selfie: boolean; cedulas: boolean }
+interface J { id: string; nombre: string; numero: number | null; estado: string; tieneQr: boolean; reimprimir?: boolean; selfie: boolean; cedulas: boolean }
 
 const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm'
 const btn = 'px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-semibold text-sm'
@@ -169,7 +169,7 @@ export default function Carnets() {
                   <tbody>{jug.map((j) => (
                     <tr key={j.id} className="border-t border-slate-700">
                       <td className="py-2"><input type="checkbox" checked={sel.includes(j.id)} onChange={(e) => setSel(e.target.checked ? [...sel, j.id] : sel.filter((x) => x !== j.id))} /></td>
-                      <td>{j.numero ?? '–'}</td><td>{j.nombre}</td>
+                      <td>{j.numero ?? '–'}</td><td>{j.nombre}{j.reimprimir && <span className="ml-2 text-xs bg-yellow-500 text-black rounded px-1.5 py-0.5" title="Cambió de club: su carnet impreso está desactualizado">🔁 reimprimir</span>}</td>
                       <td className="text-center">{j.selfie ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>}</td>
                       <td className="text-center">{j.cedulas ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>}</td>
                       <td className={badge(j.estado)}>{j.estado}</td>

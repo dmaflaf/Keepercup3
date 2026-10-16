@@ -307,3 +307,8 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 
 ## 🏷️ NOMBRE DEL CLUB EN EL CARNET
 - `lib/club-nombre.ts` (`nombreClubCarnet`): quita «Club», «Fútbol/Futbol», «FC», «Sporting», «SC», «CD», «CF» y los «de/del» de los bordes, y conserva el resto (Barcelona Fútbol Club → BARCELONA; Barrio Fino Sporting Club → BARRIO FINO; Club Deportivo Cuenca → DEPORTIVO CUENCA). Si un nombre largo no cabe en la franja, se reduce la letra. Se usa en el PDF (`lib/carnet.ts`) y en la ficha `/j/[token]`. Para cambiar las palabras que se quitan, editar `GENERICAS` en ese archivo.
+
+## 🔁 TRASPASOS (cambio de club)
+- `/admin/traspasos` (solo admin; API `/api/admin/traspasos`, modelo `Traspaso`). Reglas acordadas: solo en preliminar/Fase 1 (interruptor «ventana de pases» + fecha de cierre, guardado en `Ajuste` `pases_ventana`), 1 traspaso por jugador, quien ya tiene eventos (alineación/goles/tarjetas) no puede cambiar, número nuevo libre en el club destino, sin cédula repetida en destino. El jugador conserva QR, fotos e historial; los eventos pasados quedan con el club de entonces (`Evento.teamId`).
+- Carnet impreso desactualizado: marca «🔁 reimprimir» en Carnets y aviso en la ficha para personal hasta marcar «Carnet reimpreso». «Deshacer» devuelve al jugador mientras no tenga eventos.
+- Si el jugador se sincroniza desde la hoja de Google/Drive con el club anterior, corregirlo también en la hoja.

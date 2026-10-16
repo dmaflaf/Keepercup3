@@ -83,6 +83,7 @@ export default function AdminDashboard() {
             { icono: '👥', titulo: 'Jugadores', texto: 'Ver y revisar fichas de jugadores', ruta: '/admin/jugadores' },
             { icono: '🎟️', titulo: 'Sorteo', texto: 'Premios, números ganadores y tómbola', ruta: '/admin/sorteo', solo: 'admin' },
             { icono: '🪪', titulo: 'Carnets', texto: 'Generar carnets con QR en PDF por club', ruta: '/admin/carnets', solo: 'admin' },
+            { icono: '🔁', titulo: 'Traspasos', texto: 'Cambiar a un jugador de club (un solo pase, solo en Fase 1)', ruta: '/admin/traspasos', solo: 'admin' },
             { icono: '🧹', titulo: 'Depuración', texto: 'Qué falta o está mal: cédulas, fotos, duplicados, grupos y fixture', ruta: '/admin/depuracion', solo: 'admin' },
             { icono: '📋', titulo: 'Planilla en vivo', texto: 'Alineaciones, cronómetro, goles, tarjetas y cambios al minuto (iPad/celular)', ruta: '/admin/planilla' },
             { icono: '🏆', titulo: 'Torneo', texto: 'Fases, grupos, fixture, resultados, tablas y sanciones', ruta: '/admin/torneo' },
