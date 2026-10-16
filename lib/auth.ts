@@ -1,5 +1,6 @@
 import { jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
+import { prisma } from '@/lib/db'
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'keeper-secret-key-change-in-production')
 
@@ -21,7 +22,11 @@ export async function verifyAuth(): Promise<TokenPayload | null> {
     }
 
     const verified = await jwtVerify(token, secret)
-    return verified.payload as unknown as TokenPayload
+    const payload = verified.payload as unknown as TokenPayload
+    // La cuenta debe seguir activa (si el administrador desactiva un usuario, su sesión deja de valer al instante)
+    const u = await prisma.user.findUnique({ where: { id: payload.id }, select: { activo: true, rol: true } })
+    if (!u || !u.activo) return null
+    return { ...payload, rol: u.rol as TokenPayload['rol'] }
   } catch (err) {
     return null
   }
