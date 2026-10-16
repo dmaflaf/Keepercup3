@@ -301,3 +301,6 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 - Estados (`cropEstado`): auto / revisar / manual / otra_foto. Dudosas (no se halló, muy pequeña, borrosa, forma rara) van a la cola "A revisar" con edición de 4 esquinas arrastrables.
 - "Probar con 20 jugadores" para calibrar antes de procesar todo. Si el jugador sube otra foto, se reinicia el estado y el original.
 - Pendiente: ejecutar automáticamente al subir desde Cargar club / registro.
+
+## 🧹 DEPURACIÓN DE DATOS
+- `/admin/depuracion` (solo admin, solo lectura; API `/api/admin/auditoria`, reglas en `lib/auditoria.ts`): clubes sin nómina/<11 jugadores/sin escudo/duplicados; jugadores sin cédula, cédula inválida (dígito verificador), misma cédula o nombre+nacimiento en varios clubes, sin número/nacimiento/posición/foto/cédula, edades raras, nombres mal escritos; torneo: equipos sin grupo, grupos desiguales, partidos sin fecha, choques de horario/cancha, sin resultado. Descarga CSV y copia de resumen sin datos personales.
