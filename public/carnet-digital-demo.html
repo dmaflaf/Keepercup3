@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0a121b">
+<title>Keeper Cup 3 — Carnet digital (DEMO)</title>
+<style>
+  @font-face{font-family:'RC';src:url('fonts/RobotoCondensed_400Regular.ttf');font-weight:400}
+  @font-face{font-family:'RC';src:url('fonts/RobotoCondensed_700Bold.ttf');font-weight:700}
+  @font-face{font-family:'BC';src:url('fonts/BarlowCondensed_800ExtraBold.ttf');font-weight:800}
+  :root{--navy:#0a121b;--rojo:#bf1b2c;--verde:#2fb344;--ambar:#f2b81a;--gris:#7b7979;--borde:#e3e6eb;--fondo:#eef1f5;--txt:#0a121b;--dim:#5d6877}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);font-family:'RC',system-ui,sans-serif;color:var(--txt);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:430px;margin:0 auto;padding:0 14px 48px}
+  .demo-bar{background:#fff3cd;border-bottom:1px solid #e6d28a;font-size:12px;padding:8px 12px;text-align:center;color:#6b5a14}
+  .demo-bar select,.demo-bar label{font-family:inherit;font-size:12px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 2px 10px}
+  .topbar img{height:26px;background:var(--navy);padding:4px 10px;border-radius:6px}
+  .topbar span{font-size:12px;color:var(--dim)}
+
+  /* Carnet (mismo arte y medidas que el impreso) */
+  .carnet{--u:2.06px;position:relative;width:calc(155.98 * var(--u));height:calc(240.94 * var(--u));margin:6px auto 0;border-radius:calc(11 * var(--u));overflow:hidden;background:#fff url('plantillas/carnet-frente.png') center/100% 100% no-repeat;box-shadow:0 10px 30px rgba(10,18,27,.25)}
+  .carnet>*{position:absolute}
+  .c-foto{left:calc(11.5*var(--u));top:calc(49.3*var(--u));width:calc(74.5*var(--u));height:calc(94.3*var(--u));border-radius:calc(6*var(--u));overflow:hidden;background:#d7dde6}
+  .c-foto svg,.c-foto img{width:100%;height:100%;display:block;object-fit:cover}
+  .c-escudo{left:calc((118.1 - 26)*var(--u));top:calc((94.8 - 27.5)*var(--u));width:calc(52*var(--u));height:calc(55*var(--u))}
+  .c-txt{left:calc((48.8 - 38)*var(--u));width:calc(76*var(--u));text-align:center;line-height:1;white-space:nowrap}
+  .c-n{top:calc((158.6 - 8.2)*var(--u));font-weight:700;font-size:calc(11.2*var(--u))}
+  .c-a{top:calc((168.6 - 8.2)*var(--u));font-size:calc(11.2*var(--u))}
+  .c-c{top:calc((178.9 - 8.2)*var(--u));font-size:calc(11.2*var(--u))}
+  .c-f{top:calc((188.8 - 8.2)*var(--u));font-size:calc(11.2*var(--u))}
+  .c-num{left:calc((116.5 - 30)*var(--u));width:calc(60*var(--u));top:calc((190.5 - 40.6*1.0)*var(--u));text-align:center;font-family:'BC';font-weight:800;color:var(--rojo);font-size:calc(58*var(--u));line-height:.86}
+  .c-club{left:0;right:0;top:calc((210.9 - 11.6)*var(--u));text-align:center;font-family:'BC';font-weight:800;color:#fff;font-size:calc(16.2*var(--u));line-height:1}
+  .c-txt,.c-club{font-family:'RC'}
+  .c-club{font-family:'BC'}
+  .estado{margin-top:14px;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;color:#fff}
+  .estado .ic{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+  .estado b{font-family:'BC';font-weight:800;font-size:20px;letter-spacing:.04em;display:block;line-height:1.05}
+  .estado small{font-size:12.5px;opacity:.95}
+  .e-ok{background:linear-gradient(90deg,#1f8f35,var(--verde))}
+  .e-pend{background:linear-gradient(90deg,#d99a00,var(--ambar));color:#2b2000}
+  .e-susp{background:linear-gradient(90deg,#a81f1f,#d93636)}
+
+  .card{background:#fff;border:1px solid var(--borde);border-radius:14px;padding:16px;margin-top:14px;box-shadow:0 1px 2px rgba(10,18,27,.05)}
+  .card h2{font-family:'BC';font-weight:800;font-size:20px;letter-spacing:.05em;margin:0 0 12px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .card h2::before{content:"";width:4px;height:18px;background:var(--rojo);border-radius:2px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .stat{background:#f6f7f9;border-radius:10px;padding:10px 6px;text-align:center}
+  .stat b{display:block;font-family:'BC';font-weight:800;font-size:34px;line-height:1;color:var(--navy)}
+  .stat.rojo b{color:var(--rojo)}
+  .stat span{font-size:11.5px;color:var(--dim);letter-spacing:.03em;text-transform:uppercase}
+  .barra{display:flex;gap:6px;margin:6px 0 8px}
+  .barra i{flex:1;height:12px;border-radius:6px;background:#e3e6eb}
+  .barra i.on{background:var(--ambar)}
+  .barra i.full{background:var(--rojo)}
+  .nota{font-size:13px;color:var(--dim);line-height:1.4}
+  .proximo{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:center}
+  .eq{flex:1;font-weight:700;font-size:15px;line-height:1.15}
+  .eq small{display:block;font-weight:400;color:var(--dim);font-size:11px}
+  .vs{font-family:'BC';font-weight:800;font-size:26px;color:var(--rojo)}
+  .cuando{margin-top:10px;background:var(--navy);color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+  .racha{display:flex;gap:8px;margin-bottom:10px}
+  .chip{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'BC';font-weight:800;font-size:17px;color:#fff}
+  .V{background:var(--verde)}.E{background:#98a2b3}.D{background:var(--rojo)}
+  .res{display:flex;justify-content:space-between;font-size:13.5px;padding:7px 0;border-top:1px solid var(--borde)}
+  .res b{font-family:'BC';font-weight:800;font-size:17px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:var(--dim);font-weight:400;text-align:center;padding:4px 2px;font-size:11px}
+  td{padding:7px 2px;text-align:center;border-top:1px solid var(--borde)}
+  td:nth-child(2){text-align:left;font-weight:700}
+  tr.mio td{background:#fdecee;color:var(--rojo)}
+  .linea{position:relative;margin-left:8px;padding-left:18px;border-left:2px solid var(--borde)}
+  .ev{position:relative;padding:0 0 14px;font-size:13.5px}
+  .ev::before{content:"";position:absolute;left:-26px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--navy)}
+  .ev.gol::before{border-color:var(--verde)}.ev.am::before{border-color:var(--ambar)}.ev.ro::before{border-color:var(--rojo)}
+  .ev small{display:block;color:var(--dim);font-size:11.5px}
+  .control{background:#0a121b;color:#fff;border-radius:14px;padding:14px 16px;margin-top:14px}
+  .control h3{font-family:'BC';font-weight:800;font-size:15px;letter-spacing:.08em;margin:0 0 8px;color:var(--ambar)}
+  .control ul{margin:0;padding:0;list-style:none;font-size:13.5px;line-height:1.9}
+  .btns{display:flex;gap:10px;margin-top:14px}
+  .btns a{flex:1;text-align:center;background:var(--navy);color:#fff;text-decoration:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px}
+  .btns a.sec{background:#fff;color:var(--navy);border:1px solid var(--borde)}
+  .pie{text-align:center;color:var(--dim);font-size:11.5px;margin-top:18px;line-height:1.5}
+  .oculto{display:none}
+</style>
+</head>
+<body>
+<div class="demo-bar">DEMO con datos ficticios · Ver como:
+  <select id="modo"><option value="campo">Jugador de campo</option><option value="portero">Portero</option><option value="susp">Suspendido</option><option value="pend">Pendiente de documentos</option></select>
+  <label><input type="checkbox" id="staff"> Vista de control (árbitro/vocal)</label>
+</div>
+<div class="wrap">
+  <div class="topbar"><img src="logo-kc3.png" alt="Keeper Cup 3"><span id="act">Actualizado hace 2 min</span></div>
+
+  <div class="carnet" id="carnet">
+    <div class="c-foto"><svg viewBox="0 0 74 94" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dfe5ee"/><stop offset="1" stop-color="#c3ccd9"/></linearGradient></defs><rect width="74" height="94" fill="url(#g)"/><circle cx="37" cy="36" r="15" fill="#9aa8bb"/><path d="M6 94c0-24 14-34 31-34s31 10 31 34z" fill="#9aa8bb"/></svg></div>
+    <svg class="c-escudo" viewBox="0 0 52 60" xmlns="http://www.w3.org/2000/svg"><path d="M26 2 48 9v22c0 13-9 22-22 27C13 53 4 44 4 31V9z" fill="#111"/><path d="M26 7 43 12.5V31c0 10-7 17-17 21.5C16 48 9 41 9 31V12.5z" fill="none" stroke="#bf1b2c" stroke-width="2"/><text x="26" y="36" text-anchor="middle" font-family="Arial" font-weight="900" font-size="15" fill="#fff">LF</text></svg>
+    <div class="c-txt c-n" id="cn">Damián Ismael</div>
+    <div class="c-txt c-a" id="ca">Mafla Flores</div>
+    <div class="c-txt c-c">1003•••134</div>
+    <div class="c-txt c-f">19-07-1985</div>
+    <div class="c-num" id="cnum">25</div>
+    <div class="c-club">LEGACY</div>
+  </div>
+
+  <div class="estado e-ok" id="estado"></div>
+
+  <div class="card" id="c-stats"></div>
+  <div class="card" id="c-disc"></div>
+  <div class="card"><h2>Próximo partido</h2>
+    <div class="proximo"><div class="eq">Legacy FC<small>Grupo A</small></div><div class="vs">VS</div><div class="eq">Club Dos<small>Grupo A</small></div></div>
+    <div class="cuando"><span>📅 Sáb 24 oct · 15:00</span><span>📍 Cancha 2</span></div>
+  </div>
+  <div class="card"><h2>Últimos partidos de su club</h2>
+    <div class="racha"><div class="chip V">V</div><div class="chip V">V</div><div class="chip E">E</div><div class="chip V">V</div><div class="chip D">D</div></div>
+    <div class="res"><span>Fecha 5 · vs Club Seis</span><b>1 - 2</b></div>
+    <div class="res"><span>Fecha 4 · vs Club Tres</span><b>3 - 0</b></div>
+    <div class="res"><span>Fecha 3 · vs Club Siete</span><b>2 - 2</b></div>
+  </div>
+  <div class="card"><h2>Tabla · Grupo A</h2>
+    <table><tr><th></th><th></th><th>PJ</th><th>DG</th><th>PTS</th></tr>
+      <tr><td>1</td><td>Club Dos</td><td>5</td><td>+7</td><td><b>13</b></td></tr>
+      <tr class="mio"><td>2</td><td>Legacy FC</td><td>5</td><td>+4</td><td><b>10</b></td></tr>
+      <tr><td>3</td><td>Club Cuatro</td><td>5</td><td>+1</td><td><b>8</b></td></tr>
+      <tr><td>4</td><td>Club Cinco</td><td>5</td><td>0</td><td><b>7</b></td></tr></table>
+    <p class="nota" style="margin:8px 0 0">Del 1.º al 4.º lugar clasifican a Copa Oro; del 5.º al 8.º, a Copa Plata.</p>
+  </div>
+  <div class="card"><h2>Su historial en el torneo</h2>
+    <div class="linea" id="hist"></div>
+  </div>
+  <div class="control oculto" id="control"><h3>VISTA DE CONTROL · SOLO PERSONAL</h3>
+    <ul><li>✔ Foto registrada · compárala con el jugador</li><li>✔ Cédula y nómina verificadas</li><li id="ctl-san">✔ Sin sanciones pendientes</li><li>🕘 Habilitado desde el 02/10/2026</li></ul></div>
+  <div class="btns"><a href="#" class="sec">Compartir carnet</a><a href="#">Ver tabla y fixture</a></div>
+  <p class="pie">Información oficial del torneo, actualizada cada vez que se cierra un partido.<br>Keeper Cup Series — By NIX · keeper.com.ec</p>
+</div>
+<script>
+  const D = {
+    campo:  { est:'e-ok', ic:'✔', t:'JUGADOR HABILITADO', s:'Puede jugar el próximo partido', pos:'Delantero', num:25,
+      stats:[['6','Partidos jugados'],['4','Goles','rojo'],['1','De penal'],['2','Amarillas'],['0','Rojas'],['0.67','Goles por partido']],
+      am:2, sus:0, discTxt:'Una amarilla más y se suspende 1 partido.',
+      hist:[['gol','Gol · min 23','Fecha 5 · vs Club Seis'],['am','Tarjeta amarilla · min 61','Fecha 5 · vs Club Seis'],['gol','Gol de penal · min 78','Fecha 4 · vs Club Tres'],['gol','Gol · min 12','Fecha 3 · vs Club Siete'],['am','Tarjeta amarilla · min 40','Fecha 2 · vs Club Cuatro'],['gol','Gol · min 55','Fecha 1 · vs Club Cinco']] },
+    portero:{ est:'e-ok', ic:'✔', t:'JUGADOR HABILITADO', s:'Puede jugar el próximo partido', pos:'Portero', num:1,
+      stats:[['6','Partidos jugados'],['5','Goles recibidos'],['2','Vallas invictas','rojo'],['0.83','Goles recibidos por partido'],['0','Amarillas'],['0','Rojas']],
+      am:0, sus:0, discTxt:'Sin tarjetas en el torneo.',
+      hist:[['gol','Valla invicta · 1 - 0','Fecha 4 · vs Club Tres'],['gol','Valla invicta · 3 - 0','Fecha 1 · vs Club Cinco'],['am','2 goles recibidos','Fecha 5 · vs Club Seis']] },
+    susp:   { est:'e-susp', ic:'⛔', t:'SUSPENDIDO · 1 PARTIDO', s:'No puede jugar el sábado 24 de octubre', pos:'Delantero', num:25,
+      stats:[['6','Partidos jugados'],['4','Goles','rojo'],['1','De penal'],['3','Amarillas'],['0','Rojas'],['0.67','Goles por partido']],
+      am:3, sus:1, discTxt:'Motivo: 3 amarillas acumuladas = 1 partido de suspensión.',
+      hist:[['am','Tarjeta amarilla · min 61 (3.ª)','Fecha 5 · vs Club Seis'],['gol','Gol · min 23','Fecha 5 · vs Club Seis'],['am','Tarjeta amarilla · min 40','Fecha 2 · vs Club Cuatro']] },
+    pend:   { est:'e-pend', ic:'⚠', t:'PENDIENTE DE DOCUMENTOS', s:'Falta completar su inscripción para jugar', pos:'Delantero', num:25,
+      stats:[['0','Partidos jugados'],['0','Goles','rojo'],['0','De penal'],['0','Amarillas'],['0','Rojas'],['–','Goles por partido']],
+      am:0, sus:0, discTxt:'Sin tarjetas.', hist:[] }
+  };
+  const $ = id => document.getElementById(id);
+  function pintar(){
+    const m = D[$('modo').value];
+    const e = $('estado'); e.className = 'estado ' + m.est;
+    e.innerHTML = '<div class="ic">'+m.ic+'</div><div><b>'+m.t+'</b><small>'+m.s+'</small></div>';
+    $('cnum').textContent = m.num;
+    $('c-stats').innerHTML = '<h2>Estadísticas · '+m.pos+'</h2><div class="grid">'+m.stats.map(s=>'<div class="stat '+(s[2]||'')+'"><b>'+s[0]+'</b><span>'+s[1]+'</span></div>').join('')+'</div>';
+    const n = 3, on = m.sus ? 3 : m.am;
+    $('c-disc').innerHTML = '<h2>Disciplina</h2><div class="barra">'+[0,1,2].map(i=>'<i class="'+(m.sus ? 'full' : (i<on?'on':''))+'"></i>').join('')+'</div><p class="nota" style="margin:0"><b>'+(m.sus ? 'Suspensión: 1 partido' : on+' de '+n+' amarillas acumuladas')+'</b> · '+m.discTxt+'</p>';
+    $('hist').innerHTML = m.hist.length ? m.hist.map(h=>'<div class="ev '+h[0]+'">'+h[1]+'<small>'+h[2]+'</small></div>').join('') : '<p class="nota">Todavía no ha jugado partidos.</p>';
+    $('ctl-san').innerHTML = m.sus ? '⛔ SUSPENDIDO: no autorizar para el próximo partido' : (m.est==='e-pend' ? '⚠ Documentos incompletos: no habilitado' : '✔ Sin sanciones pendientes');
+  }
+  $('modo').onchange = pintar; $('staff').onchange = () => $('control').classList.toggle('oculto', !$('staff').checked);
+  pintar();
+</script>
+</body>
+</html>
