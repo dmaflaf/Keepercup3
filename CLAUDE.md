@@ -39,9 +39,11 @@
 
 ---
 
-## 👥 **USUARIOS**
+## 👥 **USUARIOS Y CLAVES**
 
-Usuarios: `admin@keeper.ec` (admin) y `vocal@keeper.ec` (vocal). Las contraseñas NO se guardan en el repo: se generan con `/api/setup/reset-admin?key=SETUP_KEY` (requiere la variable SETUP_KEY en Vercel).
+- Las claves NO están en el repo y nadie puede leerlas (cifradas con bcrypt en la BD); solo se restablecen.
+- `/admin/usuarios` (solo admin): crear vocales por dispositivo, restablecer clave (se muestra una sola vez), activar/desactivar, cambiar rol. Un usuario desactivado pierde la sesión al instante (`verifyAuth` consulta la BD). La sesión dura 7 días.
+- Primera vez: `/api/setup/init-admin` o `/api/setup/reset-admin?key=SETUP_KEY` (usa `SETUP_KEY` y `USUARIOS_JSON` de Vercel; borrarlas tras usarlas).
 
 ---
 
