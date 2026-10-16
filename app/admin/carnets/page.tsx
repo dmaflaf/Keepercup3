@@ -90,7 +90,18 @@ export default function Carnets() {
   }
   const campo = (k: keyof Edit, v: string) => setEdit((e) => (e ? { ...e, [k]: v } : e))
 
-  const pdf = (ids: string[], todos = false) => window.open(`/api/admin/carnets/pdf?equipo=${encodeURIComponent(club)}${ids.length ? '&ids=' + ids.join(',') : ''}${todos ? '&todos=1' : ''}`, '_blank')
+  // Vista previa: se genera el PDF una sola vez y se muestra aquí; «Descargar» guarda ese mismo archivo (no se vuelve a generar)
+  const [vista, setVista] = useState<{ url: string; nombre: string; cantidad: number } | null>(null)
+  const [generando, setGenerando] = useState(false)
+  const cerrarVista = () => { if (vista) URL.revokeObjectURL(vista.url); setVista(null) }
+  async function previsualizar(ids: string[], todos: boolean, cantidad: number) {
+    setGenerando(true); setMsg('')
+    try {
+      const r = await fetch(`/api/admin/carnets/pdf?equipo=${encodeURIComponent(club)}${ids.length ? '&ids=' + ids.join(',') : ''}${todos ? '&todos=1' : ''}`)
+      if (!r.ok || !(r.headers.get('content-type') || '').includes('pdf')) { const e = await r.json().catch(() => null); setMsg(e?.message || 'No se pudo generar la vista previa'); return }
+      setVista({ url: URL.createObjectURL(await r.blob()), nombre: `carnets-${club.replace(/[^a-z0-9]+/gi, '-')}.pdf`, cantidad })
+    } catch { setMsg('No se pudo generar la vista previa') } finally { setGenerando(false) }
+  }
   const badge = (e: string) => (e === 'habilitado' ? 'text-green-400' : e === 'suspendido' ? 'text-red-400' : 'text-yellow-300')
 
   return (
@@ -138,8 +149,8 @@ export default function Carnets() {
                 <button className={btn2} disabled={ocupado || !completos.length} onClick={() => habilitar(completos.map((j) => j.id), 'habilitado')}>Habilitar a los que tienen foto y cédulas ({completos.length})</button>
                 <button className={btn2} disabled={ocupado || !sel.length} onClick={() => habilitar(sel, 'habilitado')}>Habilitar seleccionados</button>
                 <button className={btn2} disabled={ocupado || !sel.length} onClick={() => habilitar(sel, 'pendiente')}>Pasar a pendiente</button>
-                <button className={btn} disabled={!habilitados.length} onClick={() => pdf([])}>Descargar PDF de habilitados ({habilitados.length})</button>
-                <button className={btn2} disabled={!sel.length} onClick={() => pdf(sel, true)}>PDF de seleccionados</button>
+                <button className={btn} disabled={generando || !habilitados.length} onClick={() => previsualizar([], false, habilitados.length)}>{generando ? 'Generando…' : `👁 Vista previa de habilitados (${habilitados.length})`}</button>
+                <button className={btn2} disabled={generando || !sel.length} onClick={() => previsualizar(sel, true, sel.length)}>👁 Vista previa de seleccionados ({sel.length})</button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -185,6 +196,20 @@ export default function Carnets() {
           </div>
         )}
       </div>
+      {vista && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex flex-col p-3">
+          <div className="flex items-center gap-3 flex-wrap bg-slate-800 border border-slate-600 rounded-t-xl px-4 py-3">
+            <b>Vista previa · {vista.cantidad} carnet(s) · {Math.ceil(vista.cantidad / 9)} hoja(s) A4 (frentes y dorsos)</b>
+            <span className="text-slate-400 text-sm">Revisa que todo esté bien. Solo se descarga cuando pulses el botón.</span>
+            <span className="ml-auto flex gap-2">
+              <a className={btn + ' inline-block'} href={vista.url} download={vista.nombre}>⬇ Descargar PDF</a>
+              <a className={btn2 + ' inline-block'} href={vista.url} target="_blank" rel="noreferrer">Abrir en pestaña nueva</a>
+              <button className={btn2} onClick={cerrarVista}>Cerrar</button>
+            </span>
+          </div>
+          <iframe src={vista.url} title="Vista previa de carnets" className="flex-1 w-full bg-white rounded-b-xl" />
+        </div>
+      )}
     </div>
   )
 }
