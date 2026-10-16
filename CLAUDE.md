@@ -272,3 +272,8 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 - Se guarda en `PlayerImage` (selfie): `crop` (fracciones 0..1), `cropEstado` (auto | revisar | manual | otra_foto), `cropMotivo`. La foto original no se toca. Al reemplazar la selfie, el encuadre se borra. El PDF de carnets usa el recorte si existe (si no, recorte por atención).
 - Se marcan a revisar: sin rostro, más de una persona, rostro cortado, cabeza pegada al borde, resolución baja (< 240 px de ancho útil). En la pantalla se puede aceptar, ajustar (mover/acercar) o marcar "pedir otra foto".
 - Pendiente: ejecutarlo automáticamente al subir fotos desde Cargar club; subir el tope de 800 px de las selfies nuevas si hay muchas fotos lejanas.
+
+### Corrección manual de jugadores (Carnets → ✏️ Editar)
+- `/admin/carnets`: botón Editar por jugador (nombres, apellidos, cédula, número, fecha de nacimiento, posición, correo, teléfono, estado y "generar QR nuevo"). API `PATCH /api/admin/carnets/jugador` (solo admin). Valida cédula de 10 dígitos (avisa si no pasa la validación oficial), cédula y número únicos, fecha válida.
+- **El panel manda sobre la hoja:** al editar se marca `Player.editadoManual = true`; la sincronización (`lib/importar-db.ts`) ya no pisa sus datos (solo acepta enlaces de fotos). Si se cambia la cédula, la anterior queda en `PlayerAlias` para que la sync no cree un duplicado con la cédula errónea. Los cambios NO se escriben de vuelta en la Hoja de Google.
+- Regenerar el QR invalida el carnet impreso anterior (`/j/<token viejo>` responde 404).

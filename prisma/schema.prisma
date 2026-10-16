@@ -66,6 +66,7 @@ model Player {
   cedulaBackUrl String?  @db.Text
   estado        String   @default("pendiente") // pendiente | habilitado | suspendido
   qrToken       String?  @unique
+  editadoManual Boolean  @default(false) // corregido a mano en el panel: la sincronización con la hoja no lo pisa
 
   team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   teamId        String
@@ -400,4 +401,13 @@ model Evento {
 model Ajuste {
   key   String @id
   value String @db.Text
+}
+
+// Cédulas antiguas de jugadores corregidos a mano: evitan que la sincronización con la hoja cree un duplicado con la cédula errónea
+model PlayerAlias {
+  cedula    String   @id
+  playerId  String
+  createdAt DateTime @default(now())
+
+  @@index([playerId])
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 
+interface Edit { id: string; firstName: string; lastName: string; cedula: string; number: string; position: string; birthDate: string; email: string; phone: string; estado: string; equipo: string; editadoManual: boolean; regenerarQr: boolean }
 interface J { id: string; nombre: string; numero: number | null; estado: string; tieneQr: boolean; selfie: boolean; cedulas: boolean }
 
 const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm'
@@ -19,6 +20,8 @@ export default function Carnets() {
   const [sel, setSel] = useState<string[]>([])
   const [msg, setMsg] = useState('')
   const [ocupado, setOcupado] = useState(false)
+  const [edit, setEdit] = useState<Edit | null>(null)
+  const [editMsg, setEditMsg] = useState('')
 
   const cargar = useCallback(async (nombre: string) => {
     const r = await fetch('/api/admin/carnets/club' + (nombre ? '?equipo=' + encodeURIComponent(nombre) : '')).then((x) => x.json()).catch(() => null)
@@ -67,6 +70,25 @@ export default function Carnets() {
     setLote(res); setOcupado(false)
     if (club) cargar(club)
   }
+
+  async function abrirEditor(id: string) {
+    setEditMsg('')
+    const r = await fetch('/api/admin/carnets/jugador?id=' + id).then((x) => x.json()).catch(() => null)
+    if (!r?.ok) { setMsg(r?.message || 'No se pudo abrir el jugador'); return }
+    const j = r.jugador
+    setEdit({ id: j.id, firstName: j.firstName || '', lastName: j.lastName || '', cedula: j.cedula || '', number: j.number === null ? '' : String(j.number), position: j.position || '', birthDate: j.birthDate || '', email: j.email || '', phone: j.phone || '', estado: j.estado, equipo: j.equipo, editadoManual: j.editadoManual, regenerarQr: false })
+  }
+  async function guardarEdicion() {
+    if (!edit) return
+    setOcupado(true); setEditMsg('')
+    const r = await fetch('/api/admin/carnets/jugador', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...edit }) }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Error de conexión' }))
+    setOcupado(false)
+    if (!r.ok) { setEditMsg(r.message || 'No se pudo guardar'); return }
+    setEdit(null)
+    setMsg('Datos guardados.' + (r.avisos?.length ? ' ⚠ ' + r.avisos.join(' ') : '') + (r.qrRegenerado ? ' El código QR cambió: hay que reimprimir su carnet.' : ''))
+    cargar(club)
+  }
+  const campo = (k: keyof Edit, v: string) => setEdit((e) => (e ? { ...e, [k]: v } : e))
 
   const pdf = (ids: string[], todos = false) => window.open(`/api/admin/carnets/pdf?equipo=${encodeURIComponent(club)}${ids.length ? '&ids=' + ids.join(',') : ''}${todos ? '&todos=1' : ''}`, '_blank')
   const badge = (e: string) => (e === 'habilitado' ? 'text-green-400' : e === 'suspendido' ? 'text-red-400' : 'text-yellow-300')
@@ -120,7 +142,7 @@ export default function Carnets() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="text-left text-slate-400"><tr><th className="py-2"><input type="checkbox" checked={sel.length === jug.length && jug.length > 0} onChange={(e) => setSel(e.target.checked ? jug.map((j) => j.id) : [])} /></th><th>N.º</th><th>Jugador</th><th className="text-center">Foto</th><th className="text-center">Cédulas</th><th>Estado</th></tr></thead>
+                  <thead className="text-left text-slate-400"><tr><th className="py-2"><input type="checkbox" checked={sel.length === jug.length && jug.length > 0} onChange={(e) => setSel(e.target.checked ? jug.map((j) => j.id) : [])} /></th><th>N.º</th><th>Jugador</th><th className="text-center">Foto</th><th className="text-center">Cédulas</th><th>Estado</th><th></th></tr></thead>
                   <tbody>{jug.map((j) => (
                     <tr key={j.id} className="border-t border-slate-700">
                       <td className="py-2"><input type="checkbox" checked={sel.includes(j.id)} onChange={(e) => setSel(e.target.checked ? [...sel, j.id] : sel.filter((x) => x !== j.id))} /></td>
@@ -128,6 +150,7 @@ export default function Carnets() {
                       <td className="text-center">{j.selfie ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>}</td>
                       <td className="text-center">{j.cedulas ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>}</td>
                       <td className={badge(j.estado)}>{j.estado}</td>
+                      <td className="text-right"><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs" onClick={() => abrirEditor(j.id)}>✏️ Editar</button></td>
                     </tr>))}
                   </tbody>
                 </table>
@@ -135,6 +158,30 @@ export default function Carnets() {
               <p className="text-slate-400 text-xs mt-3">Impresión a doble cara: cada hoja de frentes va seguida de su hoja de dorsos (columnas ya espejadas). En la impresora elige &quot;voltear por el lado largo&quot; y tamaño real (100%).</p>
             </section>
           </>
+        )}
+
+        {edit && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center overflow-auto p-4" onClick={() => setEdit(null)}>
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 w-full max-w-xl mt-8" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-xl font-bold mb-1">Corregir datos del jugador</h2>
+              <p className="text-slate-400 text-sm mb-4">{edit.equipo}. Lo que cambies aquí manda sobre la Hoja de Google (la sincronización ya no lo pisa) y <b>no se escribe de vuelta en la hoja</b>.</p>
+              {editMsg && <div className="bg-red-900/40 border border-red-500 rounded-lg p-3 mb-3 text-sm">{editMsg}</div>}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <label className="flex flex-col gap-1">Nombres<input className={inp} value={edit.firstName} onChange={(e) => campo('firstName', e.target.value)} /></label>
+                <label className="flex flex-col gap-1">Apellidos<input className={inp} value={edit.lastName} onChange={(e) => campo('lastName', e.target.value)} /></label>
+                <label className="flex flex-col gap-1">Cédula (10 dígitos)<input className={inp} inputMode="numeric" maxLength={10} value={edit.cedula} onChange={(e) => campo('cedula', e.target.value.replace(/\D/g, ''))} /></label>
+                <label className="flex flex-col gap-1">Número de camiseta<input className={inp} inputMode="numeric" maxLength={3} value={edit.number} onChange={(e) => campo('number', e.target.value.replace(/\D/g, ''))} /></label>
+                <label className="flex flex-col gap-1">Fecha de nacimiento<input className={inp} placeholder="AAAA-MM-DD o DD/MM/AAAA" value={edit.birthDate} onChange={(e) => campo('birthDate', e.target.value)} /></label>
+                <label className="flex flex-col gap-1">Posición<select className={inp} value={edit.position} onChange={(e) => campo('position', e.target.value)}><option value="">—</option><option>Portero</option><option>Defensa</option><option>Mediocampista</option><option>Delantero</option></select></label>
+                <label className="flex flex-col gap-1">Correo<input className={inp} value={edit.email} onChange={(e) => campo('email', e.target.value)} /></label>
+                <label className="flex flex-col gap-1">Teléfono<input className={inp} value={edit.phone} onChange={(e) => campo('phone', e.target.value)} /></label>
+                <label className="flex flex-col gap-1">Estado<select className={inp} value={edit.estado} onChange={(e) => campo('estado', e.target.value)}><option value="pendiente">Pendiente</option><option value="habilitado">Habilitado</option><option value="suspendido">Suspendido</option></select></label>
+              </div>
+              <label className="flex items-center gap-2 text-sm mt-4 text-slate-300"><input type="checkbox" checked={edit.regenerarQr} onChange={(e) => setEdit({ ...edit, regenerarQr: e.target.checked })} /> Generar un código QR nuevo (el carnet impreso anterior dejará de funcionar)</label>
+              {edit.editadoManual && <p className="text-xs text-yellow-200/80 mt-3">Este jugador ya fue corregido a mano antes.</p>}
+              <div className="flex gap-2 mt-5"><button className={btn} disabled={ocupado} onClick={guardarEdicion}>Guardar cambios</button><button className={btn2} onClick={() => setEdit(null)}>Cancelar</button></div>
+            </div>
+          </div>
         )}
       </div>
     </div>

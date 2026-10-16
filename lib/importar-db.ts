@@ -9,8 +9,15 @@ export async function prepararImportacion(prisma: PrismaClient, rawEquipos: Fila
   const equiposDB = await prisma.team.findMany({ select: { id: true, name: true } })
   const jugadoresDB = await prisma.player.findMany({
     where: { cedula: { not: null } },
-    select: { id: true, cedula: true, qrToken: true, number: true, team: { select: { name: true } } },
+    select: { id: true, cedula: true, qrToken: true, number: true, editadoManual: true, team: { select: { name: true } } },
   })
+  // Cédulas antiguas (jugadores corregidos a mano) se tratan como el jugador corregido, para no duplicarlo
+  const alias = await prisma.playerAlias.findMany()
+  const porId = new Map(jugadoresDB.map((j) => [j.id, j]))
+  for (const a of alias) {
+    const j = porId.get(a.playerId)
+    if (j) jugadoresDB.push({ ...j, cedula: a.cedula })
+  }
   const cedulasExistentes = new Map<string, string>()
   for (const j of jugadoresDB) if (j.cedula) cedulasExistentes.set(j.cedula, j.team.name)
 
@@ -89,6 +96,11 @@ export async function escribirImportacion(
       ...(j.cedulaBackUrl && { cedulaBackUrl: j.cedulaBackUrl }),
     }
     const previo = existentes.get(j.cedula)
+    if (previo && previo.editadoManual) {
+      // Corregido a mano en el panel: manda el panel. Solo se aceptan los enlaces de fotos que traiga la hoja.
+      if (Object.keys(fotos).length) actualizaciones.push({ id: previo.id, nombre: `${j.firstName} ${j.lastName}`, numeroNuevo: null, numeroPrevio: previo.number, data: { ...fotos } })
+      continue
+    }
     if (previo) {
       actualizaciones.push({
         id: previo.id,
