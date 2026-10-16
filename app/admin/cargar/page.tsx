@@ -7,19 +7,41 @@ import * as XLSX from 'xlsx'
 interface JugadorClub { id: string; nombre: string; cedula: string | null; numero: number | null; selfie: boolean; frente: boolean; reverso: boolean }
 interface Incidencia { hoja: string; fila: number; nivel: 'error' | 'aviso'; mensaje: string; detalle?: string }
 type Tipo = 'selfie' | 'cedula_front' | 'cedula_back'
-interface Foto { archivo: File; cedula: string; tipo: Tipo }
+interface Foto { archivo: File; cedula: string; crudo: string; tipo: Tipo; aprox?: boolean }
 
 const sinAcentos = (s: unknown) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 const CEDULA_EJEMPLO = '1003399134'
-const RE_FOTO = /(?:^|[\s_\-.])(\d{9,10})(?:[\s_\-]*(?:ci[\s_\-]*)?(frente|front|anverso|reverso|atras|posterior|back))?\s*\.(?:jpe?g|png|webp|heic|heif|gif)$/i
+const RE_FOTO = /(?:^|[\s_\-.])(\d{8,10}(?:[\s]?-[\s]?\d)?)(?:[\s_\-]*(?:ci[\s_\-]*)?(frente|front|anverso|reverso|atras|posterior|back))?\s*\.(?:jpe?g|png|webp|heic|heif|gif)$/i
 
-function clasificar(nombre: string): { cedula: string; tipo: Tipo } | null {
+// Une dos números si el más corto es el más largo con un dígito de menos (cédulas mal tecleadas en el nombre del archivo)
+const unDigitoMenos = (corto: string, largo: string) => {
+  if (largo.length !== corto.length + 1) return false
+  for (let i = 0; i < largo.length; i++) if (largo.slice(0, i) + largo.slice(i + 1) === corto) return true
+  return false
+}
+/** Busca a qué jugador de la nómina pertenece una foto: exacto, sin cero inicial, o con un dígito de diferencia si solo hay un candidato. */
+function resolverCedula(crudo: string, roster: string[]): { cedula: string; aprox: boolean } | null {
+  const exacta = crudo.padStart(10, '0')
+  if (roster.includes(exacta)) return { cedula: exacta, aprox: false }
+  const sinCero = (x: string) => x.replace(/^0+/, '')
+  const mismo = roster.filter((r) => sinCero(r) === sinCero(crudo))
+  if (mismo.length === 1) return { cedula: mismo[0], aprox: true }
+  if (crudo.length >= 8) {
+    const parecidas = roster.filter((r) => unDigitoMenos(crudo, r) || unDigitoMenos(r, crudo) || unDigitoMenos(sinCero(crudo), sinCero(r)) || unDigitoMenos(sinCero(r), sinCero(crudo)))
+    if (parecidas.length === 1) return { cedula: parecidas[0], aprox: true }
+  }
+  return null
+}
+
+function clasificar(nombre: string): { cedula: string; crudo: string; tipo: Tipo } | null {
   const m = nombre.match(RE_FOTO)
   if (!m) return null
-  const cedula = m[1].padStart(10, '0')
+  let crudo = m[1].replace(/\D/g, '') // «040140984-2» → 0401409842
+  if (crudo.length === 11) crudo = crudo.slice(0, 10) // «1003831698-1» = cédula + número de foto
+  const cedula = crudo.padStart(10, '0')
   const marca = sinAcentos(m[2])
   const tipo: Tipo = !marca ? 'selfie' : /^(frente|front|anverso)$/.test(marca) ? 'cedula_front' : 'cedula_back'
-  return { cedula, tipo }
+  return { cedula, crudo, tipo }
 }
 
 function fechaTexto(v: unknown): string {
@@ -149,8 +171,11 @@ export default function CargarClub() {
   }
 
   const porCedula = useMemo(() => new Map(jugadores.filter((j) => j.cedula).map((j) => [j.cedula as string, j])), [jugadores])
-  const aSubir = fotos.filter((f) => porCedula.has(f.cedula))
-  const ajenas = fotos.filter((f) => !porCedula.has(f.cedula))
+  // Cada foto se empareja con un jugador de la nómina del club (aunque la cédula del nombre tenga guion, falte el cero o un dígito)
+  const emparejadas = useMemo(() => fotos.map((f) => { const r = resolverCedula(f.crudo, Array.from(porCedula.keys())); return r ? { ...f, cedula: r.cedula, aprox: r.aprox } : f }), [fotos, porCedula])
+  const aSubir = emparejadas.filter((f) => porCedula.has(f.cedula))
+  const ajenas = emparejadas.filter((f) => !porCedula.has(f.cedula))
+  const aproximadas = aSubir.filter((f) => f.aprox)
   const enCola = (j: JugadorClub, t: Tipo) => aSubir.some((f) => f.cedula === j.cedula && f.tipo === t)
   const marca = (ya: boolean, nueva: boolean) => (nueva ? <span className="text-yellow-300" title="Se subirá">⬆</span> : ya ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>)
 
@@ -238,7 +263,8 @@ export default function CargarClub() {
             {(sinNombre.length > 0 || ajenas.length > 0) && (
               <div className="mt-3 text-sm text-yellow-200/90 space-y-1">
                 {sinNombre.length > 0 && <p>⚠ {sinNombre.length} archivo(s) no tienen la cédula en el nombre y se ignoran: {sinNombre.slice(0, 5).join(', ')}{sinNombre.length > 5 && '…'}</p>}
-                {ajenas.length > 0 && <p>⚠ {ajenas.length} foto(s) son de cédulas que no están en este club y se ignoran.</p>}
+                {ajenas.length > 0 && <p>⚠ {ajenas.length} foto(s) son de cédulas que no están en este club y se ignoran: {Array.from(new Set(ajenas.map((f) => f.crudo))).slice(0, 8).join(', ')}{new Set(ajenas.map((f) => f.crudo)).size > 8 && '…'}</p>}
+                {aproximadas.length > 0 && <p className="text-yellow-300">ℹ {aproximadas.length} foto(s) se emparejaron por parecido de cédula (guion, cero inicial o un dígito distinto). Revisa: {aproximadas.slice(0, 6).map((f) => `${f.archivo.name} → ${f.cedula}`).join(' · ')}</p>}
               </div>
             )}
             <div className="overflow-x-auto mt-4">
