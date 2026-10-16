@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 interface Fila { teamId: string; equipo: string; pj: number; pg: number; pe: number; pp: number; gf: number; gc: number; dg: number; pts: number; pos: number }
 interface Grupo { id: string; nombre: string; tabla: Fila[] }
 interface Fase { id: string; nombre: string; tipo: string; grupos: Grupo[] }
-interface Partido { id: string; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null }
+interface Partido { id: string; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
 interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number }
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean }
 interface Datos { ok: boolean; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[] }
@@ -72,7 +72,9 @@ export default function TorneoPublico() {
                         <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid #1f3150', fontSize: 14 }}>
                           <span style={{ flex: 1, textAlign: 'right', fontWeight: 600 }}>{p.local}</span>
                           <span style={{ minWidth: 70, textAlign: 'center', fontWeight: 900, color: p.estado === 'finalizado' ? '#D9A93A' : '#93A4B8', fontSize: p.estado === 'finalizado' ? 18 : 13 }}>
-                            {p.estado === 'finalizado' ? `${p.golesLocal} - ${p.golesVisitante}` : p.hora || 'vs'}
+                            {p.estado !== 'finalizado' && p.periodo && p.periodo !== 'previo' && p.periodo !== 'fin'
+                              ? <a href={`/torneo/vivo/${p.id}`} style={{ color: '#fff', background: '#bf1b2c', borderRadius: 6, padding: '4px 8px', textDecoration: 'none', fontSize: 13 }}>🔴 EN VIVO {p.golesLocal ?? 0}-{p.golesVisitante ?? 0}</a>
+                              : p.estado === 'finalizado' ? `${p.golesLocal} - ${p.golesVisitante}` : p.hora || 'vs'}
                           </span>
                           <span style={{ flex: 1, fontWeight: 600 }}>{p.visitante}</span>
                           <span style={{ width: 120, color: '#93A4B8', fontSize: 12, textAlign: 'right' }}>{fecha(p.fecha)}{p.escenario ? ' · ' + p.escenario : ''}{p.estado === 'suspendido' ? ' · suspendido' : ''}</span>

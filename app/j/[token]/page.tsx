@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation'
 interface Ficha {
   torneo: string; goles: number; penales: number; amarillas: number; rojas: number
   suspendidoPartidos: number; suspensionesCumplidas: number; motivos: string[]; amarillasParaSuspension: number; enCiclo: number
-  partidosJugados: number | null; golesPorPartido: number | null; sinTarjetas: boolean; rankingGoleador: number | null
+  partidosJugados: number | null; golesPorPartido: number | null; minutosJugados: number | null; portero: { partidos: number; golesRecibidos: number; vallasInvictas: number; promedio: number; ranking: number | null } | null; sinTarjetas: boolean; rankingGoleador: number | null
   proximo: { jornada: string; rival: string; local: boolean; fecha: string | null; hora: string | null; escenario: string | null } | null
   ultimos: { jornada: string; rival: string; gf: number; gc: number; res: 'V' | 'E' | 'D' }[]
   tabla: { fase: string; grupo: string; miPos: number; filas: { pos: number; equipo: string; pj: number; dg: number; pts: number; mio: boolean }[] } | null
@@ -170,9 +170,10 @@ export default function FichaDeportiva() {
 
         <div className={`estado ${est.cls}`}><div className="ic">{est.ic}</div><div><b>{est.t}</b><small>{est.s}</small></div></div>
 
-        {f && (f.rankingGoleador !== null && f.rankingGoleador <= 10 || f.sinTarjetas) && (
+        {f && (f.rankingGoleador !== null && f.rankingGoleador <= 10 || f.sinTarjetas || (f.portero?.ranking != null && f.portero.ranking <= 5)) && (
           <div className="insig">
             {f.rankingGoleador !== null && f.rankingGoleador <= 10 && <span className={f.rankingGoleador <= 3 ? 'oro' : ''}>⚽ N.º {f.rankingGoleador} entre los goleadores</span>}
+            {f.portero?.ranking != null && f.portero.ranking <= 5 && <span className={f.portero.ranking <= 3 ? 'oro' : ''}>🧤 N.º {f.portero.ranking} entre los porteros</span>}
             {f.sinTarjetas && <span>🤝 Juego limpio: sin tarjetas</span>}
           </div>
         )}
@@ -194,6 +195,9 @@ export default function FichaDeportiva() {
                 <div className="stat"><b>{f.amarillas}</b><span>Amarillas</span></div>
                 <div className="stat"><b>{f.rojas}</b><span>Rojas</span></div>
                 {f.golesPorPartido !== null && <div className="stat"><b>{f.golesPorPartido}</b><span>Goles por partido</span></div>}
+                {f.minutosJugados !== null && <div className="stat"><b>{f.minutosJugados}</b><span>Minutos jugados</span></div>}
+                {f.portero && <div className="stat"><b>{f.portero.golesRecibidos}</b><span>Goles recibidos</span></div>}
+                {f.portero && <div className="stat"><b>{f.portero.vallasInvictas}</b><span>Vallas invictas</span></div>}
               </div>
             </div>
 

@@ -88,7 +88,7 @@ export default function PlanillaPartido() {
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mt-4">
           <h2 className="font-bold mb-2">Eventos del partido</h2>
           {p.eventos.length === 0 && <p className="text-slate-400 text-sm">Sin eventos todavía.</p>}
-          {p.eventos.map((e) => (
+          {p.eventos.filter((e) => TIPO[e.tipo]).map((e) => (
             <div key={e.id} className="flex justify-between text-sm py-1.5 border-t border-slate-700">
               <span>{e.minuto !== null ? `${e.minuto}' ` : ''}{TIPO[e.tipo]} · <b>{e.numero ?? ''}</b> {e.jugador} <span className="text-slate-400">({e.teamId === p.localId ? p.local : p.visitante})</span></span>
               <button className="text-red-400" onClick={() => confirm('¿Borrar este evento?') && act('evento_borrar', { id: e.id })}>Borrar</button>

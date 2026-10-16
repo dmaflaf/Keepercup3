@@ -325,6 +325,9 @@ model Torneo {
   amarillasSuspension   Int      @default(3) // cada N amarillas acumuladas = 1 partido de suspensión
   partidosDobleAmarilla Int      @default(1)
   partidosRojaDirecta   Int      @default(2)
+  minutosTiempo         Int      @default(45)
+  titulares             Int      @default(11)
+  cambiosMax            Int      @default(29)
   createdAt             DateTime @default(now())
 }
 
@@ -379,6 +382,11 @@ model Partido {
   marcadorManual   Boolean  @default(false)
   penalesLocal     Int?
   penalesVisitante Int?
+  // Planilla en vivo: reloj y periodo
+  periodo          String   @default("previo") // previo | t1 | descanso | t2 | fin | penales
+  relojBaseSeg     Int      @default(0) // segundos acumulados hasta el último arranque o pausa
+  relojDesde       DateTime? // si el reloj corre: desde cuándo
+  duracionReal     Int? // minutos totales jugados (para los minutos de cada jugador)
   createdAt        DateTime @default(now())
 
   @@index([torneoId])
@@ -392,12 +400,15 @@ model Evento {
   partidoId String
   teamId    String
   playerId  String?
-  tipo      String   // gol | gol_penal | autogol | amarilla | doble_amarilla | roja
+  tipo      String   // gol | gol_penal | autogol | amarilla | doble_amarilla | roja | titular | entra | sale | falta | tanda_gol | tanda_fallo
   minuto    Int?
+  periodo   Int?     // 0 alineación, 1 primer tiempo, 2 segundo, 3 penales
+  clienteId String?  // identificador de la planilla (evita duplicados al reenviar sin conexión)
   createdAt DateTime @default(now())
 
   @@index([partidoId])
   @@index([playerId])
+  @@index([clienteId])
 }
 
 // Ajustes generales (clave/valor): logos de auspiciantes del carnet, etc.

@@ -280,14 +280,13 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 
 ---
 
-## 📋 **PENDIENTE (NO OLVIDAR): PLANILLA DE JUEGO EN VIVO**
-Pedido del usuario (2026-10): una **hoja en vivo como planilla de juego** para usar desde **iPad o celular** durante el partido, que reemplace la casilla "jugó":
-- Registrar la **alineación**: titulares y suplentes de cada equipo (con número y posición).
-- Registrar **cambios** (quién sale y quién entra) **con el minuto**.
-- Registrar **goles, tarjetas y sanciones al minuto**, en tiempo real.
-- De ahí salen solos: **partidos jugados**, minutos, quién fue reemplazado, goles recibidos y vallas invictas de porteros, mejores porteros, y el marcador/tabla en vivo.
-- Hoy el módulo de torneo (`/admin/torneo/partido/[id]`) solo registra goles y tarjetas (eventos `gol, gol_penal, autogol, amarilla, doble_amarilla, roja`). Extender `Evento` con `titular`, `entra`, `sale` (con minuto) y mostrar "Partidos jugados" en la ficha del carnet cuando haya alineaciones (`lib/ficha.ts` ya cuenta `titular`/`entra` si existen).
-- Hasta entonces la ficha NO muestra "partidos jugados" ni datos de porteros (para no mostrar cifras incorrectas).
+## 📋 **PLANILLA DE JUEGO EN VIVO (hecha)**
+- Vocal/admin: `/admin/planilla` (lista) y `/admin/planilla/[id]` (iPad/celular). Alineación (11 titulares), cronómetro (1T/descanso/2T/fin, tiempo añadido 45+n, pausa), goles/penal/autogol, amarilla (la 2.ª se convierte en `doble_amarilla` y reemplaza a la 1.ª), roja, faltas por equipo, cambios (máx. 29, sale/entra con minuto), tanda de penales, finalizar/reabrir (reabrir solo admin). Suspendidos bloqueados (admin puede forzar).
+- Sin señal: todo se guarda en el dispositivo (localStorage) y se envía en orden al volver la red (`lib/planilla.ts` ops idempotentes con `Evento.clienteId`; `app/api/torneo/planilla`, `lib/planilla-server.ts`). Reloj = `Partido.periodo/relojBaseSeg/relojDesde`.
+- Config por torneo (columnas `Torneo.minutosTiempo=45`, `titulares=11`, `cambiosMax=29`; aún sin pantalla para editarlas).
+- Eventos nuevos: `titular, entra, sale, falta, tanda_gol, tanda_fallo` (+ `Evento.periodo`). De ahí salen partidos jugados, minutos, goles recibidos/vallas invictas y ranking de porteros (`lib/ficha.ts`).
+- Público en vivo: `/torneo/vivo/[id]` (API `/api/torneo/vivo/[id]`), con "EN VIVO" en el fixture de `/torneo`.
+- Pendiente: pantalla para editar minutos/titulares/cambios por torneo; foto del jugador en la planilla; asignar vocal por partido (hoy cualquiera puede abrir cualquiera).
 
 ## 🪪 **FICHA DEPORTIVA (carnet digital /j/[token])**
 - Ver `lib/ficha.ts`. Público: carnet con el mismo arte del impreso, estado, edad, posición, goles/penales, amarillas/rojas con barra hacia la suspensión, suspensión actual y cumplidas, próximo partido, últimos resultados, tabla del grupo, historial al minuto, insignias (goleador top, sin tarjetas). Árbitro/vocal con sesión: panel de control (fecha de nacimiento, documentos ✔/✖, sanción). Admin: cédula completa y "Ver documentos" (foto de la cédula solo tras tocar el botón, con marca de agua, cierre automático y registro en `AccesoDocumento`). Sesión de personal se cierra sola tras 5 min sin uso en esta página.

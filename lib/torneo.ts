@@ -20,6 +20,7 @@ export interface PartidoCalc {
   golesVisitante: number | null
   jornadaNum: number
   fecha: string | null
+  duracion?: number | null // minutos totales jugados (planilla en vivo)
   eventos: EventoCalc[]
 }
 

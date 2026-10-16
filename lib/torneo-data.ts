@@ -26,14 +26,14 @@ export async function cargarTorneo(torneoId: string) {
   const teams = await prisma.team.findMany({ where: { id: { in: Array.from(teamIds) } }, select: { id: true, name: true } })
   const nombreEquipo = new Map(teams.map((t) => [t.id, t.name]))
   const playerIds = Array.from(new Set(eventos.map((e) => e.playerId).filter(Boolean) as string[]))
-  const players = await prisma.player.findMany({ where: { id: { in: playerIds } }, select: { id: true, firstName: true, lastName: true, number: true } })
+  const players = await prisma.player.findMany({ where: { id: { in: playerIds } }, select: { id: true, firstName: true, lastName: true, number: true, position: true } })
   const jugador = new Map(players.map((p) => [p.id, p]))
 
   const eventosPorPartido = new Map<string, EventoCalc[]>()
   for (const e of eventos) eventosPorPartido.set(e.partidoId, [...(eventosPorPartido.get(e.partidoId) || []), { teamId: e.teamId, playerId: e.playerId, tipo: e.tipo, minuto: e.minuto }])
   const calc: PartidoCalc[] = partidosDB.map((p) => ({
     id: p.id, grupoId: p.grupoId, localId: p.localId, visitanteId: p.visitanteId, estado: p.estado,
-    golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, jornadaNum: p.jornadaNum, fecha: p.fecha,
+    golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, jornadaNum: p.jornadaNum, fecha: p.fecha, duracion: p.duracionReal,
     eventos: eventosPorPartido.get(p.id) || [],
   }))
 
@@ -60,7 +60,7 @@ export async function cargarTorneo(torneoId: string) {
     escenario: p.escenario, veedor: p.veedor, observaciones: p.observaciones, estado: p.estado,
     localId: p.localId, visitanteId: p.visitanteId, local: nombreEquipo.get(p.localId) || '?', visitante: nombreEquipo.get(p.visitanteId) || '?',
     golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, marcadorManual: p.marcadorManual,
-    penalesLocal: p.penalesLocal, penalesVisitante: p.penalesVisitante,
+    penalesLocal: p.penalesLocal, penalesVisitante: p.penalesVisitante, periodo: p.periodo,
     eventos: eventos.filter((e) => e.partidoId === p.id).map((e) => ({
       id: e.id, tipo: e.tipo, minuto: e.minuto, teamId: e.teamId, playerId: e.playerId,
       jugador: e.playerId ? `${jugador.get(e.playerId)?.firstName ?? ''} ${jugador.get(e.playerId)?.lastName ?? ''}`.trim() : null,
@@ -79,5 +79,6 @@ export async function cargarTorneo(torneoId: string) {
   }).filter((s) => s.suspendidoProximo > 0 || s.precaucion || s.totalAmarillas > 0 || s.rojas > 0)
     .sort((a, b) => b.suspendidoProximo - a.suspendidoProximo || b.totalAmarillas - a.totalAmarillas)
 
-  return { torneo, cfg, fases: fasesOut, partidos, goleadores: gol, sanciones: san, calc }
+  const posiciones = new Map(players.map((p) => [p.id, p.position]))
+  return { torneo, cfg, fases: fasesOut, partidos, goleadores: gol, sanciones: san, calc, posiciones }
 }

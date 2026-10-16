@@ -244,6 +244,7 @@ function PartidosFase({ partidos, f, t, esAdmin, act, equipos, grupo, sueltos }:
                       <span className="text-slate-400"> · {p.fecha || 'sin fecha'} {p.hora || ''} {p.escenario ? '· ' + p.escenario : ''}</span>
                       {p.estado === 'finalizado' && <span className="text-green-400"> ✔</span>}{p.estado === 'suspendido' && <span className="text-orange-300"> suspendido</span>}</span>
                     <span className="flex gap-2">
+                      <Link className={btn2} href={`/admin/planilla/${p.id}`}>📋 Planilla en vivo</Link>
                       <Link className={btn2} href={`/admin/torneo/partido/${p.id}`}>Resultado</Link>
                       {esAdmin && <button className={btn2} onClick={() => setEditando(editando === p.id ? null : p.id)}>Editar</button>}
                     </span>
