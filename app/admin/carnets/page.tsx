@@ -90,6 +90,17 @@ export default function Carnets() {
   }
   const campo = (k: keyof Edit, v: string) => setEdit((e) => (e ? { ...e, [k]: v } : e))
 
+  async function eliminar(id: string, nombre: string) {
+    if (!confirm(`¿Eliminar a ${nombre} de ${club}?\n\nSe borran también sus fotos. Esto no se puede deshacer.`)) return
+    setOcupado(true)
+    const r = await fetch(`/api/admin/jugadores/${id}`, { method: 'DELETE' }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Error de conexión' }))
+    setOcupado(false)
+    if (!r.ok) { alert(r.message || 'No se pudo eliminar'); return }
+    setSel((a) => a.filter((x) => x !== id))
+    setMsg(`Eliminado: ${r.nombre}.`)
+    cargar(club)
+  }
+
   // Vista previa: se genera el PDF una sola vez y se muestra aquí; «Descargar» guarda ese mismo archivo (no se vuelve a generar)
   const [vista, setVista] = useState<{ url: string; nombre: string; cantidad: number } | null>(null)
   const [generando, setGenerando] = useState(false)
@@ -162,7 +173,7 @@ export default function Carnets() {
                       <td className="text-center">{j.selfie ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>}</td>
                       <td className="text-center">{j.cedulas ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>}</td>
                       <td className={badge(j.estado)}>{j.estado}</td>
-                      <td className="text-right"><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs" onClick={() => abrirEditor(j.id)}>✏️ Editar</button></td>
+                      <td className="text-right"><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs" onClick={() => abrirEditor(j.id)}>✏️ Editar</button> <button className="px-2 py-1 bg-slate-600 hover:bg-red-700 rounded text-xs" disabled={ocupado} onClick={() => eliminar(j.id, j.nombre)}>🗑 Eliminar</button></td>
                     </tr>))}
                   </tbody>
                 </table>
