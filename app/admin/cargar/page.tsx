@@ -189,6 +189,16 @@ export default function CargarClub() {
   const enCola = (j: JugadorClub, t: Tipo) => aSubir.some((f) => f.cedula === j.cedula && f.tipo === t)
   const marca = (ya: boolean, nueva: boolean) => (nueva ? <span className="text-yellow-300" title="Se subirá">⬆</span> : ya ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>)
 
+  async function eliminarJugador(j: JugadorClub) {
+    if (!confirm(`¿Eliminar a ${j.nombre} (cédula ${j.cedula || 'sin dato'}) de ${nombreClub}?\n\nSe borran también sus fotos. Esto no se puede deshacer.`)) return
+    setOcupado(true)
+    const r = await fetch(`/api/admin/jugadores/${j.id}`, { method: 'DELETE' }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Error de conexión' }))
+    setOcupado(false)
+    setMsg(r.ok ? `Eliminado: ${r.nombre}.` : r.message || 'No se pudo eliminar')
+    if (!r.ok) alert(r.message || 'No se pudo eliminar') // el aviso de arriba puede quedar fuera de pantalla
+    if (r.ok) cargarClub(nombreClub)
+  }
+
   async function subirFotos() {
     setOcupado(true)
     const fallos: string[] = []
@@ -300,13 +310,14 @@ export default function CargarClub() {
             )}
             <div className="overflow-x-auto mt-4">
               <table className="w-full text-sm">
-                <thead className="text-left text-slate-400"><tr><th className="py-2">Jugador</th><th>Cédula</th><th className="text-center">Selfie</th><th className="text-center">Ced. frente</th><th className="text-center">Ced. reverso</th></tr></thead>
+                <thead className="text-left text-slate-400"><tr><th className="py-2">Jugador</th><th>Cédula</th><th className="text-center">Selfie</th><th className="text-center">Ced. frente</th><th className="text-center">Ced. reverso</th><th></th></tr></thead>
                 <tbody>{jugadores.map((j) => (
                   <tr key={j.id} className="border-t border-slate-700">
                     <td className="py-2">{j.nombre}</td><td className="text-slate-400">{j.cedula}</td>
                     <td className="text-center">{marca(j.selfie, enCola(j, 'selfie'))}</td>
                     <td className="text-center">{marca(j.frente, enCola(j, 'cedula_front'))}</td>
                     <td className="text-center">{marca(j.reverso, enCola(j, 'cedula_back'))}</td>
+                    <td className="text-right"><button className="text-red-400 hover:text-red-300 text-xs underline" disabled={ocupado} onClick={() => eliminarJugador(j)}>🗑 Eliminar</button></td>
                   </tr>))}
                 </tbody>
               </table>

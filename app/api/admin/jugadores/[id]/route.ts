@@ -56,3 +56,17 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   await prisma.player.update({ where: { id: params.id }, data: { estado: body.estado } })
   return NextResponse.json({ ok: true })
 }
+
+// Elimina a un jugador (solo administrador). Se usa para quitar duplicados por error de digitación.
+// Si ya tiene goles, tarjetas o alineaciones en el torneo no se borra: perdería el historial.
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await verifyAuth()
+  if (!user || user.rol !== 'admin') return NextResponse.json({ ok: false, message: 'Solo el administrador puede eliminar jugadores' }, { status: 401 })
+  const j = await prisma.player.findUnique({ where: { id: params.id }, select: { id: true, firstName: true, lastName: true } })
+  if (!j) return NextResponse.json({ ok: false, message: 'Jugador no encontrado' }, { status: 404 })
+  const eventos = await prisma.evento.count({ where: { playerId: j.id } })
+  if (eventos > 0) return NextResponse.json({ ok: false, message: `${j.firstName} ${j.lastName} ya tiene ${eventos} registro(s) en partidos (goles, tarjetas o alineaciones). No se puede eliminar sin perder el historial; corrige sus datos con ✏️ Editar.` }, { status: 409 })
+  await prisma.playerAlias.deleteMany({ where: { playerId: j.id } })
+  await prisma.player.delete({ where: { id: j.id } }) // sus fotos se borran con él
+  return NextResponse.json({ ok: true, nombre: `${j.firstName} ${j.lastName}` })
+}
