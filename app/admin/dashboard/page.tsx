@@ -56,6 +56,9 @@ export default function AdminDashboard() {
               <p className="text-white font-semibold">{usuario?.nombre}</p>
               <p className="text-slate-400 text-sm capitalize">{usuario?.rol}</p>
             </div>
+            {usuario?.rol === 'admin' && (
+              <a href="/admin/usuarios" className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition font-semibold">🔑 Usuarios y roles</a>
+            )}
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
