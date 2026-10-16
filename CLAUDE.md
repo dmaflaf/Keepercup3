@@ -297,7 +297,7 @@ Pedido del usuario (2026-10): una **hoja en vivo como planilla de juego** para u
 ## 🪪 ENCUADRE DE CÉDULAS (frente y reverso)
 
 - Panel: `/admin/cedulas` (botón en Carnets). OpenCV.js autoalojado en `public/opencv/opencv.js` (~10 MB, solo se descarga al usarlo).
-- Detecta la cédula (tarjeta ID-1, proporción 1,586), corrige perspectiva/rotación y deja una imagen horizontal de 1200 px (`lib/cedula.ts`). Frente: si el retrato queda abajo la gira 180°; reverso con rostro → "¿invertidos?".
+- Detecta la cédula (tarjeta ID-1, proporción 1,586) y la gira/recorta SIN deformar (la corrección de perspectiva deformaba) dejando una imagen horizontal de 1200 px. Cortador rápido ✂ Recortar: marco de proporción fija, arrastrar, rueda = zoom, esquinas = tamaño, deslizador de inclinación, Enter = guardar y siguiente (`lib/cedula.ts`). Frente: si el retrato queda abajo la gira 180°; reverso con rostro → "¿invertidos?".
 - La foto original del jugador se conserva en `PlayerImage.original`; `data` pasa a ser la versión enderezada (la que ve el admin en la ficha). "Volver al original" la restaura.
 - Estados (`cropEstado`): auto / revisar / manual / otra_foto. Dudosas (no se halló, muy pequeña, borrosa, forma rara) van a la cola "A revisar" con edición de 4 esquinas arrastrables.
 - "Probar con 20 jugadores" para calibrar antes de procesar todo. Si el jugador sube otra foto, se reinicia el estado y el original.

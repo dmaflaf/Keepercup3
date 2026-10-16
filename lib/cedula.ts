@@ -153,24 +153,41 @@ export function detectarMat(cv: CV, src: CV, esc: number): Deteccion {
   }
 }
 
-/** Endereza la cédula a ANCHO × ALTO (horizontal). */
-export function enderezar(cv: CV, fuente: ImageBitmap, esq: Esquinas): HTMLCanvasElement {
-  const src = new cv.Mat(), dst = new cv.Mat()
-  const c = document.createElement('canvas')
-  c.width = fuente.width; c.height = fuente.height
-  c.getContext('2d')!.drawImage(fuente, 0, 0)
-  const m = cv.imread(c)
-  const horizontal = (dist(esq[0], esq[1]) + dist(esq[3], esq[2])) >= (dist(esq[0], esq[3]) + dist(esq[1], esq[2]))
-  // Si la cédula está vertical, se gira el orden de las esquinas para dejarla horizontal
-  const e: Esquinas = horizontal ? esq : [esq[3], esq[0], esq[1], esq[2]]
-  const entrada = cv.matFromArray(4, 1, cv.CV_32FC2, e.flat())
-  const salida = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, CEDULA.ancho, 0, CEDULA.ancho, CEDULA.alto, 0, CEDULA.alto])
-  const T = cv.getPerspectiveTransform(entrada, salida)
-  cv.warpPerspective(m, dst, T, new cv.Size(CEDULA.ancho, CEDULA.alto), cv.INTER_CUBIC, cv.BORDER_REPLICATE)
+/** Recorte rectangular (con la proporción de la cédula) sobre la foto: centro, ancho y ángulo en píxeles/radianes de la imagen original. */
+export interface Marco { cx: number; cy: number; ancho: number; angulo: number }
+
+/** Marco que mejor representa un cuadrilátero: mismo centro, ángulo del lado largo y ancho = lado largo. Nunca deforma la imagen. */
+export function marcoDesdeEsquinas(e: Esquinas): Marco {
+  const cx = e.reduce((a, p) => a + p[0], 0) / 4, cy = e.reduce((a, p) => a + p[1], 0) / 4
+  const top = [e[1][0] - e[0][0], e[1][1] - e[0][1]], bot = [e[2][0] - e[3][0], e[2][1] - e[3][1]]
+  const izq = [e[3][0] - e[0][0], e[3][1] - e[0][1]], der = [e[2][0] - e[1][0], e[2][1] - e[1][1]]
+  const h = [(top[0] + bot[0]) / 2, (top[1] + bot[1]) / 2], v = [(izq[0] + der[0]) / 2, (izq[1] + der[1]) / 2]
+  const largoH = Math.hypot(h[0], h[1]), largoV = Math.hypot(v[0], v[1])
+  // Si la cédula está vertical, el «ancho» es el lado más largo y se gira 90°
+  const horizontal = largoH >= largoV
+  const angulo = horizontal ? Math.atan2(h[1], h[0]) : Math.atan2(-v[0], v[1])
+  return { cx, cy, ancho: Math.max(largoH, largoV), angulo }
+}
+
+/** Esquinas del marco (arriba-izq, arriba-der, abajo-der, abajo-izq) en la imagen original. */
+export function esquinasDeMarco(m: Marco): Esquinas {
+  const alto = m.ancho / CEDULA.ratio, c = Math.cos(m.angulo), s = Math.sin(m.angulo)
+  const q = (dx: number, dy: number): Punto => [m.cx + dx * c - dy * s, m.cy + dx * s + dy * c]
+  return [q(-m.ancho / 2, -alto / 2), q(m.ancho / 2, -alto / 2), q(m.ancho / 2, alto / 2), q(-m.ancho / 2, alto / 2)]
+}
+
+/** Recorta y endereza (solo giro y escala, sin deformar) y deja una imagen horizontal de ANCHO × ALTO. */
+export function recortarMarco(fuente: ImageBitmap | HTMLCanvasElement, m: Marco, ancho = CEDULA.ancho): HTMLCanvasElement {
   const out = document.createElement('canvas')
-  out.width = CEDULA.ancho; out.height = CEDULA.alto
-  cv.imshow(out, dst)
-  ;[src, dst, m, entrada, salida, T].forEach((o) => o.delete())
+  out.width = ancho; out.height = Math.round(ancho / CEDULA.ratio)
+  const g = out.getContext('2d')!
+  g.fillStyle = '#fff'; g.fillRect(0, 0, out.width, out.height)
+  g.imageSmoothingQuality = 'high'
+  const k = ancho / m.ancho
+  g.translate(out.width / 2, out.height / 2)
+  g.rotate(-m.angulo)
+  g.scale(k, k)
+  g.drawImage(fuente, -m.cx, -m.cy)
   return out
 }
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { aBlob, cargarCV, CEDULA, detectarCedula, enderezar, Esquinas, girar } from '@/lib/cedula'
+import { aBlob, cargarCV, CEDULA, detectarCedula, Esquinas, esquinasDeMarco, girar, Marco, marcoDesdeEsquinas, recortarMarco } from '@/lib/cedula'
 
 interface Lado { estado: string | null; motivo: string | null; esquinas: Esquinas | null }
 interface J { id: string; nombre: string; numero: number | null; equipo: string; frente: Lado | null; reverso: Lado | null }
@@ -40,7 +40,7 @@ export default function Cedulas() {
   const [proceso, setProceso] = useState<{ hechas: number; total: number; revisar: number } | null>(null)
   const [filtro, setFiltro] = useState<'revisar' | 'todos' | 'auto' | 'manual' | 'otra_foto' | 'sin'>('revisar')
   const [rehacer, setRehacer] = useState(false)
-  const [editar, setEditar] = useState<{ j: J; kind: Kind } | null>(null)
+  const [editar, setEditar] = useState<{ cola: { j: J; kind: Kind }[]; inicio: number } | null>(null)
   const [version, setVersion] = useState(0)
   const detector = useRef<Detector | null>(null)
   const parar = useRef(false)
@@ -69,7 +69,10 @@ export default function Cedulas() {
     try {
       const d = detectarCedula(cv, bm)
       if (!d.esquinas) { await subir(j.id, kind, 'revisar', d.motivos.join(' · ')); return true }
-      let out = enderezar(cv, bm, d.esquinas)
+      // Solo se gira y se recorta (sin deformar): el marco usa la proporción real de la cédula
+      const marco = marcoDesdeEsquinas(d.esquinas)
+      marco.ancho *= 1.02
+      let out = recortarMarco(bm, marco)
       const motivos = [...d.motivos]
       if (det) {
         const caras = det.detect(out).detections.filter((x) => x.boundingBox && x.categories[0]?.score > 0.6)
@@ -80,7 +83,7 @@ export default function Cedulas() {
         } else if (kind === 'cedula_back' && cara && cara.categories[0].score > 0.75) motivos.push('Parece el FRENTE (¿frente y reverso invertidos?)')
       }
       const revisar = motivos.length > 0
-      await subir(j.id, kind, revisar ? 'revisar' : 'auto', motivos.join(' · '), out, d.esquinas)
+      await subir(j.id, kind, revisar ? 'revisar' : 'auto', motivos.join(' · '), out, esquinasDeMarco(marco))
       return revisar
     } catch (e) {
       await subir(j.id, kind, 'revisar', 'Error al procesar: ' + (e instanceof Error ? e.message : '')).catch(() => null)
@@ -119,6 +122,9 @@ export default function Cedulas() {
   const cuenta = (e: string | null) => lista.filter((j) => peor(j) === e).length
   const visibles = lista.filter((j) => filtro === 'todos' || (filtro === 'sin' ? peor(j) === null : peor(j) === filtro))
 
+  // Cola de revisión: todas las fotos de la lista actual que están por revisar (para pasar de una a otra con Enter)
+  const pendientesRevision = () => visibles.flatMap((j) => ([['cedula_front', j.frente], ['cedula_back', j.reverso]] as const).filter(([, l]) => l && l.estado !== 'auto' && l.estado !== 'manual').map(([kind]) => ({ j, kind: kind as Kind })))
+
   async function accion(j: J, kind: Kind, a: 'restaurar' | 'otra' | 'girar') {
     try {
       if (a === 'restaurar') {
@@ -139,7 +145,7 @@ export default function Cedulas() {
       <div className="max-w-6xl mx-auto px-6 py-10">
         <Link href="/admin/carnets" className="text-slate-400 text-sm hover:text-white">← Volver a Carnets</Link>
         <h1 className="text-3xl font-bold mt-3 mb-1">🪪 Encuadrar cédulas</h1>
-        <p className="text-slate-400 mb-5">El sistema encuentra la cédula en cada foto, corrige la inclinación y la perspectiva y la deja recta y recortada (frente y reverso). La foto original que subió el jugador siempre se conserva y puedes volver a ella. Las dudosas quedan marcadas para que las revises.</p>
+        <p className="text-slate-400 mb-5">El sistema encuentra la cédula en cada foto, la gira y la recorta con su proporción real, sin deformarla (frente y reverso). La foto original que subió el jugador siempre se conserva y puedes volver a ella. Las dudosas quedan marcadas: con ✂ Recortar las ajustas en segundos (arrastrar, rueda del mouse para zoom, Enter para guardar y pasar a la siguiente).</p>
         {msg && <div className="bg-slate-700 border border-slate-500 rounded-lg p-3 mb-4 text-sm" onClick={() => setMsg('')}>{msg}</div>}
 
         <section className={sec}>
@@ -179,7 +185,7 @@ export default function Cedulas() {
                       <p className={COLOR[lado.estado || ''] || 'text-slate-300'}>{ETIQ[lado.estado || ''] || 'Sin encuadrar'}</p>
                       {lado.motivo && <p className="text-yellow-200/80">{lado.motivo}</p>}
                       <div className="flex flex-wrap gap-1 mt-1">
-                        <button className={mini} onClick={() => setEditar({ j, kind })}>Ajustar esquinas</button>
+                        <button className={mini} onClick={() => setEditar({ cola: pendientesRevision(), inicio: Math.max(0, pendientesRevision().findIndex((x) => x.j.id === j.id && x.kind === kind)) })}>✂ Recortar</button>
                         <button className={mini} onClick={() => accion(j, kind, 'girar')}>⟳ Girar</button>
                         {lado.estado && lado.estado !== 'revisar' ? null : lado.estado === 'revisar' && <button className={mini} onClick={() => subir(j.id, kind, 'manual', 'Aceptada').then(() => cargar(club))}>Aceptar</button>}
                         {lado.estado && <button className={mini} onClick={() => accion(j, kind, 'restaurar')}>Volver al original</button>}
@@ -200,83 +206,149 @@ export default function Cedulas() {
   )
 }
 
-// Ajuste manual: arrastra las 4 esquinas sobre la foto original
-function Editor({ j, kind, alCerrar }: { j: J; kind: Kind; alCerrar: (recargar: boolean) => void }) {
-  const cv = useRef<HTMLCanvasElement>(null)
-  const [bm, setBm] = useState<ImageBitmap | null>(null)
-  const [esq, setEsq] = useState<Esquinas | null>(null)
-  const [arrastra, setArrastra] = useState<number | null>(null)
-  const [aviso, setAviso] = useState('Cargando…')
+// Cortador rápido: marco con la proporción de la cédula. Arrastra para mover, rueda del mouse para acercar/alejar, deslizador para inclinar.
+function Editor({ cola, inicio, alCerrar }: { cola: { j: J; kind: Kind }[]; inicio: number; alCerrar: (recargar: boolean) => void }) {
+  const [i, setI] = useState(inicio)
+  const [hechas, setHechas] = useState(0)
+  const { j, kind } = cola[i] ?? cola[0]
   const lado = kind === 'cedula_front' ? j.frente : j.reverso
-  const ANCHO = 640
+  const cv = useRef<HTMLCanvasElement>(null)
+  const vista = useRef<HTMLCanvasElement>(null)
+  const [bm, setBm] = useState<ImageBitmap | null>(null)
+  const [m, setM] = useState<Marco | null>(null)
+  const [aviso, setAviso] = useState('Cargando…')
+  const modo = useRef<{ tipo: 'mover' | 'esquina'; dx: number; dy: number } | null>(null)
+  const ANCHO = 860
 
   useEffect(() => {
     let vivo = true
+    setBm(null); setM(null); setAviso('Cargando…')
     ;(async () => {
       const b = await cargarBitmap(j.id, kind)
       if (!vivo) return
       setBm(b)
-      if (lado?.esquinas) { setEsq(lado.esquinas); setAviso(''); return }
-      const m = 0.08
-      setEsq([[b.width * m, b.height * m], [b.width * (1 - m), b.height * m], [b.width * (1 - m), b.height * (1 - m)], [b.width * m, b.height * (1 - m)]]); setAviso('')
+      setM(lado?.esquinas ? marcoDesdeEsquinas(lado.esquinas) : { cx: b.width / 2, cy: b.height / 2, ancho: Math.min(b.width * 0.85, b.height * 0.85 * CEDULA.ratio), angulo: 0 })
+      setAviso('')
     })().catch(() => setAviso('No se pudo leer la foto'))
     return () => { vivo = false }
-  }, [j.id, kind, lado?.esquinas])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [j.id, kind])
 
-  const esc = bm ? ANCHO / bm.width : 1
+  const esc = bm ? Math.min(ANCHO, bm.width) / bm.width : 1
+  const fino = m ? m.angulo - Math.round(m.angulo / (Math.PI / 2)) * (Math.PI / 2) : 0 // inclinación respecto al giro de 90° más cercano
+
   useEffect(() => {
-    if (!bm || !esq || !cv.current) return
+    if (!bm || !m || !cv.current) return
     const c = cv.current
-    c.width = ANCHO; c.height = Math.round(bm.height * esc)
+    c.width = Math.round(bm.width * esc); c.height = Math.round(bm.height * esc)
     const g = c.getContext('2d')!
     g.drawImage(bm, 0, 0, c.width, c.height)
-    g.strokeStyle = '#22c55e'; g.lineWidth = 3
-    g.beginPath(); esq.forEach(([x, y], i) => (i ? g.lineTo(x * esc, y * esc) : g.moveTo(x * esc, y * esc))); g.closePath(); g.stroke()
-    esq.forEach(([x, y]) => { g.fillStyle = '#facc15'; g.beginPath(); g.arc(x * esc, y * esc, 12, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#000'; g.lineWidth = 2; g.stroke() })
-  }, [bm, esq, esc])
+    const q = esquinasDeMarco(m).map(([x, y]) => [x * esc, y * esc])
+    g.save(); g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.rect(0, 0, c.width, c.height)
+    q.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill('evenodd'); g.restore()
+    g.strokeStyle = '#22c55e'; g.lineWidth = 2; g.beginPath(); q.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.stroke()
+    q.forEach(([x, y]) => { g.fillStyle = '#facc15'; g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#000'; g.lineWidth = 1.5; g.stroke() })
+    if (vista.current) { const r = recortarMarco(bm, m, 360); vista.current.width = r.width; vista.current.height = r.height; vista.current.getContext('2d')!.drawImage(r, 0, 0) }
+  }, [bm, m, esc])
 
-  const punto = (e: React.PointerEvent) => { const r = cv.current!.getBoundingClientRect(); return [((e.clientX - r.left) / r.width) * ANCHO / esc, ((e.clientY - r.top) / r.height) * (bm!.height * esc) / esc] as [number, number] }
+  const zoom = useCallback((f: number) => setM((mm) => (mm ? { ...mm, ancho: Math.min(Math.max(mm.ancho * f, 80), (bm?.width ?? 4000) * 3) } : mm)), [bm])
+  const rotar = useCallback((rad: number) => setM((mm) => (mm ? { ...mm, angulo: mm.angulo + rad } : mm)), [])
+
+  // La rueda del mouse acerca/aleja el marco sin desplazar la página
+  useEffect(() => {
+    const c = cv.current
+    if (!c) return
+    const f = (e: WheelEvent) => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.06 : 1 / 1.06) }
+    c.addEventListener('wheel', f, { passive: false })
+    return () => c.removeEventListener('wheel', f)
+  }, [zoom, bm])
+
+  const punto = (e: React.PointerEvent): [number, number] => { const r = cv.current!.getBoundingClientRect(); return [((e.clientX - r.left) / r.width) * cv.current!.width / esc, ((e.clientY - r.top) / r.height) * cv.current!.height / esc] }
   const abajo = (e: React.PointerEvent) => {
-    if (!esq || !bm) return
+    if (!m) return
     const [x, y] = punto(e)
-    let mejor = -1, d = Infinity
-    esq.forEach((p, i) => { const k = Math.hypot(p[0] - x, p[1] - y); if (k < d) { d = k; mejor = i } })
-    setArrastra(mejor); cv.current!.setPointerCapture(e.pointerId)
+    const q = esquinasDeMarco(m)
+    const cerca = q.some(([qx, qy]) => Math.hypot(qx - x, qy - y) * esc < 16)
+    modo.current = cerca ? { tipo: 'esquina', dx: 0, dy: 0 } : { tipo: 'mover', dx: m.cx - x, dy: m.cy - y }
+    cv.current!.setPointerCapture(e.pointerId)
   }
   const mover = (e: React.PointerEvent) => {
-    if (arrastra === null || !esq || !bm) return
+    if (!modo.current || !m) return
     const [x, y] = punto(e)
-    const n = esq.map((p) => [...p]) as Esquinas
-    n[arrastra] = [Math.min(Math.max(x, 0), bm.width), Math.min(Math.max(y, 0), bm.height)]
-    setEsq(n)
+    if (modo.current.tipo === 'mover') setM({ ...m, cx: x + modo.current.dx, cy: y + modo.current.dy })
+    else {
+      const semidiag = Math.hypot(x - m.cx, y - m.cy)
+      setM({ ...m, ancho: Math.max(80, (2 * semidiag) / Math.sqrt(1 + 1 / CEDULA.ratio ** 2)) })
+    }
   }
 
-  async function auto() {
-    if (!bm) return
-    setAviso('Buscando la cédula…')
-    const d = detectarCedula(await cargarCV(), bm)
-    if (d.esquinas) { setEsq(d.esquinas); setAviso(d.motivos.join(' · ')) } else setAviso(d.motivos.join(' · '))
-  }
-  async function aplicar() {
-    if (!bm || !esq) return
+  async function guardar(siguiente: boolean) {
+    if (!bm || !m) return
     setAviso('Guardando…')
     try {
-      await subir(j.id, kind, 'manual', 'Ajustada a mano', enderezar(await cargarCV(), bm, esq), esq)
-      alCerrar(true)
+      await subir(j.id, kind, 'manual', 'Recortada a mano', recortarMarco(bm, m), esquinasDeMarco(m))
+      setHechas((h) => h + 1)
+      if (siguiente && i + 1 < cola.length) setI(i + 1)
+      else alCerrar(true)
     } catch (e) { setAviso(e instanceof Error ? e.message : 'Error') }
   }
+  async function buscar() {
+    if (!bm) return
+    setAviso('Buscando la cédula…')
+    try {
+      const d = detectarCedula(await cargarCV(), bm)
+      if (d.esquinas) { const mm = marcoDesdeEsquinas(d.esquinas); mm.ancho *= 1.02; setM(mm) }
+      setAviso(d.motivos.join(' · '))
+    } catch { setAviso('No se pudo cargar el detector') }
+  }
+  const saltar = () => { if (i + 1 < cola.length) setI(i + 1); else alCerrar(hechas > 0) }
+
+  // Atajos: Enter guarda y pasa a la siguiente, Esc cierra, flechas mueven, +/- zoom, [ ] inclinan
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') { e.preventDefault(); guardar(true) }
+      else if (e.key === 'Escape') alCerrar(hechas > 0)
+      else if (e.key === '+' || e.key === '=') zoom(1 / 1.04)
+      else if (e.key === '-') zoom(1.04)
+      else if (e.key === '[') rotar(-0.005)
+      else if (e.key === ']') rotar(0.005)
+      else if (e.key === 'ArrowRight') setM((mm) => mm && { ...mm, cx: mm.cx + 4 })
+      else if (e.key === 'ArrowLeft') setM((mm) => mm && { ...mm, cx: mm.cx - 4 })
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setM((mm) => mm && { ...mm, cy: mm.cy - 4 }) }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); setM((mm) => mm && { ...mm, cy: mm.cy + 4 }) }
+    }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  })
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 overflow-auto p-4 flex justify-center">
-      <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 w-full max-w-[700px] h-fit">
-        <p className="font-semibold">{j.nombre} · {kind === 'cedula_front' ? 'Frente' : 'Reverso'}</p>
-        <p className="text-slate-400 text-xs mb-2">Arrastra las 4 esquinas amarillas hasta los bordes de la cédula y pulsa Aplicar.</p>
-        <canvas ref={cv} className="w-full rounded touch-none" onPointerDown={abajo} onPointerMove={mover} onPointerUp={() => setArrastra(null)} />
+    <div className="fixed inset-0 bg-black/85 z-50 overflow-auto p-3 flex justify-center">
+      <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 w-full max-w-[920px] h-fit">
+        <div className="flex justify-between items-baseline gap-3 flex-wrap">
+          <p className="font-semibold">{j.nombre} · {kind === 'cedula_front' ? 'Frente' : 'Reverso'} <span className="text-slate-400 font-normal text-sm">· {i + 1} de {cola.length}</span></p>
+          <p className="text-slate-400 text-xs">Arrastra para mover · rueda del mouse = zoom · esquinas = tamaño · Enter = guardar y siguiente · Esc = cerrar</p>
+        </div>
+        <div className="flex gap-3 mt-2 flex-wrap md:flex-nowrap">
+          <canvas ref={cv} className="w-full md:w-[600px] rounded touch-none cursor-move bg-slate-900" onPointerDown={abajo} onPointerMove={mover} onPointerUp={() => { modo.current = null }} />
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-xs text-slate-400 mb-1">Así quedará</p>
+            <canvas ref={vista} className="w-full rounded bg-white" style={{ aspectRatio: String(CEDULA.ratio) }} />
+            <label className="block text-xs text-slate-400 mt-3">Inclinación fina: {(fino * 180 / Math.PI).toFixed(1)}°
+              <input type="range" min={-45} max={45} step={0.1} className="w-full" value={(fino * 180) / Math.PI} onChange={(e) => setM((mm) => (mm ? { ...mm, angulo: Math.round(mm.angulo / (Math.PI / 2)) * (Math.PI / 2) + (Number(e.target.value) * Math.PI) / 180 } : mm))} />
+            </label>
+            <div className="flex gap-1 flex-wrap mt-2">
+              <button className={mini} onClick={() => zoom(1 / 1.1)}>＋ Acercar</button><button className={mini} onClick={() => zoom(1.1)}>－ Alejar</button>
+              <button className={mini} onClick={() => rotar(-Math.PI / 2)}>⟲ 90°</button><button className={mini} onClick={() => rotar(Math.PI / 2)}>⟳ 90°</button>
+              <button className={mini} onClick={() => rotar(Math.PI)}>180°</button>
+              <button className={mini} onClick={buscar} disabled={!bm}>🔍 Buscar sola</button>
+            </div>
+          </div>
+        </div>
         {aviso && <p className="text-yellow-200 text-sm mt-2">{aviso}</p>}
         <div className="flex gap-2 mt-3 flex-wrap">
-          <button className={btn} onClick={aplicar} disabled={!esq}>Aplicar</button>
-          <button className={btn2} onClick={auto} disabled={!bm}>Buscar de nuevo</button>
-          <button className={btn2} onClick={() => alCerrar(false)}>Cancelar</button>
+          <button className={btn} onClick={() => guardar(true)} disabled={!m}>Guardar y siguiente</button>
+          <button className={btn2} onClick={saltar}>Saltar</button>
+          <button className={btn2} onClick={() => alCerrar(hechas > 0)}>Cerrar</button>
         </div>
       </div>
     </div>
