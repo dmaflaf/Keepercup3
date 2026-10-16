@@ -133,6 +133,6 @@ function Escudo({ id, tiene, nombre, v, grande }: { id: string; tiene: boolean; 
   const lado = grande ? 'w-20 h-20' : 'w-10 h-10'
   const iniciales = nombre.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
   // eslint-disable-next-line @next/next/no-img-element
-  if (tiene && !falla) return <img src={`/api/admin/clubes/${id}/escudo?t=${v}`} alt="" loading="lazy" onError={() => setFalla(true)} className={`${lado} object-contain rounded bg-white p-0.5`} />
-  return <span className={`${lado} rounded bg-slate-600 text-slate-200 text-xs font-bold flex items-center justify-center`}>{iniciales}</span>
+  if (tiene && !falla) return <img src={`/api/admin/clubes/${id}/escudo?t=${v}`} alt="" loading="lazy" onError={() => setFalla(true)} className={`${lado} object-contain`} />
+  return <span className={`${lado} rounded-full border border-dashed border-slate-500 text-slate-400 text-xs font-bold flex items-center justify-center`}>{iniciales}</span>
 }
