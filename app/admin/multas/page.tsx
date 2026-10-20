@@ -67,6 +67,7 @@ export default function Multas() {
           <div className="flex gap-2 flex-wrap mb-4">
             {esAdmin && <button className={`px-4 py-2 rounded-lg text-sm ${tab === 'multas' ? 'bg-yellow-500 text-black font-semibold' : 'bg-slate-700'}`} onClick={() => setTab('multas')}>💵 Multas por club</button>}
             <button className={`px-4 py-2 rounded-lg text-sm ${tab === 'sanciones' ? 'bg-yellow-500 text-black font-semibold' : 'bg-slate-700'}`} onClick={() => setTab('sanciones')}>🚫 Sancionados</button>
+            {esAdmin && <a className="px-4 py-2 rounded-lg text-sm bg-slate-700" href="/admin/reportes">📄 Reportes PDF</a>}
             {esAdmin && <button className={`px-4 py-2 rounded-lg text-sm ${tab === 'pagos' ? 'bg-yellow-500 text-black font-semibold' : 'bg-slate-700'}`} onClick={() => setTab('pagos')}>🧾 Pagos</button>}
           </div>
 

@@ -320,3 +320,11 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 
 ## ⚙️ RESPALDO DE DATOS
 - `/admin/respaldo` (solo admin): Excel y JSON con todas las tablas (sin claves, escudos ni fotos; `/api/admin/respaldo?formato=xlsx|json`) y ZIP de fotos/cédulas por club (se arma en el navegador con JSZip). Respaldo del código: `docs/RESPALDO_Y_RESTAURACION.md`. El respaldo que restaura todo tal cual es el de Railway (Backups).
+
+## 🔄 FUNCIONES TRAÍDAS DE LA HERRAMIENTA DE GITHUB PAGES (dmaflaf/appskc3)
+La herramienta `dmaflaf.github.io/appskc3` (repo `appskc3`, un solo `index.html`) tenía el fixture, resultados, tarjetas y multas del Keeper Cup 3. Se trajeron al panel (todo solo admin salvo lo indicado):
+- **Importador** `/admin/importar-torneo` (`lib/importar-kc3.ts`, `app/api/admin/importar-torneo`): lee `datos.json` (formato `keeper-cup-3/export` v1) y crea un torneo NUEVO (`Torneo.origen='kc3-pages'`, oculto al público) con grupos, partidos con horario, marcadores (marcador manual) y tarjetas cotejadas por **número de camiseta** con los jugadores de cada club (manual / ignorar / cuerpo técnico). Vista previa, `IMPORTAR` para confirmar, todo en una transacción, no se repite y se puede **deshacer** (borra solo ese torneo). Validado contra la herramienta: tablas, sanciones y multas coinciden.
+- **Tarjetas, sanciones y multas** `/admin/multas` (`lib/sanciones.ts`, `lib/multas-data.ts`): sancionados con fechas pendientes/cumplidas, multas por club (`Torneo.precioAmarilla/precioRoja`, modelo `Pago`), pagos con anulación. El vocal ve sanciones, no el dinero.
+- **Programación** `/admin/programacion` (`lib/programacion.ts`): casillas por estadio/día/hora, avisos (choque de equipo bloquea; repetición de día/hora y balance de estadios avisan), balance por equipo, cerrar fecha (`Ajuste jornadas_cerradas:<torneoId>`), configuración en `Ajuste programacion`, imagen PNG del horario.
+- **Reportes PDF** `/admin/reportes` (`lib/reportes-pdf.ts`, `/api/admin/reportes`): resultados y posiciones, sancionados, interno (valores), informe por club y de todos los clubes, con vista previa.
+- Pendiente de decidir: cambiar rival en fechas por jugar, historial por equipo, retirar la herramienta de Pages tras el corte.
