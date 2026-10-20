@@ -328,3 +328,6 @@ La herramienta `dmaflaf.github.io/appskc3` (repo `appskc3`, un solo `index.html`
 - **Programación** `/admin/programacion` (`lib/programacion.ts`): casillas por estadio/día/hora, avisos (choque de equipo bloquea; repetición de día/hora y balance de estadios avisan), balance por equipo, cerrar fecha (`Ajuste jornadas_cerradas:<torneoId>`), configuración en `Ajuste programacion`, imagen PNG del horario.
 - **Reportes PDF** `/admin/reportes` (`lib/reportes-pdf.ts`, `/api/admin/reportes`): resultados y posiciones, sancionados, interno (valores), informe por club y de todos los clubes, con vista previa.
 - Pendiente de decidir: cambiar rival en fechas por jugar, historial por equipo, retirar la herramienta de Pages tras el corte.
+
+## 📄 NÓMINA PDF DEL CLUB
+- Botón «📄 Nómina» en `/admin/clubes` (solo admin): PDF A4 con encabezado Keeper Cup 3, escudo grande, datos del club y tabla (N.º, foto pequeña con el encuadre, apellidos y nombres, cédula, nacimiento, edad, posición, teléfono, estado) y firmas. Con vista previa antes de descargar. `lib/nomina-pdf.ts`, `/api/admin/clubes/[id]/nomina`.

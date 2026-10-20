@@ -44,6 +44,17 @@ export default function Clubes() {
     if (!confirm('¿Quitar el escudo de este club?')) return
     await fetch(`/api/admin/clubes/${id}/escudo`, { method: 'DELETE' }); setVersion(Date.now()); cargar()
   }
+  const [nomina, setNomina] = useState<{ url: string; nombre: string; club: string } | null>(null)
+  const [generando, setGenerando] = useState('')
+  async function verNomina(c: Club) {
+    setGenerando(c.id)
+    try {
+      const r = await fetch(`/api/admin/clubes/${c.id}/nomina`)
+      if (!r.ok || !(r.headers.get('content-type') || '').includes('pdf')) { const e = await r.json().catch(() => null); alert(e?.message || 'No se pudo generar la nómina'); return }
+      setNomina({ url: URL.createObjectURL(await r.blob()), nombre: `nomina-${c.nombre.replace(/[^a-z0-9]+/gi, '-')}.pdf`, club: c.nombre })
+    } catch { alert('No se pudo generar la nómina') } finally { setGenerando('') }
+  }
+  const cerrarNomina = () => { if (nomina) URL.revokeObjectURL(nomina.url); setNomina(null) }
   async function eliminar(c: Club) {
     if (!confirm(`¿Eliminar el club ${c.nombre}?\n\nEsta acción no se puede deshacer.`)) return
     let cuerpo: Record<string, unknown> = {}
@@ -90,7 +101,7 @@ export default function Clubes() {
                     <td className={`text-center ${c.total === 0 ? 'text-red-400' : c.total < 11 ? 'text-yellow-300' : ''}`}>{c.total}</td>
                     <td className="text-center">{c.habilitados}</td><td className="text-center">{c.conFoto}</td><td className="text-center">{c.conCedulas}</td>
                     <td className="text-center">{c.escudo ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>}</td>
-                    <td className="text-right whitespace-nowrap pr-3"><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs mr-1" onClick={() => abrirEditor(c.id)}>✏️ Editar</button><button className="px-2 py-1 bg-slate-600 hover:bg-red-700 rounded text-xs" disabled={ocupado} onClick={() => eliminar(c)}>🗑 Eliminar</button></td>
+                    <td className="text-right whitespace-nowrap pr-3"><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs mr-1 disabled:opacity-50" disabled={generando === c.id} onClick={() => verNomina(c)}>{generando === c.id ? 'Generando…' : '📄 Nómina'}</button><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs mr-1" onClick={() => abrirEditor(c.id)}>✏️ Editar</button><button className="px-2 py-1 bg-slate-600 hover:bg-red-700 rounded text-xs" disabled={ocupado} onClick={() => eliminar(c)}>🗑 Eliminar</button></td>
                   </tr>
                 ))}
                 <tr className="border-t-2 border-slate-500 font-bold"><td className="p-3" colSpan={5}>Totales ({vis.length} clubes)</td><td className="text-center">{suma('total')}</td><td className="text-center">{suma('habilitados')}</td><td className="text-center">{suma('conFoto')}</td><td className="text-center">{suma('conCedulas')}</td><td /><td /></tr>
@@ -100,6 +111,19 @@ export default function Clubes() {
         )}
         <p className="text-slate-500 text-xs mt-3">Rojo: club sin jugadores · Amarillo: menos de 11 jugadores.</p>
       </div>
+      {nomina && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex flex-col p-3">
+          <div className="flex items-center gap-3 flex-wrap bg-slate-800 border border-slate-600 rounded-t-xl px-4 py-3">
+            <b>Nómina · {nomina.club}</b><span className="text-slate-400 text-sm">Vista previa. Solo se descarga cuando pulses el botón.</span>
+            <span className="ml-auto flex gap-2">
+              <a className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-sm inline-block" href={nomina.url} download={nomina.nombre}>⬇ Descargar PDF</a>
+              <a className="px-3 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm inline-block" href={nomina.url} target="_blank" rel="noreferrer">Abrir en pestaña nueva</a>
+              <button className="px-3 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm" onClick={cerrarNomina}>Cerrar</button>
+            </span>
+          </div>
+          <iframe src={nomina.url} title="Nómina" className="flex-1 w-full bg-white rounded-b-xl" />
+        </div>
+      )}
       {edit && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center overflow-auto p-4" onClick={() => setEdit(null)}>
           <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 w-full max-w-lg mt-8" onClick={(e) => e.stopPropagation()}>
