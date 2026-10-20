@@ -22,8 +22,18 @@ export async function GET(_req: Request, { params }: { params: { token: string }
 
   let ficha = null
   try {
-    const t = await prisma.torneo.findFirst({ where: { activo: true, publico: true }, orderBy: { createdAt: 'desc' }, select: { id: true } })
-    const d = t ? await cargarTorneo(t.id) : null
+    // Si hay varios torneos abiertos, la ficha usa el que tiene lo más reciente de ESTE jugador (o de su club); si no, el más nuevo
+    const abiertos = await prisma.torneo.findMany({ where: { activo: true, publico: true }, orderBy: { createdAt: 'desc' }, select: { id: true } })
+    let torneoId = abiertos[0]?.id
+    if (abiertos.length > 1) {
+      const ids = abiertos.map((t) => t.id)
+      const mios = await prisma.partido.findMany({ where: { torneoId: { in: ids }, OR: [{ localId: j.teamId }, { visitanteId: j.teamId }] }, select: { id: true, torneoId: true } })
+      const dePartido = new Map(mios.map((m) => [m.id, m.torneoId]))
+      const ev = mios.length ? await prisma.evento.findFirst({ where: { partidoId: { in: [...dePartido.keys()] }, playerId: j.id }, orderBy: { createdAt: 'desc' }, select: { partidoId: true } }) : null
+      const conClub = mios.length ? await prisma.evento.findFirst({ where: { partidoId: { in: [...dePartido.keys()] } }, orderBy: { createdAt: 'desc' }, select: { partidoId: true } }) : null
+      torneoId = (ev && dePartido.get(ev.partidoId)) || (conClub && dePartido.get(conClub.partidoId)) || mios[0]?.torneoId || torneoId
+    }
+    const d = torneoId ? await cargarTorneo(torneoId) : null
     if (d) ficha = construirFicha(d, j.id, j.teamId)
   } catch { /* sin torneo todavía */ }
 
