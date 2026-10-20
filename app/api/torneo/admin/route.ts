@@ -57,6 +57,26 @@ export async function POST(req: NextRequest) {
       const t = await prisma.torneo.create({ data: { nombre } })
       return NextResponse.json({ ok: true, id: t.id })
     }
+    case 'borrar_torneo': {
+      // Borra el torneo con todo lo suyo (fases, grupos, partidos, eventos y pagos). No toca clubes ni jugadores.
+      const t = await prisma.torneo.findUnique({ where: { id: String(b.id) } })
+      if (!t) return falla('Torneo no encontrado', 404)
+      if (String(b.confirmar || '').trim() !== t.nombre) return falla('El nombre escrito no coincide; no se borró nada')
+      const partidos = (await prisma.partido.findMany({ where: { torneoId: t.id }, select: { id: true } })).map((p) => p.id)
+      const fases = (await prisma.fase.findMany({ where: { torneoId: t.id }, select: { id: true } })).map((f) => f.id)
+      const grupos = (await prisma.grupo.findMany({ where: { faseId: { in: fases } }, select: { id: true } })).map((g) => g.id)
+      await prisma.$transaction([
+        prisma.evento.deleteMany({ where: { partidoId: { in: partidos } } }),
+        prisma.partido.deleteMany({ where: { torneoId: t.id } }),
+        prisma.grupoEquipo.deleteMany({ where: { grupoId: { in: grupos } } }),
+        prisma.grupo.deleteMany({ where: { faseId: { in: fases } } }),
+        prisma.fase.deleteMany({ where: { torneoId: t.id } }),
+        prisma.pago.deleteMany({ where: { torneoId: t.id } }),
+        prisma.ajuste.deleteMany({ where: { key: `jornadas_cerradas:${t.id}` } }),
+        prisma.torneo.delete({ where: { id: t.id } }),
+      ])
+      return NextResponse.json({ ok: true })
+    }
     case 'editar_torneo': {
       const data: Record<string, unknown> = {}
       for (const k of ['puntosVictoria', 'puntosEmpate', 'puntosDerrota', 'amarillasSuspension', 'partidosDobleAmarilla', 'partidosRojaDirecta']) {

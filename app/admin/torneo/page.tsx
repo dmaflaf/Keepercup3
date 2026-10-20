@@ -52,6 +52,15 @@ export default function TorneoAdmin() {
           </select>
         )}
         {t && <a className="underline text-sm text-yellow-300" href="/torneo" target="_blank">Ver página pública ↗</a>}
+        {t && esAdmin && (
+          <button className="text-sm text-red-400 underline" onClick={async () => {
+            const n = t.partidos.length
+            const esc = prompt(`Vas a ELIMINAR el torneo "${t.nombre}" con sus ${n} partido(s), goles, tarjetas, fases y pagos. No se puede deshacer (los clubes y jugadores NO se borran).\n\nHaz primero un respaldo. Para confirmar, escribe el nombre exacto del torneo:`)
+            if (esc === null) return
+            const r = await act('borrar_torneo', { id: t.id, confirmar: esc }, 'Torneo eliminado')
+            if (r.ok) { setTid(''); await cargar('') }
+          }}>🗑 Eliminar este torneo</button>
+        )}
       </div>
       {msg && <div className="bg-slate-700 border border-slate-500 rounded-lg p-3 mb-4 text-sm" onClick={() => setMsg('')}>{msg}</div>}
 
