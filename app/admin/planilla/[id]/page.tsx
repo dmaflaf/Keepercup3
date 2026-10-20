@@ -137,6 +137,7 @@ export default function Planilla() {
       <button className={`w-full flex items-center gap-3 px-3 py-3 border-t border-slate-700 text-left active:bg-slate-700 ${j.suspendido ? 'bg-red-900/20' : ''}`} disabled={cerrado && !esAdmin}
         onClick={() => setHoja({ teamId, playerId: jugadorId, paso: 'accion', minuto: Math.max(1, minNow) })}>
         <span className="w-9 text-center text-xl font-black text-yellow-300">{j.numero ?? '–'}</span>
+        <Foto id={j.id} />
         <span className="flex-1 text-base">{j.nombre}{j.posicion && <small className="text-slate-400"> · {j.posicion}</small>}</span>
         <span className="text-base whitespace-nowrap">
           {goles > 0 && <>⚽{goles > 1 ? `×${goles}` : ''} </>}{am > 0 && '🟨'}{ro > 0 && '🟥'}{sale && '⬇'}
@@ -173,6 +174,7 @@ export default function Planilla() {
                 <button key={j.id} className={`w-full flex items-center gap-3 px-3 py-3 border-t border-slate-700 text-left ${on ? 'bg-green-900/30' : ''} ${j.suspendido ? 'bg-red-900/20' : ''}`} onClick={() => marcarTitular(teamId, j.id, !on)}>
                   <span className={`w-7 h-7 rounded-md border-2 flex items-center justify-center ${on ? 'bg-green-500 border-green-500 text-black' : 'border-slate-500'}`}>{on ? '✓' : ''}</span>
                   <span className="w-9 text-center text-xl font-black text-yellow-300">{j.numero ?? '–'}</span>
+                  <Foto id={j.id} />
                   <span className="flex-1 text-base">{j.nombre}{j.posicion && <small className="text-slate-400"> · {j.posicion}</small>}</span>
                   {j.suspendido > 0 && <span className="text-red-300 text-sm font-bold">SUSPENDIDO</span>}
                 </button>
@@ -286,7 +288,7 @@ export default function Planilla() {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-end md:items-center justify-center" onClick={() => setHoja(null)}>
           <div className="bg-slate-800 border border-slate-600 rounded-t-3xl md:rounded-3xl p-5 w-full max-w-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start gap-3">
-              <p className="text-xl font-bold"><span className="text-yellow-300">{hojaJ.numero ?? '–'}</span> {hojaJ.nombre}</p>
+              <p className="text-xl font-bold flex items-center gap-3"><Foto id={hojaJ.id} grande /><span><span className="text-yellow-300">{hojaJ.numero ?? '–'}</span> {hojaJ.nombre}</span></p>
               <button className="text-slate-400 text-2xl leading-none" onClick={() => setHoja(null)}>×</button>
             </div>
             <div className="flex items-center gap-3 mt-3 text-base">
@@ -331,6 +333,7 @@ export default function Planilla() {
                   <button key={j.id} className="w-full flex items-center gap-3 px-3 py-3 border-t border-slate-700 text-left active:bg-slate-700 disabled:opacity-40" disabled={j.suspendido > 0 && !esAdmin}
                     onClick={() => { op({ t: 'cambio', teamId: hoja.teamId, sale: hoja.playerId, entra: j.id, minuto: hoja.minuto, periodo: perNum }); setHoja(null) }}>
                     <span className="w-9 text-center text-xl font-black text-yellow-300">{j.numero ?? '–'}</span>
+                    <Foto id={j.id} />
                     <span className="flex-1">{j.nombre}{j.posicion && <small className="text-slate-400"> · {j.posicion}</small>}</span>
                     {j.suspendido > 0 && <span className="text-red-300 text-xs font-bold">SUSPENDIDO</span>}
                   </button>
@@ -357,4 +360,13 @@ function BotonRepetir({ texto, onPaso }: { texto: string; onPaso: () => void }) 
     <button className={btn + ' !px-5 select-none touch-none'} onPointerDown={(e) => { e.preventDefault(); parar(); paso.current(); t.current = setTimeout(() => ciclo(0), 400) }}
       onPointerUp={parar} onPointerLeave={parar} onPointerCancel={parar} onContextMenu={(e) => e.preventDefault()}>{texto}</button>
   )
+}
+
+/** Miniatura del jugador; si no hay foto (o no hay red) queda una silueta. */
+function Foto({ id, grande }: { id: string; grande?: boolean }) {
+  const [falla, setFalla] = useState(false)
+  const tam = grande ? 'w-16 h-20' : 'w-10 h-12'
+  if (falla) return <span className={`${tam} shrink-0 rounded-md bg-slate-700 flex items-center justify-center text-slate-500 text-lg`}>👤</span>
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={`/api/torneo/planilla/foto/${id}`} alt="" loading="lazy" className={`${tam} shrink-0 rounded-md object-cover bg-slate-700`} onError={() => setFalla(true)} />
 }
