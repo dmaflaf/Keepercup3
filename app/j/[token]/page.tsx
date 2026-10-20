@@ -103,6 +103,15 @@ export default function FichaDeportiva() {
     fetch(`/api/carnet/${token}`).then((r) => r.json()).then((r) => (r.ok ? setC(r) : setError(r.message || 'Carnet no encontrado'))).catch(() => setError('No se pudo cargar el carnet'))
   }, [token])
 
+  // Con la ficha abierta, se refresca sola cada 20 s (solo si la pantalla está visible) para ver goles y tarjetas recién anotados
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      fetch(`/api/carnet/${token}`, { cache: 'no-store' }).then((r) => r.json()).then((r) => { if (r.ok) setC(r) }).catch(() => null)
+    }, 20000)
+    return () => clearInterval(t)
+  }, [token])
+
   // Sesión del personal: se cierra sola tras 5 minutos sin uso (equipos compartidos en la cancha)
   const esPersonal = !!c?.control
   useEffect(() => {
