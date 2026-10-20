@@ -317,3 +317,6 @@ Pregunta abierta al usuario: cuántos clubes tiene en su PC y en qué formato (�
 
 ## 🏟️ CLUBES (listado)
 - `/admin/clubes` (solo admin): escudo, datos y avance de nómina de cada club; ✏️ Editar (nombre, ciudad, director, teléfono, correo, estado, escudo) y 🗑 Eliminar. API `/api/admin/clubes`, `/api/admin/clubes/[id]` (GET/PATCH/DELETE) y `/escudo`. Eliminar se bloquea si el club ya está en grupos o partidos del torneo; si tiene jugadores hay que escribir el nombre del club para confirmar. Cambiar el nombre afecta a las hojas Excel/Google, que asignan jugadores por nombre de club.
+
+## ⚙️ RESPALDO DE DATOS
+- `/admin/respaldo` (solo admin): Excel y JSON con todas las tablas (sin claves, escudos ni fotos; `/api/admin/respaldo?formato=xlsx|json`) y ZIP de fotos/cédulas por club (se arma en el navegador con JSZip). Respaldo del código: `docs/RESPALDO_Y_RESTAURACION.md`. El respaldo que restaura todo tal cual es el de Railway (Backups).
