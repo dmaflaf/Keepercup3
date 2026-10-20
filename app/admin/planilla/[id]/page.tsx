@@ -25,6 +25,7 @@ export default function Planilla() {
   const [ahora, setAhora] = useState(() => Date.now())
   const [msg, setMsg] = useState('')
   const [enLinea, setEnLinea] = useState(true)
+  const [editMin, setEditMin] = useState<string | null>(null)
   const [hoja, setHoja] = useState<{ teamId: string; playerId: string; paso: 'accion' | 'cambio'; minuto: number } | null>(null)
   const [banca, setBanca] = useState<Record<string, boolean>>({})
   const sincronizando = useRef(false)
@@ -108,7 +109,7 @@ export default function Planilla() {
       if (!esAdmin) { setMsg(`${j.nombre} está SUSPENDIDO y no puede jugar.`); return }
       if (!confirm(`${j.nombre} está SUSPENDIDO. ¿Habilitarlo de todas formas?`)) return
     }
-    if (on && snap.eventos.filter((e) => e.teamId === teamId && e.tipo === 'titular').length >= p.titulares) { setMsg(`Ya hay ${p.titulares} titulares.`); return }
+    if (on && p.periodo === 'previo' && snap.eventos.filter((e) => e.teamId === teamId && e.tipo === 'titular').length >= p.titulares) { setMsg(`Ya hay ${p.titulares} titulares.`); return }
     op({ t: 'titular', teamId, playerId, on })
   }
 
@@ -290,9 +291,17 @@ export default function Planilla() {
             </div>
             <div className="flex items-center gap-3 mt-3 text-base">
               <span className="text-slate-300">Minuto</span>
-              <button className={btn + ' !px-4'} onClick={() => setHoja({ ...hoja, minuto: Math.max(0, hoja.minuto - 1) })}>−</button>
-              <b className="text-2xl w-16 text-center">{etiquetaMinuto(hoja.minuto, perNum, p.dur)}</b>
-              <button className={btn + ' !px-4'} onClick={() => setHoja({ ...hoja, minuto: hoja.minuto + 1 })}>+</button>
+              <BotonRepetir texto="−" onPaso={() => setHoja((h) => h && { ...h, minuto: Math.max(0, h.minuto - 1) })} />
+              {editMin === null ? (
+                <button className="text-2xl font-bold w-20 text-center underline decoration-dotted decoration-slate-500" onClick={() => setEditMin(String(hoja.minuto))}>{etiquetaMinuto(hoja.minuto, perNum, p.dur)}</button>
+              ) : (
+                <input autoFocus type="number" inputMode="numeric" min={0} max={200} className="w-20 text-2xl font-bold text-center rounded-lg bg-slate-900 border border-yellow-400 py-1"
+                  value={editMin} onChange={(e) => setEditMin(e.target.value)} onFocus={(e) => e.target.select()}
+                  onBlur={() => { const n = Math.round(Number(editMin)); if (Number.isFinite(n) && editMin !== '') setHoja((h) => h && { ...h, minuto: Math.min(200, Math.max(0, n)) }); setEditMin(null) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+              )}
+              <BotonRepetir texto="+" onPaso={() => setHoja((h) => h && { ...h, minuto: Math.min(200, h.minuto + 1) })} />
+              <span className="text-xs text-slate-400">Mantén pulsado o toca el número para escribirlo</span>
             </div>
             {hoja.paso === 'accion' ? (
               <div className="grid grid-cols-2 gap-3 mt-4">
@@ -302,6 +311,15 @@ export default function Planilla() {
                 <button className={btn} onClick={() => registrar('falta')}>✋ Falta</button>
                 <button className={btn + ' !bg-yellow-500 !text-black !border-yellow-400'} onClick={() => registrar('amarilla')}>{amarillasEnPartido(snap.eventos, hoja.playerId) >= 1 ? '🟨🟨 2.ª amarilla' : '🟨 Amarilla'}</button>
                 <button className={rojo} onClick={() => registrar('roja')}>🟥 Roja directa</button>
+                {!jugaron(snap.eventos, hoja.teamId).has(hoja.playerId) && (
+                  <button className={verde + ' col-span-2'} onClick={() => { marcarTitular(hoja.teamId, hoja.playerId, true); setHoja(null) }}>✅ Ponerlo en la cancha (titular)</button>
+                )}
+                {snap.eventos.some((e) => e.playerId === hoja.playerId && e.tipo === 'sale') && (
+                  <button className={btn + ' col-span-2'} onClick={() => { snap.eventos.filter((e) => e.playerId === hoja.playerId && e.tipo === 'sale').forEach((e) => op({ t: 'borrar', cid: e.cid })); setHoja(null) }}>↩ Volver a la cancha (anular su salida)</button>
+                )}
+                {snap.eventos.some((e) => e.playerId === hoja.playerId && e.tipo === 'titular') && !snap.eventos.some((e) => e.playerId === hoja.playerId && e.tipo === 'sale') && (
+                  <button className={btn + ' col-span-2'} onClick={() => { marcarTitular(hoja.teamId, hoja.playerId, false); setHoja(null) }}>✖ Quitarlo de la cancha (marcado por error)</button>
+                )}
                 {enCancha(snap.eventos, hoja.teamId).has(hoja.playerId) && !cerrado && (
                   <button className={btn + ' col-span-2'} disabled={cambiosHechos(snap.eventos, hoja.teamId) >= p.cambiosMax} onClick={() => setHoja({ ...hoja, paso: 'cambio' })}>🔄 Cambio: sale este jugador</button>
                 )}
@@ -324,5 +342,19 @@ export default function Planilla() {
         </div>
       )}
     </div>
+  )
+}
+
+/** Botón que repite el paso mientras se mantiene pulsado (acelera poco a poco). */
+function BotonRepetir({ texto, onPaso }: { texto: string; onPaso: () => void }) {
+  const paso = useRef(onPaso)
+  paso.current = onPaso
+  const t = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const parar = () => { if (t.current) clearTimeout(t.current); t.current = null }
+  const ciclo = (n: number) => { paso.current(); t.current = setTimeout(() => ciclo(n + 1), n > 12 ? 40 : n > 5 ? 80 : 160) }
+  useEffect(() => parar, [])
+  return (
+    <button className={btn + ' !px-5 select-none touch-none'} onPointerDown={(e) => { e.preventDefault(); parar(); paso.current(); t.current = setTimeout(() => ciclo(0), 400) }}
+      onPointerUp={parar} onPointerLeave={parar} onPointerCancel={parar} onContextMenu={(e) => e.preventDefault()}>{texto}</button>
   )
 }

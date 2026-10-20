@@ -84,7 +84,7 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
       if (await prisma.evento.findFirst({ where: { clienteId: cid } })) return
       if (await suspendido(op.playerId)) return 'Ese jugador está SUSPENDIDO'
       const n = await prisma.evento.count({ where: { partidoId, teamId: op.teamId, tipo: 'titular' } })
-      if (n >= (torneo?.titulares ?? 11)) return `Ya hay ${torneo?.titulares ?? 11} titulares`
+      if (p.periodo === 'previo' && n >= (torneo?.titulares ?? 11)) return `Ya hay ${torneo?.titulares ?? 11} titulares`
       await prisma.evento.create({ data: { partidoId, teamId: op.teamId, playerId: op.playerId, tipo: 'titular', minuto: 0, periodo: 0, clienteId: cid } })
       return
     }
