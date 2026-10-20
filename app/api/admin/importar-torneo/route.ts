@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   const resumen = {
     clubesEnlazados: Object.keys(mapa).length, clubesSinEnlazar: sinClub, clubesRepetidos: repetidos.length,
     partidos: d.partidos.length, jugados: d.partidos.filter((p) => p.estado === 'jugado').length,
-    tarjetas: cot.length, auto: cot.filter((t) => t.estado === 'auto').length, manual: cot.filter((t) => t.estado === 'manual').length, ignoradas: cot.filter((t) => t.estado === 'ignorada').length, sinCotejo: sinCotejo.length,
+    tarjetas: cot.length, auto: cot.filter((t) => t.estado === 'auto').length, manual: cot.filter((t) => t.estado === 'manual').length, ignoradas: cot.filter((t) => t.estado === 'ignorada').length, cuerpo: cot.filter((t) => t.estado === 'cuerpo').length, sinCotejo: sinCotejo.length,
     eventos: eventos.length, dobles: eventos.filter((e) => e.tipo === 'doble_amarilla').length, pagos: d.pagos.length,
   }
   if (b.accion === 'vista') return NextResponse.json({ ok: true, resumen, sinCotejo: sinCotejo.slice(0, 200).map((t) => ({ equipo: t.equipo, jugador: t.jugadorRaw })) })

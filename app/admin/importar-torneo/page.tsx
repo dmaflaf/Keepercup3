@@ -8,7 +8,7 @@ const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-whit
 const btn = 'px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-semibold text-sm'
 const btn2 = 'px-3 py-2 bg-slate-600 hover:bg-slate-500 disabled:opacity-50 rounded-lg text-sm'
 const sec = 'bg-slate-800 border border-slate-700 rounded-xl p-5 mb-5'
-interface Resumen { clubesEnlazados: number; clubesSinEnlazar: string[]; clubesRepetidos: number; partidos: number; jugados: number; tarjetas: number; auto: number; manual: number; ignoradas: number; sinCotejo: number; eventos: number; dobles: number; pagos: number }
+interface Resumen { clubesEnlazados: number; clubesSinEnlazar: string[]; clubesRepetidos: number; partidos: number; jugados: number; tarjetas: number; auto: number; manual: number; ignoradas: number; cuerpo: number; sinCotejo: number; eventos: number; dobles: number; pagos: number }
 
 export default function ImportarTorneo() {
   const [clubes, setClubes] = useState<ClubSistema[]>([])
@@ -139,12 +139,13 @@ export default function ImportarTorneo() {
                     <td className="py-2">{g.equipo}</td><td><b>{g.jugador}</b></td>
                     <td>{g.a > 0 && <span className="text-yellow-300">{g.a}🟨 </span>}{g.r > 0 && <span className="text-red-400">{g.r}🟥</span>}</td>
                     <td className="text-slate-400">{Array.from(g.fechas).sort().join(', ')}</td>
-                    <td>{g.estado === 'sin' || g.estado === 'manual' || g.estado === 'ignorada' ? (
+                    <td>{g.estado === 'sin' || g.estado === 'manual' || g.estado === 'ignorada' || g.estado === 'cuerpo' ? (
                       !teamId ? <span className="text-red-300 text-xs">enlaza primero el club</span> :
-                      <select className={inp + ' !py-1 max-w-[16rem]'} value={manual[g.k] === 'ignorar' ? '__ign' : (manual[g.k] as string) || ''} onChange={(ev) => { const v = ev.target.value; const m = { ...manual }; if (!v) delete m[g.k]; else m[g.k] = v === '__ign' ? 'ignorar' : v; setManual(m) }}>
+                      <select className={inp + ' !py-1 max-w-[16rem]'} value={manual[g.k] === 'ignorar' ? '__ign' : manual[g.k] === 'cuerpo' ? '__cuerpo' : (manual[g.k] as string) || ''} onChange={(ev) => { const v = ev.target.value; const m = { ...manual }; if (!v) delete m[g.k]; else m[g.k] = v === '__ign' ? 'ignorar' : v === '__cuerpo' ? 'cuerpo' : v; setManual(m) }}>
                         <option value="">⚠ elegir jugador…</option>
                         {clubesDe(teamId).map((j) => <option key={j.id} value={j.id}>N.º {j.numero ?? 's/n'} · {j.nombre}</option>)}
-                        <option value="__ign">Ignorar (no es jugador)</option>
+                        <option value="__cuerpo">Cuerpo técnico (cobrar multa al club)</option>
+                        <option value="__ign">Ignorar (no se importa)</option>
                       </select>
                     ) : <span className="text-green-300">✔ {jugadores.find((j) => j.id === g.playerId)?.nombre}</span>}</td>
                   </tr>)
@@ -160,7 +161,7 @@ export default function ImportarTorneo() {
             {resumen && (
               <div className="mt-4 text-sm space-y-1">
                 <p>Clubes enlazados: <b>{resumen.clubesEnlazados}</b> · Partidos: <b>{resumen.partidos}</b> ({resumen.jugados} con resultado) · Pagos: <b>{resumen.pagos}</b></p>
-                <p>Tarjetas: <b>{resumen.tarjetas}</b> · cotejadas solas {resumen.auto} · a mano {resumen.manual} · ignoradas {resumen.ignoradas} · <b className={resumen.sinCotejo ? 'text-red-300' : 'text-green-300'}>sin cotejar {resumen.sinCotejo}</b></p>
+                <p>Tarjetas: <b>{resumen.tarjetas}</b> · cotejadas solas {resumen.auto} · a mano {resumen.manual} · ignoradas {resumen.ignoradas} · cuerpo técnico {resumen.cuerpo} · <b className={resumen.sinCotejo ? 'text-red-300' : 'text-green-300'}>sin cotejar {resumen.sinCotejo}</b></p>
                 <p>Se crearán <b>{resumen.eventos}</b> eventos de tarjeta, de los cuales <b>{resumen.dobles}</b> son dobles amarillas (2 amarillas en un partido).</p>
                 <p className="text-slate-400">El torneo se crea <b>oculto al público</b>: lo muestras después con la casilla «Mostrar este torneo en la página pública».</p>
                 {(resumen.clubesSinEnlazar.length > 0 || resumen.sinCotejo > 0) && <p className="text-red-300">⚠ Aún no se puede importar: completa los clubes y las tarjetas pendientes.</p>}

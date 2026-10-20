@@ -42,8 +42,8 @@ export function enlazarClubes(equipos: string[], clubes: ClubSistema[]): Record<
   return mapa
 }
 
-export type Resolucion = string | 'ignorar' // id de jugador, o ignorar
-export interface TarjetaResuelta { id: string; partido_id: string; equipo: string; jugadorRaw: string; tipo: 'amarilla' | 'roja_directa'; estado: 'auto' | 'manual' | 'ignorada' | 'sin'; playerId: string | null; teamId: string | null }
+export type Resolucion = string | 'ignorar' | 'cuerpo' // id de jugador, ignorar, o «cuerpo técnico» (se cobra la multa al club sin sancionar a un jugador)
+export interface TarjetaResuelta { id: string; partido_id: string; equipo: string; jugadorRaw: string; tipo: 'amarilla' | 'roja_directa'; estado: 'auto' | 'manual' | 'ignorada' | 'cuerpo' | 'sin'; playerId: string | null; teamId: string | null }
 
 /** Cotejo de cada tarjeta con el jugador que tiene ese número en el club. `manual` usa la llave «equipo|jugadorRaw». */
 export function cotejarTarjetas(d: DatosKC3, mapaClubes: Record<string, string>, jugadores: JugadorSistema[], manual: Record<string, Resolucion>): TarjetaResuelta[] {
@@ -54,6 +54,7 @@ export function cotejarTarjetas(d: DatosKC3, mapaClubes: Record<string, string>,
     const base = { id: t.id, partido_id: t.partido_id, equipo: t.equipo, jugadorRaw: t.jugador, tipo: t.tipo, teamId }
     const m = manual[`${t.equipo}|${t.jugador}`]
     if (m === 'ignorar') return { ...base, estado: 'ignorada' as const, playerId: null }
+    if (m === 'cuerpo') return teamId ? { ...base, estado: 'cuerpo' as const, playerId: null } : { ...base, estado: 'sin' as const, playerId: null }
     const lista = teamId ? porClub.get(teamId) || [] : []
     if (m) { const j = lista.find((x) => x.id === m); return j ? { ...base, estado: 'manual' as const, playerId: j.id } : { ...base, estado: 'sin' as const, playerId: null } }
     const n = numeroDe(t.jugador)
@@ -64,10 +65,11 @@ export function cotejarTarjetas(d: DatosKC3, mapaClubes: Record<string, string>,
 }
 
 /** Eventos de tarjeta del sistema: dos amarillas del mismo jugador en un partido pasan a «doble_amarilla» (regla del torneo). */
-export function eventosDeTarjetas(res: TarjetaResuelta[]): { cid: string; partido_id: string; teamId: string; playerId: string; tipo: 'amarilla' | 'doble_amarilla' | 'roja' }[] {
-  const out: { cid: string; partido_id: string; teamId: string; playerId: string; tipo: 'amarilla' | 'doble_amarilla' | 'roja' }[] = []
+export function eventosDeTarjetas(res: TarjetaResuelta[]): { cid: string; partido_id: string; teamId: string; playerId: string | null; tipo: 'amarilla' | 'doble_amarilla' | 'roja' }[] {
+  const out: { cid: string; partido_id: string; teamId: string; playerId: string | null; tipo: 'amarilla' | 'doble_amarilla' | 'roja' }[] = []
   const amarillas = new Map<string, TarjetaResuelta[]>()
   for (const t of res) {
+    if (t.estado === 'cuerpo' && t.teamId) { out.push({ cid: `kc3:${t.id}`, partido_id: t.partido_id, teamId: t.teamId, playerId: null, tipo: t.tipo === 'roja_directa' ? 'roja' : 'amarilla' }); continue }
     if (!t.playerId || !t.teamId) continue
     if (t.tipo === 'roja_directa') { out.push({ cid: `kc3:${t.id}`, partido_id: t.partido_id, teamId: t.teamId, playerId: t.playerId, tipo: 'roja' }); continue }
     const k = `${t.partido_id}|${t.playerId}`

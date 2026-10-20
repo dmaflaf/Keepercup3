@@ -80,5 +80,6 @@ export async function cargarTorneo(torneoId: string) {
     .sort((a, b) => b.suspendidoProximo - a.suspendidoProximo || b.totalAmarillas - a.totalAmarillas)
 
   const posiciones = new Map(players.map((p) => [p.id, p.position]))
-  return { torneo, cfg, fases: fasesOut, partidos, goleadores: gol, sanciones: san, calc, posiciones }
+  const jugadoresInfo = new Map(players.map((p) => [p.id, { nombre: `${p.firstName} ${p.lastName}`.trim(), numero: p.number }]))
+  return { torneo, cfg, fases: fasesOut, partidos, goleadores: gol, sanciones: san, calc, posiciones, jugadoresInfo, nombreEquipo }
 }
