@@ -25,8 +25,9 @@ export default function Planilla() {
   const [ahora, setAhora] = useState(() => Date.now())
   const [msg, setMsg] = useState('')
   const [enLinea, setEnLinea] = useState(true)
+  const [varios, setVarios] = useState<{ minuto: string; penal: boolean }[]>([])
   const [editMin, setEditMin] = useState<string | null>(null)
-  const [hoja, setHoja] = useState<{ teamId: string; playerId: string; paso: 'accion' | 'cambio'; minuto: number } | null>(null)
+  const [hoja, setHoja] = useState<{ teamId: string; playerId: string; paso: 'accion' | 'cambio' | 'varios'; minuto: number } | null>(null)
   const [banca, setBanca] = useState<Record<string, boolean>>({})
   const sincronizando = useRef(false)
   const clave = `planilla:${id}`
@@ -291,7 +292,7 @@ export default function Planilla() {
               <p className="text-xl font-bold flex items-center gap-3"><Foto id={hojaJ.id} grande /><span><span className="text-yellow-300">{hojaJ.numero ?? '–'}</span> {hojaJ.nombre}</span></p>
               <button className="text-slate-400 text-2xl leading-none" onClick={() => setHoja(null)}>×</button>
             </div>
-            <div className="flex items-center gap-3 mt-3 text-base">
+            {hoja.paso !== 'varios' && <div className="flex items-center gap-3 mt-3 text-base">
               <span className="text-slate-300">Minuto</span>
               <BotonRepetir texto="−" onPaso={() => setHoja((h) => h && { ...h, minuto: Math.max(0, h.minuto - 1) })} />
               {editMin === null ? (
@@ -304,11 +305,12 @@ export default function Planilla() {
               )}
               <BotonRepetir texto="+" onPaso={() => setHoja((h) => h && { ...h, minuto: Math.min(200, h.minuto + 1) })} />
               <span className="text-xs text-slate-400">Mantén pulsado o toca el número para escribirlo</span>
-            </div>
+            </div>}
             {hoja.paso === 'accion' ? (
               <div className="grid grid-cols-2 gap-3 mt-4">
                 <button className={verde} onClick={() => registrar('gol')}>⚽ Gol</button>
                 <button className={verde} onClick={() => registrar('gol_penal')}>⚽ Gol de penal</button>
+                <button className={verde + ' col-span-2 !bg-green-700'} onClick={() => { setVarios([{ minuto: String(hoja.minuto), penal: false }]); setHoja({ ...hoja, paso: 'varios' }) }}>⚽⚽ Cargar varios goles con sus minutos</button>
                 <button className={btn} onClick={() => registrar('autogol')}>⚽ Autogol</button>
                 <button className={btn} onClick={() => registrar('falta')}>✋ Falta</button>
                 <button className={btn + ' !bg-yellow-500 !text-black !border-yellow-400'} onClick={() => registrar('amarilla')}>{amarillasEnPartido(snap.eventos, hoja.playerId) >= 1 ? '🟨🟨 2.ª amarilla' : '🟨 Amarilla'}</button>
@@ -325,6 +327,28 @@ export default function Planilla() {
                 {enCancha(snap.eventos, hoja.teamId).has(hoja.playerId) && !cerrado && (
                   <button className={btn + ' col-span-2'} disabled={cambiosHechos(snap.eventos, hoja.teamId) >= p.cambiosMax} onClick={() => setHoja({ ...hoja, paso: 'cambio' })}>🔄 Cambio: sale este jugador</button>
                 )}
+              </div>
+            ) : hoja.paso === 'varios' ? (
+              <div className="mt-4">
+                <p className="text-sm text-slate-300 mb-2">Un renglón por gol: escribe el minuto de cada uno.</p>
+                {varios.map((g, i) => (
+                  <div key={i} className="flex items-center gap-2 mb-2">
+                    <span className="w-8 text-slate-400 text-sm">#{i + 1}</span>
+                    <input type="number" inputMode="numeric" min={0} max={200} placeholder="Min" className="w-24 text-xl font-bold text-center rounded-lg bg-slate-900 border border-slate-600 py-2"
+                      value={g.minuto} onChange={(e) => setVarios((v) => v.map((x, k) => (k === i ? { ...x, minuto: e.target.value } : x)))} />
+                    <label className="flex items-center gap-2 text-sm flex-1"><input type="checkbox" className="w-5 h-5" checked={g.penal} onChange={(e) => setVarios((v) => v.map((x, k) => (k === i ? { ...x, penal: e.target.checked } : x)))} /> De penal</label>
+                    <button className="text-red-300 text-2xl px-2" onClick={() => setVarios((v) => v.filter((_, k) => k !== i))}>🗑</button>
+                  </div>
+                ))}
+                <button className={btn + ' w-full'} onClick={() => setVarios((v) => [...v, { minuto: String(Math.min(200, (Number(v[v.length - 1]?.minuto) || hoja.minuto) + 1)), penal: false }])}>+ Agregar otro gol</button>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <button className={btn} onClick={() => setHoja({ ...hoja, paso: 'accion' })}>← Volver</button>
+                  <button className={verde} disabled={!varios.length || varios.some((g) => g.minuto === '' || !(Number(g.minuto) >= 0 && Number(g.minuto) <= 200))}
+                    onClick={() => {
+                      [...varios].sort((a, b) => Number(a.minuto) - Number(b.minuto)).forEach((g) => { const m = Math.round(Number(g.minuto)); op({ t: 'evento', tipo: g.penal ? 'gol_penal' : 'gol', teamId: hoja.teamId, playerId: hoja.playerId, minuto: m, periodo: m <= p.dur ? 1 : 2 })})
+                      setHoja(null)
+                    }}>Guardar {varios.length} {varios.length === 1 ? 'gol' : 'goles'}</button>
+                </div>
               </div>
             ) : (
               <div className="mt-4">
