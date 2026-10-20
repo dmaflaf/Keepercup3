@@ -26,6 +26,8 @@ export default function Planilla() {
   const [msg, setMsg] = useState('')
   const [enLinea, setEnLinea] = useState(true)
   const [varios, setVarios] = useState<{ minuto: string; penal: boolean }[]>([])
+  const [editando, setEditando] = useState(false)
+  const [fe, setFe] = useState<{ teamId: string; playerId: string; tipo: string; minuto: string }>({ teamId: '', playerId: '', tipo: 'gol', minuto: '' })
   const [editMin, setEditMin] = useState<string | null>(null)
   const [hoja, setHoja] = useState<{ teamId: string; playerId: string; paso: 'accion' | 'cambio' | 'varios'; minuto: number } | null>(null)
   const [banca, setBanca] = useState<Record<string, boolean>>({})
@@ -103,6 +105,8 @@ export default function Planilla() {
   const etiquetaPeriodo = cerrado ? 'FINALIZADO' : { previo: 'ANTES DE JUGAR', t1: '1.er TIEMPO', descanso: 'DESCANSO', t2: '2.º TIEMPO', fin: 'FIN DE TIEMPOS', penales: 'PENALES' }[p.periodo]
   const jug = new Map(snap.jugadores.map((j) => [j.id, j]))
   const tnd = tanda(snap)
+  const golesReg = (teamId: string) => snap.eventos.filter((e) => (e.tipo === 'gol' || e.tipo === 'gol_penal') && e.teamId === teamId).length + snap.eventos.filter((e) => e.tipo === 'autogol' && e.teamId !== teamId).length
+  const faltanGoles = Math.max(0, m.golesLocal - golesReg(p.localId)) + Math.max(0, m.golesVisitante - golesReg(p.visitanteId))
 
   const marcarTitular = (teamId: string, playerId: string, on: boolean) => {
     const j = jug.get(playerId)
@@ -240,6 +244,8 @@ export default function Planilla() {
               {(p.periodo === 'fin' || p.periodo === 'penales') && <button className={rojo} onClick={() => confirm('¿Finalizar el partido y cerrar la planilla?') && reloj('finalizar')}>Finalizar partido</button>}
             </div>
           )}
+          {faltanGoles > 0 && esAdmin && <p className="text-center text-sm text-yellow-300 mt-3">⚠ Faltan {faltanGoles} gol(es) por asignar a un jugador: sin eso no salen en el QR ni en goleadores.</p>}
+          {cerrado && esAdmin && <div className="text-center mt-3"><button className={verde} onClick={() => { setFe({ teamId: p.localId, playerId: '', tipo: 'gol', minuto: '' }); setEditando(true) }}>✏️ Editar partido (goleadores y tarjetas)</button></div>}
           {cerrado && esAdmin && <div className="text-center mt-3"><button className={btn} onClick={() => confirm('¿Reabrir la planilla?') && reloj('reabrir')}>Reabrir planilla</button></div>}
         </div>
 
@@ -284,6 +290,75 @@ export default function Planilla() {
           })}
         </div>
       </div>
+
+      {editando && (() => {
+        const nombreEq = (id: string) => (id === p.localId ? p.local : p.visitante)
+        const plantel = snap.jugadores.filter((j) => j.teamId === fe.teamId)
+        const evs = snap.eventos.filter((e) => ['gol', 'gol_penal', 'autogol', 'amarilla', 'doble_amarilla', 'roja'].includes(e.tipo) && e.teamId === fe.teamId).sort((a, b) => (a.minuto ?? 0) - (b.minuto ?? 0))
+        const objetivo = fe.teamId === p.localId ? m.golesLocal : m.golesVisitante
+        const reg = golesReg(fe.teamId)
+        const tarjeta = ['amarilla', 'roja'].includes(fe.tipo)
+        const min = Number(fe.minuto)
+        const valido = !!fe.playerId && fe.minuto !== '' && Number.isFinite(min) && min >= 0 && min <= 200
+        const agregar = () => {
+          if (!valido) return
+          const periodo = min <= p.dur ? 1 : 2
+          if (fe.tipo === 'amarilla' && amarillasEnPartido(snap.eventos, fe.playerId) >= 1) {
+            const primera = snap.eventos.find((e) => e.playerId === fe.playerId && e.tipo === 'amarilla')
+            if (primera) op({ t: 'borrar', cid: primera.cid })
+            op({ t: 'evento', tipo: 'doble_amarilla', teamId: fe.teamId, playerId: fe.playerId, minuto: min, periodo })
+          } else op({ t: 'evento', tipo: fe.tipo, teamId: fe.teamId, playerId: fe.playerId, minuto: min, periodo })
+          setFe({ ...fe, minuto: '' })
+        }
+        return (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-end md:items-center justify-center" onClick={() => setEditando(false)}>
+            <div className="bg-slate-800 border border-slate-600 rounded-t-3xl md:rounded-3xl p-5 w-full max-w-lg max-h-[92vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-start">
+                <div><p className="text-xl font-bold">Editar partido</p><p className="text-sm text-slate-300">{p.local} {m.golesLocal} - {m.golesVisitante} {p.visitante}</p></div>
+                <button className="text-slate-400 text-2xl leading-none" onClick={() => setEditando(false)}>×</button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                {[p.localId, p.visitanteId].map((id) => (
+                  <button key={id} className={`${btn} ${fe.teamId === id ? '!bg-yellow-500 !text-black !border-yellow-400' : ''}`} onClick={() => setFe({ ...fe, teamId: id, playerId: '' })}>{nombreEq(id)}</button>
+                ))}
+              </div>
+              <p className={`mt-3 text-sm font-semibold ${reg >= objetivo ? 'text-green-400' : 'text-yellow-300'}`}>⚽ Goles de {nombreEq(fe.teamId)}: {reg} registrados de {objetivo} del marcador{reg < objetivo ? ` · faltan ${objetivo - reg}` : ''}</p>
+              <p className="text-xs text-slate-400">Un autogol cuenta para el rival. Las tarjetas son las de este club.</p>
+              <div className="mt-2">
+                {evs.length === 0 && <p className="text-sm text-slate-400">Sin goles ni tarjetas registrados de este club.</p>}
+                {evs.map((e) => {
+                  const j = e.playerId ? jug.get(e.playerId) : null
+                  return (
+                    <div key={e.cid} className="flex justify-between items-center gap-2 text-sm py-2 border-t border-slate-700">
+                      <span><b className="text-yellow-300">{etiquetaMinuto(e.minuto, e.periodo, p.dur)}</b> {NOMBRE[e.tipo]} · <b>{j?.numero ?? ''}</b> {j?.nombre}</span>
+                      <button className="text-red-400 px-2" onClick={() => confirm('¿Borrar este evento?') && op({ t: 'borrar', cid: e.cid })}>Borrar</button>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-3 border-t border-slate-600 pt-3 space-y-2">
+                <p className="font-semibold">Agregar</p>
+                <select className="w-full rounded-lg bg-slate-900 border border-slate-600 p-3 text-base" value={fe.playerId} onChange={(e) => setFe({ ...fe, playerId: e.target.value })}>
+                  <option value="">— Elige el jugador —</option>
+                  {plantel.map((j) => <option key={j.id} value={j.id}>{j.numero ?? '–'} · {j.nombre}</option>)}
+                </select>
+                <div className="grid grid-cols-3 gap-2">
+                  {[['gol', '⚽ Gol'], ['gol_penal', '⚽ Penal'], ['autogol', '⚽ Autogol'], ['amarilla', '🟨 Amarilla'], ['roja', '🟥 Roja']].map(([t, n]) => (
+                    <button key={t} className={`${btn} !px-2 !py-2 text-sm ${fe.tipo === t ? '!bg-yellow-500 !text-black !border-yellow-400' : ''}`} onClick={() => setFe({ ...fe, tipo: t })}>{n}</button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="number" inputMode="numeric" min={0} max={200} placeholder="Minuto" className="w-28 text-xl font-bold text-center rounded-lg bg-slate-900 border border-slate-600 py-2" value={fe.minuto}
+                    onChange={(e) => setFe({ ...fe, minuto: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') agregar() }} />
+                  <button className={verde + ' flex-1'} disabled={!valido} onClick={agregar}>Agregar {tarjeta ? 'tarjeta' : 'gol'}</button>
+                </div>
+                <p className="text-xs text-slate-400">Si no sabes el minuto exacto, pon uno aproximado. Para varios goles del mismo jugador, repite «Agregar».</p>
+              </div>
+              <button className={btn + ' w-full mt-4'} onClick={() => setEditando(false)}>Listo</button>
+            </div>
+          </div>
+        )
+      })()}
 
       {hoja && hojaJ && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-end md:items-center justify-center" onClick={() => setHoja(null)}>
