@@ -328,6 +328,9 @@ model Torneo {
   minutosTiempo         Int      @default(45)
   titulares             Int      @default(11)
   cambiosMax            Int      @default(29)
+  precioAmarilla        Float    @default(1) // multa en dólares por cada tarjeta amarilla
+  precioRoja            Float    @default(2) // multa en dólares por roja directa
+  origen                String?  // ej. 'kc3-pages' si se importó desde la herramienta de GitHub Pages
   createdAt             DateTime @default(now())
 }
 
@@ -454,4 +457,19 @@ model Traspaso {
   createdAt       DateTime @default(now())
 
   @@index([playerId])
+}
+
+// Pagos de multas por tarjetas, por club y torneo
+model Pago {
+  id        String   @id @default(cuid())
+  torneoId  String
+  teamId    String
+  monto     Float
+  nota      String?
+  usuario   String
+  anulado   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([torneoId])
+  @@index([teamId])
 }

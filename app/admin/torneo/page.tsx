@@ -62,6 +62,7 @@ export default function TorneoAdmin() {
             <input className={inp} placeholder="Ej. Keeper Cup 3" value={nuevoT} onChange={(e) => setNuevoT(e.target.value)} />
             <button className={btn} onClick={async () => { const r = await act('crear_torneo', { nombre: nuevoT }, 'Torneo creado'); if (r.ok) { setNuevoT(''); setTid(r.id); cargar(r.id) } }}>Crear</button>
           </div>
+          <p className="text-sm mt-3"><Link href="/admin/importar-torneo" className="text-yellow-300 underline">📥 Importar un torneo desde la herramienta de GitHub Pages</Link></p>
         </section>
       )}
 
