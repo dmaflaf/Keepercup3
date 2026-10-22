@@ -9,6 +9,14 @@ const ALIAS: Record<string, string> = { 'atl madrid': 'San Francisco', 'atletico
 /** Partidos que no se cargan (ganados o perdidos en mesa): fecha y dos clubes. */
 const EN_MESA: { fecha: number; clubes: [string, string] }[] = [{ fecha: 1, clubes: ['leipzig', 'america'] }]
 
+/** Club del sistema que corresponde al nombre escrito: igual; sin «SC/FC…» (Libert = Libert SC); o sin espacios (Sub 21 = Sub21). */
+export function buscarClub(nombre: string, clubes: { id: string; name: string }[]): string | null {
+  const n = normalizar(ALIAS[normalizar(nombre)] ?? nombre)
+  const unico = (clave: (t: string) => string) => { const k = clave(n); const cand = clubes.filter((x) => clave(x.name) === k); return k && cand.length === 1 ? cand[0] : undefined }
+  const c = clubes.find((x) => normalizar(x.name) === n) || unico(claveClub) || unico((t) => claveClub(t).replace(/ /g, ''))
+  return c?.id ?? null
+}
+
 export interface PartidoG { id: string; jornadaNum: number; localId: string; visitanteId: string; golesLocal: number | null; golesVisitante: number | null }
 export interface JugadorG { id: string; teamId: string; number: number | null; nombre: string }
 export interface GolNuevo { cid: string; partidoId: string; teamId: string; playerId: string; minuto: number; periodo: number }
@@ -23,13 +31,7 @@ export function planificarGoles(
   jugadores: JugadorG[], golesAjenos: Set<string> /* «partidoId|teamId» con goles cargados de otra forma */, dur: number,
 ): PlanGoles {
   const nov: Novedad[] = []
-  const idClub = (nombre: string): string | null => {
-    const n = normalizar(ALIAS[normalizar(nombre)] ?? nombre)
-    const unico = (clave: (t: string) => string) => { const k = clave(n); const cand = clubes.filter((x) => clave(x.name) === k); return k && cand.length === 1 ? cand[0] : undefined }
-    // Igual; sin «SC/FC…» (Libert = Libert SC); o sin espacios (Sub 21 = Sub21)
-    const c = clubes.find((x) => normalizar(x.name) === n) || unico(claveClub) || unico((t) => claveClub(t).replace(/ /g, ''))
-    return c?.id ?? null
-  }
+  const idClub = (nombre: string) => buscarClub(nombre, clubes)
   const nombreClub = (id: string) => clubes.find((c) => c.id === id)?.name ?? id
   // Agrupar por fecha + club (sumando si el mismo número aparece dos veces)
   const grupos = new Map<string, { fecha: number; club: string; teamId: string; nums: Map<number, number> }>()
