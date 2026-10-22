@@ -77,19 +77,21 @@ export function planificarAlineaciones(
     for (const f of tit) eventos.push({ cid: base('T', f.j.id), partidoId: p.id, teamId, playerId: f.j.id, tipo: 'titular', minuto: 0, periodo: 0 })
     titulares += tit.length
 
+    const entro = new Map<string, number>() // minuto en que entró cada ingreso: nadie sale en el mismo minuto en que entró
     const orden = ing.map((f, i) => ({ f, i })).sort((a, b) => (a.f.minuto ?? 99 + a.i) - (b.f.minuto ?? 99 + b.i))
     for (const { f } of orden) {
       const minuto = f.minuto ?? 60
       let salePid: string | null = f.pareja !== null ? porHoja.get(f.pareja) ?? null : null
-      if (!salePid || !pitch.has(salePid)) {
+      const puedeSalir = (id: string) => pitch.has(id) && (entro.get(id) ?? -1) < minuto
+      if (!salePid || !puedeSalir(salePid)) {
         const objetivo = f.pareja ?? f.hoja ?? f.j.number ?? 0
-        const cands = [...pitch].map((id) => porId.get(id) as JugadorA).filter(Boolean)
+        const cands = [...pitch].filter(puedeSalir).map((id) => porId.get(id) as JugadorA).filter(Boolean)
         const sinArquero = cands.filter((c) => !esArquero(c))
         const lista = (sinArquero.length ? sinArquero : cands).sort((a, b) => Math.abs((a.number ?? 0) - objetivo) - Math.abs((b.number ?? 0) - objetivo))
         salePid = lista[0]?.id ?? null
       }
       if (!salePid) continue
-      pitch.delete(salePid); pitch.add(f.j.id)
+      pitch.delete(salePid); pitch.add(f.j.id); entro.set(f.j.id, minuto)
       const periodo = minuto <= dur ? 1 : 2
       eventos.push({ cid: base('S', salePid), partidoId: p.id, teamId, playerId: salePid, tipo: 'sale', minuto, periodo })
       eventos.push({ cid: base('E', f.j.id), partidoId: p.id, teamId, playerId: f.j.id, tipo: 'entra', minuto, periodo })
