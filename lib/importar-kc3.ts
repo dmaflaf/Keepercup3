@@ -37,6 +37,7 @@ export function enlazarClubes(equipos: string[], clubes: ClubSistema[]): Record<
   for (const e of equipos) {
     let c = clubes.find((x) => normalizar(x.name) === normalizar(e))
     if (!c) { const k = claveClub(e); const cand = clubes.filter((x) => claveClub(x.name) === k); if (cand.length === 1 && k) c = cand[0] }
+    if (!c) { const k = claveClub(e).replace(/ /g, ''); const cand = clubes.filter((x) => claveClub(x.name).replace(/ /g, '') === k); if (cand.length === 1 && k) c = cand[0] } // «Sub 21» = «Sub21»
     if (c) mapa[e] = c.id
   }
   return mapa

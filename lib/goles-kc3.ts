@@ -25,7 +25,9 @@ export function planificarGoles(
   const nov: Novedad[] = []
   const idClub = (nombre: string): string | null => {
     const n = normalizar(ALIAS[normalizar(nombre)] ?? nombre)
-    const c = clubes.find((x) => normalizar(x.name) === n) || (() => { const k = claveClub(n); const cand = clubes.filter((x) => claveClub(x.name) === k); return k && cand.length === 1 ? cand[0] : undefined })()
+    const unico = (clave: (t: string) => string) => { const k = clave(n); const cand = clubes.filter((x) => clave(x.name) === k); return k && cand.length === 1 ? cand[0] : undefined }
+    // Igual; sin «SC/FC…» (Libert = Libert SC); o sin espacios (Sub 21 = Sub21)
+    const c = clubes.find((x) => normalizar(x.name) === n) || unico(claveClub) || unico((t) => claveClub(t).replace(/ /g, ''))
     return c?.id ?? null
   }
   const nombreClub = (id: string) => clubes.find((c) => c.id === id)?.name ?? id
