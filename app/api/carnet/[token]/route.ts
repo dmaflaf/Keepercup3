@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   let ficha = null
   try {
     // Si hay varios torneos abiertos, la ficha usa el que tiene lo más reciente de ESTE jugador (o de su club); si no, el más nuevo
-    const abiertos = await prisma.torneo.findMany({ where: { activo: true, publico: true }, orderBy: { createdAt: 'desc' }, select: { id: true } })
+    const abiertos = await prisma.torneo.findMany({ where: { activo: true }, orderBy: { createdAt: 'desc' }, select: { id: true } }) // «publico» solo rige la página pública del torneo, no la ficha del QR
     let torneoId = abiertos[0]?.id
     if (abiertos.length > 1) {
       const ids = abiertos.map((t) => t.id)
