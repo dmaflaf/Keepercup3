@@ -60,7 +60,7 @@ export default function Reportes() {
           <p className="text-slate-400 text-sm mb-3">Sus partidos y resultados, su posición, sus jugadores con tarjetas y quién está suspendido.</p>
           <div className="flex flex-wrap gap-2 items-center">
             <select className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm" value={club} onChange={(e) => setClub(e.target.value)}><option value="">Elige un club…</option>{equipos.map((e) => <option key={e.id} value={e.id}>{e.nombre} ({e.grupo})</option>)}</select>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dinero} onChange={(e) => setDinero(e.target.checked)} /> Incluir valores a pagar</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dinero} onChange={(e) => setDinero(e.target.checked)} /> Incluir cuenta del club (inscripción, garantía, carnets, multas y pagos)</label>
             <button className={btn} disabled={!!generando || !club} onClick={() => generar('club', `informe-${equipos.find((e) => e.id === club)?.nombre || 'club'}.pdf`, `&equipo=${club}&dinero=${dinero ? 1 : 0}`)}>{generando === 'club' ? 'Generando…' : 'Informe de este club'}</button>
             <button className={btn2} disabled={!!generando || !tid} onClick={() => generar('clubes', 'informes-todos-los-clubes.pdf', `&dinero=${dinero ? 1 : 0}`)}>{generando === 'clubes' ? 'Generando…' : '📚 Todos los clubes (una hoja por club)'}</button>
           </div>
@@ -68,8 +68,8 @@ export default function Reportes() {
 
         <section className={sec}>
           <h2 className="font-bold mb-1">Uso interno</h2>
-          <p className="text-slate-400 text-sm mb-3">Tarjetas y valores a pagar por club, con lo pagado y lo pendiente. No lo envíes a los clubes.</p>
-          <button className={btn2} disabled={!!generando || !tid} onClick={() => generar('interno', 'tarjetas-y-valores-interno.pdf')}>{generando === 'interno' ? 'Generando…' : '💵 Tarjetas y valores'}</button>
+          <p className="text-slate-400 text-sm mb-3">Finanzas de todos los clubes: inscripción, garantía, carnets, multas, pagado y saldo. No lo envíes a los clubes.</p>
+          <button className={btn2} disabled={!!generando || !tid} onClick={() => generar('interno', 'finanzas-por-club-interno.pdf')}>{generando === 'interno' ? 'Generando…' : '💵 Finanzas por club'}</button>
         </section>
         <p className="text-slate-400 text-sm mb-2">¿Quieres registrar inscripción, garantía, carnets o pagos con comprobante? Está en <Link className="underline text-yellow-300" href="/admin/finanzas">💵 Finanzas</Link>.</p>
         <p className="text-slate-400 text-sm">¿Quieres la imagen del horario de una fecha para WhatsApp? Está en <Link className="underline text-yellow-300" href="/admin/programacion">🗓️ Programación → Imagen del horario</Link>.</p>

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { exigirAdmin } from '@/lib/sorteo'
 import { cargarTorneo } from '@/lib/torneo-data'
 import { cargarMultas } from '@/lib/multas-data'
+import { calcularFinanzas, ETIQUETA } from '@/lib/finanzas-data'
 import { Reporte, usd } from '@/lib/reportes-pdf'
 import { fechaLarga } from '@/lib/programacion'
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams
   const torneo = q.get('torneoId') ? { id: q.get('torneoId') as string } : await prisma.torneo.findFirst({ orderBy: [{ activo: 'desc' }, { createdAt: 'desc' }], select: { id: true } })
   if (!torneo) return NextResponse.json({ ok: false, message: 'No hay torneo' }, { status: 404 })
-  const [d, m] = await Promise.all([cargarTorneo(torneo.id), cargarMultas(torneo.id)])
+  const [d, m, fin] = await Promise.all([cargarTorneo(torneo.id), cargarMultas(torneo.id), calcularFinanzas(torneo.id)])
   if (!d || !m) return NextResponse.json({ ok: false, message: 'Torneo no encontrado' }, { status: 404 })
   const tipo = q.get('tipo') || 'resultados'
   const origin = req.nextUrl.origin
@@ -62,17 +63,19 @@ export async function GET(req: NextRequest) {
       R.tabla([{ t: 'Jugador', w: 135 }, { t: 'Club', w: 100 }, { t: 'Am.', w: 28, al: 'c' }, { t: 'Roj.', w: 28, al: 'c' }, { t: 'Motivo', w: 94 }, { t: 'Estado', w: 130 }], filas.map((s) => filaSan(s, true)), { size: 9 })
     }
   } else if (tipo === 'interno') {
-    R.hoja('Tarjetas y valores (interno)', `Amarilla ${usd(m.torneo.precioAmarilla)} · roja directa ${usd(m.torneo.precioRoja)} · hasta la Fecha ${jug}`)
-    let T = { y: 0, r: 0, total: 0, pagado: 0, pendiente: 0 }
+    R.hoja('Finanzas por club (interno)', `Inscripción, garantía, carnets, multas y otros · hasta la Fecha ${jug}`)
+    const T = { c: 0, p: 0 }
+    const col = (k: string) => (f: (typeof fin.filas)[number]) => usd(f.porConcepto[k].cargado)
     for (const g of m.grupos) {
-      const filas = m.multas.filter((x) => x.grupo === g.nombre).sort((a, b) => b.pendiente - a.pendiente || a.nombre.localeCompare(b.nombre))
+      const filas = fin.filas.filter((x) => g.equipos.some((e) => e.id === x.teamId)).sort((a, b) => b.saldo - a.saldo || a.club.localeCompare(b.club))
+      if (!filas.length) continue
       R.titulo(g.nombre)
-      R.tabla([{ t: 'Club', w: 175 }, { t: 'Am.', w: 40, al: 'c' }, { t: 'Dobles', w: 46, al: 'c' }, { t: 'Roj.', w: 40, al: 'c' }, { t: 'Total', w: 66, al: 'r' }, { t: 'Pagado', w: 66, al: 'r' }, { t: 'Pendiente', w: 82, al: 'r' }],
-        filas.map((x) => [x.nombre, String(x.y), String(x.dobles), String(x.r), usd(x.total), usd(x.pagado), { t: usd(x.pendiente), color: x.pendiente > 0 ? ('rojo' as const) : ('verde' as const), negrita: true }]))
-      for (const x of filas) T = { y: T.y + x.y, r: T.r + x.r, total: T.total + x.total, pagado: T.pagado + x.pagado, pendiente: T.pendiente + x.pendiente }
+      R.tabla([{ t: 'Club', w: 120 }, { t: 'Inscrip.', w: 50, al: 'r' }, { t: 'Garantía', w: 50, al: 'r' }, { t: 'Carnets', w: 50, al: 'r' }, { t: 'Multas', w: 50, al: 'r' }, { t: 'Otro', w: 44, al: 'r' }, { t: 'Total', w: 54, al: 'r' }, { t: 'Pagado', w: 54, al: 'r' }, { t: 'Saldo', w: 60, al: 'r' }],
+        filas.map((x) => [x.club, col('inscripcion')(x), col('garantia')(x), col('carnets')(x), col('multas')(x), col('otro')(x), usd(x.cargado), usd(x.pagado), { t: usd(x.saldo), color: x.saldo > 0 ? ('rojo' as const) : ('verde' as const), negrita: true }]), { size: 9 })
+      for (const x of filas) { T.c += x.cargado; T.p += x.pagado }
     }
     R.titulo('Total general')
-    R.linea(`${T.y} amarillas · ${T.r} rojas directas · Total a pagar ${usd(T.total)} · Pagado ${usd(T.pagado)} · Pendiente ${usd(T.pendiente)}`, 11, AZUL_OSC, true)
+    R.linea(`Total a cobrar ${usd(T.c)} · Pagado ${usd(T.p)} · Pendiente ${usd(T.c - T.p)}`, 11, AZUL_OSC, true)
   } else if (tipo === 'club' || tipo === 'clubes') {
     const ids = tipo === 'club' ? [q.get('equipo') || ''] : m.grupos.flatMap((g) => g.equipos.map((e) => e.id))
     const dinero = q.get('dinero') !== '0'
@@ -90,7 +93,21 @@ export async function GET(req: NextRequest) {
       R.titulo('Tarjetas y sanciones')
       if (sanc.length) R.tabla([{ t: 'Jugador', w: 165 }, { t: 'Am.', w: 30, al: 'c' }, { t: 'Roj.', w: 30, al: 'c' }, { t: 'Motivo', w: 120 }, { t: 'Estado', w: 170 }], sanc.map((s) => filaSan(s, false)), { size: 9 })
       else R.linea('Sin tarjetas registradas.', 10, GRIS_)
-      if (dinero) { R.titulo('Valores por tarjetas'); R.linea(`${club.y} amarillas × ${usd(m.torneo.precioAmarilla)} + ${club.r} rojas × ${usd(m.torneo.precioRoja)} = ${usd(club.total)}   ·   Pagado ${usd(club.pagado)}   ·   Pendiente ${usd(club.pendiente)}`, 11, club.pendiente > 0 ? ROJO_ : VERDE_, true) }
+      if (dinero) {
+        const f = fin.filas.find((x) => x.teamId === id)
+        if (f) {
+          R.titulo('Cuenta del club')
+          R.tabla([{ t: 'Concepto', w: 200 }, { t: 'Cargado', w: 100, al: 'r' }, { t: 'Pagado', w: 100, al: 'r' }, { t: 'Saldo', w: 115, al: 'r' }],
+            [...Object.keys(ETIQUETA).filter((k) => f.porConcepto[k].cargado || f.porConcepto[k].pagado).map((k) => { const c = f.porConcepto[k]; const sd = Math.round((c.cargado - c.pagado) * 100) / 100; return [k === 'multas' ? `Multas (${club.y} amarillas × ${usd(m.torneo.precioAmarilla)} + ${club.r} rojas × ${usd(m.torneo.precioRoja)})` : ETIQUETA[k], usd(c.cargado), usd(c.pagado), { t: usd(sd), color: sd > 0 ? ('rojo' as const) : ('verde' as const) }] }),
+              [{ t: 'TOTAL', negrita: true }, { t: usd(f.cargado), negrita: true }, { t: usd(f.pagado), negrita: true }, { t: usd(f.saldo), negrita: true, color: f.saldo > 0 ? ('rojo' as const) : ('verde' as const) }]], { size: 9 })
+          const pagos = fin.pagos.filter((p) => p.teamId === id && !p.anulado)
+          if (pagos.length) {
+            R.titulo('Pagos recibidos')
+            R.tabla([{ t: 'Fecha', w: 70 }, { t: 'Concepto', w: 100 }, { t: 'Comprobante', w: 120 }, { t: 'Monto', w: 80, al: 'r' }, { t: 'Nota', w: 145 }],
+              pagos.map((p) => [p.fechaPago || '—', ETIQUETA[p.concepto] || p.concepto, p.comprobante || 's/n', usd(p.monto), { t: p.nota || '', color: 'gris' as const }]), { size: 9 })
+          }
+        }
+      }
     }
     if (!R.pdf.getPageCount()) return NextResponse.json({ ok: false, message: 'Club no encontrado' }, { status: 404 })
   } else return NextResponse.json({ ok: false, message: 'Tipo de reporte desconocido' }, { status: 400 })
