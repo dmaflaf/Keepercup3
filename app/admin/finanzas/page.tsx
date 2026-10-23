@@ -105,7 +105,7 @@ export default function Finanzas() {
                   </tr>))}</tbody>
               </table>
             </div>
-            <p className="text-xs text-slate-400 -mt-4 mb-2">Por defecto, todos los clubes tienen cargados <b>{usd(d.porDefecto?.inscripcion ?? 0)} de inscripción</b> y <b>{usd(d.porDefecto?.garantia ?? 0)} de garantía</b>. Si registras un cargo de ese concepto a un club, reemplaza el valor por defecto de ese club (por ejemplo, para un descuento).</p>
+            <p className="text-xs text-slate-400 -mt-4 mb-2">Por defecto, todos los clubes tienen cargados <b>{usd(d.porDefecto?.inscripcion ?? 0)} de inscripción</b> y <b>{usd(d.porDefecto?.garantia ?? 0)} de garantía</b>, y <b>{usd(d.porDefecto?.carnet ?? 0)} por cada jugador habilitado</b> en carnets (se actualiza solo al habilitar jugadores). Si registras un cargo de ese concepto a un club, reemplaza el valor por defecto de ese club (por ejemplo, para un descuento).</p>
             <p className="text-xs text-slate-400 mb-6">En cada concepto: arriba lo cargado, abajo (verde) lo pagado. Las multas por tarjetas se calculan solas desde las tarjetas; sus pagos también se registran aquí con «Multas».</p>
 
             <div className="grid md:grid-cols-2 gap-4">
