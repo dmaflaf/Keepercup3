@@ -5,7 +5,7 @@
 import { claveClub, normalizar } from '@/lib/importar-kc3'
 
 export const PREFIJO_GOL = 'xlsxgol:'
-const ALIAS: Record<string, string> = { 'atl madrid': 'San Francisco', 'atletico madrid': 'San Francisco', 'alianza jr': 'Alianza Jr.' }
+const ALIAS: Record<string, string> = { leipzig: 'Leipzig RB', 'leipzig rb': 'Leipzig RB', 'atl madrid': 'San Francisco', 'atletico madrid': 'San Francisco', 'alianza jr': 'Alianza Jr.' }
 /** Partidos que no se cargan (ganados o perdidos en mesa): fecha y dos clubes. */
 const EN_MESA: { fecha: number; clubes: [string, string] }[] = [{ fecha: 1, clubes: ['leipzig', 'america'] }]
 
