@@ -43,6 +43,15 @@ export function planificarGoles(
     g.nums.set(numero, (g.nums.get(numero) || 0) + goles)
     grupos.set(k, g)
   }
+  // Clubes con goles en el marcador pero sin filas en el archivo: también se completan (con el goleador del club)
+  const fechasArchivo = new Set(filas.map((x) => x[0]))
+  for (const p of partidos) {
+    if (!fechasArchivo.has(p.jornadaNum)) continue
+    for (const [teamId, goles] of [[p.localId, p.golesLocal], [p.visitanteId, p.golesVisitante]] as const) {
+      const k = `${p.jornadaNum}|${teamId}`
+      if (goles && !grupos.has(k)) grupos.set(k, { fecha: p.jornadaNum, club: nombreClub(teamId), teamId, nums: new Map() })
+    }
+  }
   const nuevos: GolNuevo[] = []
   const reemplazar: { partidoId: string; teamId: string }[] = []
   const partidosTocados = new Set<string>()
@@ -86,7 +95,14 @@ export function planificarGoles(
       nov.push({ nivel: 'aviso', texto: `Fecha ${g.fecha} · ${nombre}: el archivo trae ${total} gol(es) y el marcador ${objetivo}; se quitó 1 de #${j?.number} ${j?.nombre}.` })
       total--
     }
-    if (total < objetivo) nov.push({ nivel: 'aviso', texto: `Fecha ${g.fecha} · ${nombre}: el marcador es ${objetivo} y solo hay ${total} gol(es) con jugador; faltan ${objetivo - total} por asignar (✏️ Editar partido).` })
+    if (total < objetivo) {
+      const dest = maximo ? delClub.find((j) => j.id === maximo) : null
+      if (dest) {
+        porJugador.set(dest.id, (porJugador.get(dest.id) || 0) + (objetivo - total))
+        nov.push({ nivel: 'aviso', texto: `Fecha ${g.fecha} · ${nombre}: el marcador es ${objetivo} y el archivo trae ${total}; ${objetivo - total} gol(es) pasan a #${dest.number} ${dest.nombre} (el goleador del club).` })
+        total = objetivo
+      } else nov.push({ nivel: 'aviso', texto: `Fecha ${g.fecha} · ${nombre}: el marcador es ${objetivo} y solo hay ${total} gol(es) con jugador; el club no tiene goleador con quién completar.` })
+    }
     if (total === 0) continue
 
     // Minutos simulados y reproducibles
