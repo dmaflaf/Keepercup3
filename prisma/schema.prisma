@@ -468,6 +468,25 @@ model Pago {
   nota      String?
   usuario   String
   anulado   Boolean  @default(false)
+  concepto    String?  // null o «multas» = pago de multas; inscripcion | garantia | carnets | otro
+  comprobante String?  // número del comprobante
+  fechaPago   String?  // YYYY-MM-DD
+  createdAt DateTime @default(now())
+
+  @@index([torneoId])
+  @@index([teamId])
+}
+
+// Cargos a un club (inscripción, garantía, carnets, otros). Las multas por tarjetas se calculan aparte.
+model Cargo {
+  id        String   @id @default(cuid())
+  torneoId  String
+  teamId    String
+  concepto  String   // inscripcion | garantia | carnets | otro
+  detalle   String?
+  monto     Float
+  usuario   String
+  anulado   Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([torneoId])

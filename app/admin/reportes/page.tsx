@@ -71,6 +71,7 @@ export default function Reportes() {
           <p className="text-slate-400 text-sm mb-3">Tarjetas y valores a pagar por club, con lo pagado y lo pendiente. No lo envíes a los clubes.</p>
           <button className={btn2} disabled={!!generando || !tid} onClick={() => generar('interno', 'tarjetas-y-valores-interno.pdf')}>{generando === 'interno' ? 'Generando…' : '💵 Tarjetas y valores'}</button>
         </section>
+        <p className="text-slate-400 text-sm mb-2">¿Quieres registrar inscripción, garantía, carnets o pagos con comprobante? Está en <Link className="underline text-yellow-300" href="/admin/finanzas">💵 Finanzas</Link>.</p>
         <p className="text-slate-400 text-sm">¿Quieres la imagen del horario de una fecha para WhatsApp? Está en <Link className="underline text-yellow-300" href="/admin/programacion">🗓️ Programación → Imagen del horario</Link>.</p>
       </div>
 

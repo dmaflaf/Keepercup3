@@ -23,7 +23,7 @@ export async function cargarMultas(torneoId: string): Promise<DatosMultas | null
   const equipos = Array.from(new Set(grupos.flatMap((g) => g.equipos.map((e) => e.id))))
   const pagosDB = await prisma.pago.findMany({ where: { torneoId }, orderBy: { createdAt: 'desc' } })
   const pagado = new Map<string, number>()
-  for (const p of pagosDB) if (!p.anulado) pagado.set(p.teamId, (pagado.get(p.teamId) || 0) + p.monto)
+  for (const p of pagosDB) if (!p.anulado && (!p.concepto || p.concepto === 'multas')) pagado.set(p.teamId, (pagado.get(p.teamId) || 0) + p.monto)
   const nombre = (id: string) => d.nombreEquipo.get(id) || '?'
   const multas = calcularMultas(partidos, equipos, { amarilla: t.precioAmarilla, roja: t.precioRoja }, pagado).map((m) => ({ ...m, nombre: nombre(m.teamId), grupo: grupoDe.get(m.teamId) || '' }))
   const sanc = calcularSanciones(partidos, { amarillasSuspension: d.cfg.amarillasSuspension, partidosDobleAmarilla: d.cfg.partidosDobleAmarilla, partidosRojaDirecta: d.cfg.partidosRojaDirecta })
@@ -32,6 +32,6 @@ export async function cargarMultas(torneoId: string): Promise<DatosMultas | null
   return {
     torneo: { id: t.id, nombre: t.nombre, precioAmarilla: t.precioAmarilla, precioRoja: t.precioRoja, amarillasSuspension: d.cfg.amarillasSuspension, partidosDobleAmarilla: d.cfg.partidosDobleAmarilla, partidosRojaDirecta: d.cfg.partidosRojaDirecta },
     grupos, multas, sanciones, jornadasJugadas,
-    pagos: pagosDB.map((p) => ({ id: p.id, teamId: p.teamId, club: nombre(p.teamId), monto: p.monto, nota: p.nota, usuario: p.usuario, anulado: p.anulado, createdAt: p.createdAt })),
+    pagos: pagosDB.filter((p) => !p.concepto || p.concepto === 'multas').map((p) => ({ id: p.id, teamId: p.teamId, club: nombre(p.teamId), monto: p.monto, nota: p.nota, usuario: p.usuario, anulado: p.anulado, createdAt: p.createdAt })),
   }
 }

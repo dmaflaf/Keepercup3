@@ -88,6 +88,7 @@ export default function AdminDashboard() {
             { icono: '🪪', titulo: 'Carnets', texto: 'Generar carnets con QR en PDF por club', ruta: '/admin/carnets', solo: 'admin' },
             { icono: '🗓️', titulo: 'Programación', texto: 'Horarios por estadio, día y hora, con avisos y balance', ruta: '/admin/programacion', solo: 'admin' },
             { icono: '📄', titulo: 'Reportes PDF', texto: 'Resultados, posiciones, sancionados e informes por club', ruta: '/admin/reportes', solo: 'admin' },
+            { icono: '💵', titulo: 'Finanzas', texto: 'Cargos, multas y pagos por club con comprobante y fecha', ruta: '/admin/finanzas' },
             { icono: '🟨', titulo: 'Tarjetas y multas', texto: 'Sancionados por fecha, multas por club y pagos', ruta: '/admin/multas' },
             { icono: '⚙️', titulo: 'Respaldo', texto: 'Descargar copia de datos (Excel/JSON) y fotos por club', ruta: '/admin/respaldo', solo: 'admin' },
             { icono: '🔑', titulo: 'Usuarios', texto: 'Crear vocales para iPad/celulares y restablecer claves', ruta: '/admin/usuarios', solo: 'admin' },
