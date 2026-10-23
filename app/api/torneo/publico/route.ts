@@ -13,13 +13,22 @@ export async function GET(req: NextRequest) {
     const d = await cargarTorneo(id)
     if (!d) return NextResponse.json({ ok: true, torneos: lista, torneo: null })
     const { calc, cfg, torneo, partidos, ...resto } = d
-    void calc
+    // Fair play por club: amarilla 1, doble amarilla 3, roja directa 3 (menos puntos = mejor conducta)
+    const fp = new Map<string, { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }>()
+    for (const c of calc) for (const e of c.eventos) {
+      if (!['amarilla', 'doble_amarilla', 'roja'].includes(e.tipo)) continue
+      const x = fp.get(e.teamId) || { teamId: e.teamId, equipo: d.nombreEquipo.get(e.teamId) || '?', amarillas: 0, dobles: 0, rojas: 0, puntos: 0 }
+      if (e.tipo === 'amarilla') { x.amarillas++; x.puntos += 1 } else if (e.tipo === 'doble_amarilla') { x.dobles++; x.puntos += 3 } else { x.rojas++; x.puntos += 3 }
+      fp.set(e.teamId, x)
+    }
+    const fairplay = [...fp.values()].sort((a, b) => a.puntos - b.puntos || a.equipo.localeCompare(b.equipo))
     return NextResponse.json(
       {
         ok: true,
         torneos: lista,
         torneo: { id: torneo.id, nombre: torneo.nombre, amarillasSuspension: cfg.amarillasSuspension },
         partidos: partidos.map(({ observaciones, veedor, _i, ...p }) => { void observaciones; void veedor; void _i; return p }),
+        fairplay,
         ...resto,
       },
       { headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' } }

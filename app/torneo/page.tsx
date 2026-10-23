@@ -5,12 +5,12 @@ import { useEffect, useState } from 'react'
 interface Fila { teamId: string; equipo: string; pj: number; pg: number; pe: number; pp: number; gf: number; gc: number; dg: number; pts: number; pos: number }
 interface Grupo { id: string; nombre: string; tabla: Fila[] }
 interface Fase { id: string; nombre: string; tipo: string; grupos: Grupo[] }
-interface Partido { id: string; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
+interface Partido { id: string; localId: string; visitanteId: string; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
 interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number }
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean }
-interface Datos { ok: boolean; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[] }
+interface Datos { ok: boolean; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
 
-const TABS = ['Fixture', 'Tablas', 'Goleadores', 'Sanciones'] as const
+const TABS = ['Fixture', 'Tablas', 'Goleadores', 'Fair play', 'Sanciones'] as const
 
 export default function TorneoPublico() {
   const [d, setD] = useState<Datos | null>(null)
@@ -50,7 +50,7 @@ export default function TorneoPublico() {
                     <thead><tr style={{ color: '#93A4B8', textAlign: 'center' }}><th style={{ textAlign: 'left' }}>#</th><th style={{ textAlign: 'left' }}>Equipo</th>{['PJ', 'PG', 'PE', 'PP', 'GF', 'GC', 'DG', 'PTS'].map((h) => <th key={h} style={{ padding: '6px 4px' }}>{h}</th>)}</tr></thead>
                     <tbody>{g.tabla.map((r) => (
                       <tr key={r.teamId} style={{ borderTop: '1px solid #1f3150', textAlign: 'center' }}>
-                        <td style={{ textAlign: 'left', padding: '8px 4px' }}>{r.pos}</td><td style={{ textAlign: 'left', fontWeight: 600 }}>{r.equipo}</td>
+                        <td style={{ textAlign: 'left', padding: '8px 4px' }}>{r.pos}</td><td style={{ textAlign: 'left', fontWeight: 600 }}><a href={`/torneo/club/${r.teamId}`} style={{ color: 'inherit', textDecoration: 'none' }}>{r.equipo}</a></td>
                         <td>{r.pj}</td><td>{r.pg}</td><td>{r.pe}</td><td>{r.pp}</td><td>{r.gf}</td><td>{r.gc}</td><td>{r.dg}</td><td style={{ fontWeight: 900, color: '#D9A93A' }}>{r.pts}</td>
                       </tr>))}</tbody>
                   </table>
@@ -70,14 +70,14 @@ export default function TorneoPublico() {
                       <h3 style={h3}>{j}</h3>
                       {ps.filter((p) => p.jornada === j).map((p) => (
                         <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid #1f3150', fontSize: 14 }}>
-                          <span style={{ flex: 1, textAlign: 'right', fontWeight: 600 }}>{p.local}</span>
+                          <a href={`/torneo/club/${p.localId}`} style={{ flex: 1, textAlign: 'right', fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{p.local}</a>
                           <span style={{ minWidth: 70, textAlign: 'center', fontWeight: 900, color: p.estado === 'finalizado' ? '#D9A93A' : '#93A4B8', fontSize: p.estado === 'finalizado' ? 18 : 13 }}>
                             {p.estado !== 'finalizado' && p.periodo && p.periodo !== 'previo' && p.periodo !== 'fin'
                               ? <a href={`/torneo/vivo/${p.id}`} style={{ color: '#fff', background: '#bf1b2c', borderRadius: 6, padding: '4px 8px', textDecoration: 'none', fontSize: 13 }}>🔴 EN VIVO {p.golesLocal ?? 0}-{p.golesVisitante ?? 0}</a>
                               : p.estado === 'finalizado' ? `${p.golesLocal} - ${p.golesVisitante}` : p.hora || 'vs'}
                           </span>
-                          <span style={{ flex: 1, fontWeight: 600 }}>{p.visitante}</span>
-                          <span style={{ width: 120, color: '#93A4B8', fontSize: 12, textAlign: 'right' }}>{fecha(p.fecha)}{p.escenario ? ' · ' + p.escenario : ''}{p.estado === 'suspendido' ? ' · suspendido' : ''}</span>
+                          <a href={`/torneo/club/${p.visitanteId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{p.visitante}</a>
+                          <span style={{ width: 120, color: '#93A4B8', fontSize: 12, textAlign: 'right' }}>{fecha(p.fecha)}{p.escenario ? ' · ' + p.escenario : ''}{p.estado === 'suspendido' ? ' · suspendido' : ''}{p.estado === 'finalizado' && <> · <a href={`/torneo/partido/${p.id}`} style={{ color: '#D9A93A' }}>Detalle</a></>}</span>
                         </div>
                       ))}
                     </div>
@@ -93,6 +93,20 @@ export default function TorneoPublico() {
                 {d.goleadores.slice(0, 50).map((g, i) => (
                   <div key={g.playerId} style={{ display: 'flex', gap: 12, padding: '9px 0', borderTop: '1px solid #1f3150', fontSize: 14, alignItems: 'center' }}>
                     <b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><span style={{ flex: 1 }}><b>{g.jugador}</b> <span style={{ color: '#93A4B8' }}>· {g.equipo}</span></span><b style={{ color: '#D9A93A', fontSize: 18 }}>{g.goles}</b>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {tab === 'Fair play' && (
+              <div style={card}>
+                <h3 style={h3}>Fair play</h3>
+                <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>Menos puntos = mejor conducta. Amarilla 1 · doble amarilla 3 · roja directa 3.</p>
+                {(d.fairplay || []).length === 0 && <p style={{ color: '#93A4B8' }}>Sin tarjetas registradas.</p>}
+                {(d.fairplay || []).map((c, i) => (
+                  <div key={c.teamId} style={{ display: 'flex', gap: 10, padding: '9px 0', borderTop: '1px solid #1f3150', fontSize: 14, alignItems: 'center' }}>
+                    <b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><a href={`/torneo/club/${c.teamId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{c.equipo}</a>
+                    <span>🟨 {c.amarillas}</span><span>🟨🟨 {c.dobles}</span><span>🟥 {c.rojas}</span><b style={{ color: '#D9A93A', fontSize: 18, minWidth: 34, textAlign: 'right' }}>{c.puntos}</b>
                   </div>
                 ))}
               </div>
