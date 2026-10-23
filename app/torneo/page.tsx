@@ -8,9 +8,9 @@ interface Fase { id: string; nombre: string; tipo: string; grupos: Grupo[] }
 interface Partido { id: string; localId: string; visitanteId: string; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
 interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number }
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean }
-interface Datos { ok: boolean; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
+interface Datos { ok: boolean; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
 
-const TABS = ['Fixture', 'Tablas', 'Goleadores', 'Fair play', 'Sanciones'] as const
+const TABS = ['Fixture', 'Tablas', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
 
 export default function TorneoPublico() {
   const [d, setD] = useState<Datos | null>(null)
@@ -36,11 +36,15 @@ export default function TorneoPublico() {
         {d && !d.torneo && <p style={{ color: '#93A4B8' }}>El torneo se publicará muy pronto.</p>}
         {d?.torneo && (
           <>
-            <div style={{ display: 'flex', gap: 8, margin: '14px 0 18px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, margin: '14px 0 6px', flexWrap: 'wrap' }}>
               {TABS.map((t) => (
                 <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid ' + (tab === t ? '#D9A93A' : '#2a3b55'), background: tab === t ? '#D9A93A' : '#0F223D', color: tab === t ? '#211603' : '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>{t}</button>
               ))}
             </div>
+
+            {(tab === 'Tablas' || tab === 'Goleadores') && (
+              <button onClick={() => compartir(d, tab)} style={{ margin: '0 0 14px', padding: '9px 14px', borderRadius: 8, border: '1px solid #2a3b55', background: '#0F223D', color: '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>📤 Descargar como imagen para compartir</button>
+            )}
 
             {tab === 'Tablas' && d.fases.map((f) => f.grupos.filter((g) => g.tabla.length).map((g) => (
               <div key={g.id} style={card}>
@@ -98,6 +102,33 @@ export default function TorneoPublico() {
               </div>
             )}
 
+            {tab === 'Estadísticas' && d.estadisticas && (
+              <>
+                <div style={card}>
+                  <h3 style={h3}>🧤 Mejores porteros</h3>
+                  <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>Menos goles recibidos por partido. Vallas invictas = partidos sin recibir gol. Datos de fechas 1 a 5 estimados.</p>
+                  {d.estadisticas.porteros.length === 0 && <p style={{ color: '#93A4B8' }}>Sin datos todavía.</p>}
+                  {d.estadisticas.porteros.map((p, i) => (
+                    <div key={i} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><span style={{ flex: 1 }}><b>{p.jugador}</b> <span style={{ color: '#93A4B8' }}>· {p.equipo}</span></span><span style={{ color: '#93A4B8', fontSize: 12 }}>{p.partidos} PJ · {p.golesRecibidos} GC · {p.vallas} vallas</span><b style={{ color: '#D9A93A', minWidth: 40, textAlign: 'right' }}>{p.promedio}</b></div>
+                  ))}
+                </div>
+                <div style={card}>
+                  <h3 style={h3}>🔥 Mejor ataque</h3>
+                  {d.estadisticas.ataque.map((r, i) => <div key={r.teamId} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><a href={`/torneo/club/${r.teamId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.equipo}</a><b style={{ color: '#D9A93A' }}>{r.valor} GF</b></div>)}
+                </div>
+                <div style={card}>
+                  <h3 style={h3}>🛡️ Mejor defensa</h3>
+                  <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>Menos goles recibidos por partido.</p>
+                  {d.estadisticas.defensa.map((r, i) => <div key={r.teamId} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><a href={`/torneo/club/${r.teamId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.equipo}</a><span style={{ color: '#93A4B8', fontSize: 12 }}>{r.pj} PJ</span><b style={{ color: '#D9A93A' }}>{r.valor} GC</b></div>)}
+                </div>
+                <div style={card}>
+                  <h3 style={h3}>👟 Más partidos jugados</h3>
+                  {d.estadisticas.masPartidos.length === 0 && <p style={{ color: '#93A4B8' }}>Sin datos todavía.</p>}
+                  {d.estadisticas.masPartidos.map((p, i) => <div key={i} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><span style={{ flex: 1 }}><b>{p.jugador}</b> <span style={{ color: '#93A4B8' }}>· {p.equipo}</span></span><b style={{ color: '#D9A93A' }}>{p.partidos}</b></div>)}
+                </div>
+              </>
+            )}
+
             {tab === 'Fair play' && (
               <div style={card}>
                 <h3 style={h3}>Fair play</h3>
@@ -131,6 +162,43 @@ export default function TorneoPublico() {
       </div>
     </div>
   )
+}
+
+const fila: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid #1f3150', fontSize: 14 }
+
+/** Dibuja la tabla (o los goleadores) en una imagen vertical y la descarga o la comparte. */
+function compartir(d: Datos, tab: string) {
+  const filas: string[][] = []
+  let titulo = tab === 'Tablas' ? 'TABLA DE POSICIONES' : 'GOLEADORES'
+  if (tab === 'Tablas') {
+    for (const f of d.fases) for (const g of f.grupos.filter((x) => x.tabla.length)) {
+      filas.push([`${f.nombre} · ${g.nombre}`, '', 'PJ', 'DG', 'PTS'])
+      g.tabla.forEach((r) => filas.push([String(r.pos), r.equipo, String(r.pj), String(r.dg), String(r.pts)]))
+    }
+  } else d.goleadores.slice(0, 25).forEach((g, i) => filas.push([String(i + 1), `${g.jugador} (${g.equipo})`, '', '', String(g.goles)]))
+  const W = 1080, H = Math.min(4000, 260 + filas.length * 54 + 80)
+  const c = document.createElement('canvas'); c.width = W; c.height = H
+  const x = c.getContext('2d'); if (!x) return
+  const grad = x.createLinearGradient(0, 0, 0, H); grad.addColorStop(0, '#12305a'); grad.addColorStop(1, '#051225'); x.fillStyle = grad; x.fillRect(0, 0, W, H)
+  x.fillStyle = '#D9A93A'; x.font = '900 54px sans-serif'; x.fillText('KEEPER CUP 3', 60, 100)
+  x.fillStyle = '#F3F6F8'; x.font = '700 34px sans-serif'; x.fillText(titulo, 60, 150)
+  let y = 230
+  for (const f of filas) {
+    const cab = f[1] === '' && f[2] === 'PJ'
+    x.fillStyle = cab ? '#D9A93A' : '#F3F6F8'; x.font = (cab ? '800 28px' : '600 28px') + ' sans-serif'
+    x.fillText(f[0], 60, y); if (!cab) x.fillText(f[1].slice(0, 30), 130, y)
+    x.textAlign = 'right'; x.fillText(f[2], 760, y); x.fillText(f[3], 880, y); x.fillStyle = '#D9A93A'; x.font = '900 28px sans-serif'; x.fillText(f[4], 1020, y); x.textAlign = 'left'
+    y += 54
+    if (y > H - 40) break
+  }
+  x.fillStyle = '#93A4B8'; x.font = '24px sans-serif'; x.fillText('keeper.com.ec/torneo', 60, H - 30)
+  c.toBlob(async (b) => {
+    if (!b) return
+    const file = new File([b], 'keeper-cup-3.png', { type: 'image/png' })
+    const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean }
+    if (nav.canShare?.({ files: [file] })) { try { await nav.share({ files: [file], title: 'Keeper Cup 3' }); return } catch { /* cancelado */ } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'keeper-cup-3.png'; a.click()
+  })
 }
 
 const card: React.CSSProperties = { background: '#0F223D', border: '1px solid rgba(224,232,240,.14)', borderRadius: 12, padding: 16, marginBottom: 14 }

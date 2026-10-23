@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { cargarTorneo } from '@/lib/torneo-data'
+import { estadisticasPorteros } from '@/lib/ficha'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,9 +23,27 @@ export async function GET(req: NextRequest) {
       fp.set(e.teamId, x)
     }
     const fairplay = [...fp.values()].sort((a, b) => a.puntos - b.puntos || a.equipo.localeCompare(b.equipo))
+    // Porteros, jugadores con más partidos, mejor ataque y mejor defensa
+    const info = d.jugadoresInfo
+    const porteros = estadisticasPorteros(d).map((p) => {
+      const teamId = calc.flatMap((c) => c.eventos).find((e) => e.playerId === p.playerId)?.teamId || ''
+      return { jugador: info.get(p.playerId)?.nombre || '?', numero: info.get(p.playerId)?.numero ?? null, equipo: d.nombreEquipo.get(teamId) || '?', partidos: p.partidos, golesRecibidos: p.golesRecibidos, vallas: p.vallas, promedio: Math.round((p.golesRecibidos / p.partidos) * 100) / 100 }
+    })
+    const pj = new Map<string, { teamId: string; n: number }>()
+    for (const c of calc) {
+      if (c.estado !== 'finalizado') continue
+      const vistos = new Set<string>()
+      for (const e of c.eventos) if (e.playerId && (e.tipo === 'titular' || e.tipo === 'entra') && !vistos.has(e.playerId)) { vistos.add(e.playerId); pj.set(e.playerId, { teamId: e.teamId, n: (pj.get(e.playerId)?.n || 0) + 1 }) }
+    }
+    const masPartidos = [...pj.entries()].map(([id, v]) => ({ jugador: info.get(id)?.nombre || '?', numero: info.get(id)?.numero ?? null, equipo: d.nombreEquipo.get(v.teamId) || '?', partidos: v.n })).sort((a, b) => b.partidos - a.partidos).slice(0, 20)
+    const filas = d.fases.flatMap((f) => f.grupos.flatMap((g) => g.tabla))
+    const ataque = [...filas].sort((a, b) => b.gf - a.gf).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gf, pj: r.pj }))
+    const defensa = [...filas].filter((r) => r.pj > 0).sort((a, b) => a.gc / a.pj - b.gc / b.pj || a.gc - b.gc).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gc, pj: r.pj }))
+    const estadisticas = { porteros: porteros.slice(0, 10), masPartidos, ataque, defensa }
     return NextResponse.json(
       {
         ok: true,
+        estadisticas,
         torneos: lista,
         torneo: { id: torneo.id, nombre: torneo.nombre, amarillasSuspension: cfg.amarillasSuspension },
         partidos: partidos.map(({ observaciones, veedor, _i, ...p }) => { void observaciones; void veedor; void _i; return p }),

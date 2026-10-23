@@ -32,7 +32,7 @@ const TIPOS_EVENTO = ['gol', 'gol_penal', 'autogol', 'amarilla', 'doble_amarilla
 interface StatPortero { playerId: string; partidos: number; golesRecibidos: number; vallas: number; minutos: number }
 
 /** Porteros del torneo con sus goles recibidos, según las alineaciones y cambios de la planilla. */
-function estadisticasPorteros(d: Datos): StatPortero[] {
+export function estadisticasPorteros(d: Datos): StatPortero[] {
   const dur = d.torneo.minutosTiempo
   const equipoDe = new Map<string, string>()
   for (const c of d.calc) for (const e of c.eventos) if (e.playerId) equipoDe.set(e.playerId, e.teamId)
