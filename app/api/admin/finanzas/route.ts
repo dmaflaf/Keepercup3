@@ -7,6 +7,8 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 const falla = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status })
 const CONCEPTOS = ['inscripcion', 'garantia', 'carnets', 'otro'] as const
+// Valores por defecto para todos los clubes: se aplican mientras no se registre un cargo propio de ese concepto
+const POR_DEFECTO: Record<string, number> = { inscripcion: 125, garantia: 45 }
 const dinero = (v: unknown) => Math.round(Number(String(v).replace(',', '.')) * 100) / 100
 const texto = (v: unknown, n = 80) => (typeof v === 'string' ? v.trim().slice(0, n) || null : null)
 
@@ -33,13 +35,14 @@ export async function GET(req: NextRequest) {
     porConcepto.multas = { cargado: m?.total || 0, pagado: m?.pagado || 0 }
     for (const c of CONCEPTOS) porConcepto[c] = { cargado: 0, pagado: 0 }
     for (const c of cargos) if (c.teamId === id && !c.anulado) porConcepto[c.concepto].cargado += c.monto
+    for (const [k, v] of Object.entries(POR_DEFECTO)) if (!cargos.some((c) => c.teamId === id && c.concepto === k)) porConcepto[k].cargado = v
     for (const p of pagos) if (p.teamId === id && !p.anulado && p.concepto && p.concepto !== 'multas' && porConcepto[p.concepto]) porConcepto[p.concepto].pagado += p.monto
     const cargado = Object.values(porConcepto).reduce((a, x) => a + x.cargado, 0), pagado = Object.values(porConcepto).reduce((a, x) => a + x.pagado, 0)
     return { teamId: id, club: nombre.get(id) || '?', porConcepto, cargado, pagado, saldo: Math.round((cargado - pagado) * 100) / 100 }
   })
   return NextResponse.json({
     ok: true, torneos, datos: {
-      torneoId: tid, filas,
+      torneoId: tid, filas, porDefecto: POR_DEFECTO,
       cargos: cargos.map((c) => ({ id: c.id, teamId: c.teamId, club: nombre.get(c.teamId) || '?', concepto: c.concepto, detalle: c.detalle, monto: c.monto, anulado: c.anulado, fecha: c.createdAt })),
       pagos: pagos.map((p) => ({ id: p.id, teamId: p.teamId, club: nombre.get(p.teamId) || '?', concepto: p.concepto || 'multas', monto: p.monto, nota: p.nota, comprobante: p.comprobante, fechaPago: p.fechaPago, anulado: p.anulado, usuario: p.usuario })),
     },

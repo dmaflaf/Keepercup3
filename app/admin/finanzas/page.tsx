@@ -7,7 +7,7 @@ type Conc = { cargado: number; pagado: number }
 interface Fila { teamId: string; club: string; porConcepto: Record<string, Conc>; cargado: number; pagado: number; saldo: number }
 interface Cargo { id: string; teamId: string; club: string; concepto: string; detalle: string | null; monto: number; anulado: boolean; fecha: string }
 interface Pago { id: string; teamId: string; club: string; concepto: string; monto: number; nota: string | null; comprobante: string | null; fechaPago: string | null; anulado: boolean; usuario: string }
-interface Datos { torneoId: string; filas: Fila[]; cargos: Cargo[]; pagos: Pago[] }
+interface Datos { torneoId: string; porDefecto?: Record<string, number>; filas: Fila[]; cargos: Cargo[]; pagos: Pago[] }
 
 const CONC: [string, string][] = [['multas', 'Multas'], ['inscripcion', 'Inscripción'], ['garantia', 'Garantía'], ['carnets', 'Carnets'], ['otro', 'Otro']]
 const NOMBRE = Object.fromEntries(CONC)
@@ -105,7 +105,8 @@ export default function Finanzas() {
                   </tr>))}</tbody>
               </table>
             </div>
-            <p className="text-xs text-slate-400 -mt-4 mb-6">En cada concepto: arriba lo cargado, abajo (verde) lo pagado. Las multas por tarjetas se calculan solas desde las tarjetas; sus pagos también se registran aquí con «Multas».</p>
+            <p className="text-xs text-slate-400 -mt-4 mb-2">Por defecto, todos los clubes tienen cargados <b>{usd(d.porDefecto?.inscripcion ?? 0)} de inscripción</b> y <b>{usd(d.porDefecto?.garantia ?? 0)} de garantía</b>. Si registras un cargo de ese concepto a un club, reemplaza el valor por defecto de ese club (por ejemplo, para un descuento).</p>
+            <p className="text-xs text-slate-400 mb-6">En cada concepto: arriba lo cargado, abajo (verde) lo pagado. Las multas por tarjetas se calculan solas desde las tarjetas; sus pagos también se registran aquí con «Multas».</p>
 
             <div className="grid md:grid-cols-2 gap-4">
               <section className="bg-slate-800 border border-slate-700 rounded-xl p-4">
