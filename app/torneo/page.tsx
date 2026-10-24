@@ -26,7 +26,13 @@ export default function TorneoPublico() {
   useEffect(() => { cargar(); const t = setInterval(() => cargar(d?.torneo?.id), 10000); return () => clearInterval(t) }, [d?.torneo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const enVivo = (d?.partidos || []).filter((p) => p.estado !== 'finalizado' && p.periodo && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo))
-  const ultimos = (d?.partidos || []).filter((p) => p.estado === 'finalizado').sort((a, b) => `${b.fecha || ''} ${b.hora || ''}`.localeCompare(`${a.fecha || ''} ${a.hora || ''}`) || b.jornadaNum - a.jornadaNum).slice(0, 6)
+  // Últimos resultados: los jugados hoy; si hoy no hay, todos los de la última fecha jugada
+  const finalizados = (d?.partidos || []).filter((p) => p.estado === 'finalizado')
+  const hoyEc = new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10)
+  const deHoy = finalizados.filter((p) => p.fecha === hoyEc)
+  const ultimaFecha = Math.max(0, ...finalizados.map((p) => p.jornadaNum))
+  const ultimos = (deHoy.length ? deHoy : finalizados.filter((p) => p.jornadaNum === ultimaFecha)).sort((a, b) => `${b.fecha || ''} ${b.hora || ''}`.localeCompare(`${a.fecha || ''} ${a.hora || ''}`))
+  const tituloUltimos = deHoy.length ? 'Resultados de hoy' : `Últimos resultados · ${finalizados.find((p) => p.jornadaNum === ultimaFecha)?.jornada || ''}`
   const fecha = (f: string | null) => (f ? new Date(f + 'T12:00:00').toLocaleDateString('es-EC', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Por definir')
 
   return (
@@ -52,7 +58,7 @@ export default function TorneoPublico() {
             ))}
             {ultimos.length > 0 && (
               <div style={{ ...card, marginTop: 14, padding: 12 }}>
-                <h3 style={{ ...h3, fontSize: 15 }}>Últimos resultados</h3>
+                <h3 style={{ ...h3, fontSize: 15 }}>{tituloUltimos} <span style={{ color: '#93A4B8', fontWeight: 400, fontSize: 12 }}>· {ultimos.length} partido(s)</span></h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 8 }}>
                   {ultimos.map((p) => (
                     <a key={p.id} href={`/torneo/partido/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0B1B33', borderRadius: 8, padding: '8px 10px', color: '#F3F6F8', textDecoration: 'none', fontSize: 13 }}>
