@@ -18,8 +18,9 @@ export default function TorneoPublico() {
   const [error, setError] = useState('')
   const cargar = (id?: string) =>
     fetch('/api/torneo/publico' + (id ? `?torneoId=${id}` : '')).then((r) => r.json()).then((r) => (r.ok ? setD(r) : setError('No disponible'))).catch(() => setError('No disponible'))
-  useEffect(() => { cargar(); const t = setInterval(() => cargar(d?.torneo?.id), 30000); return () => clearInterval(t) }, [d?.torneo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { cargar(); const t = setInterval(() => cargar(d?.torneo?.id), 10000); return () => clearInterval(t) }, [d?.torneo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const enVivo = (d?.partidos || []).filter((p) => p.estado !== 'finalizado' && p.periodo && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo))
   const fecha = (f: string | null) => (f ? new Date(f + 'T12:00:00').toLocaleDateString('es-EC', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Por definir')
 
   return (
@@ -36,6 +37,13 @@ export default function TorneoPublico() {
         {d && !d.torneo && <p style={{ color: '#93A4B8' }}>El torneo se publicará muy pronto.</p>}
         {d?.torneo && (
           <>
+            {enVivo.map((p) => (
+              <a key={p.id} href={`/torneo/vivo/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#bf1b2c', color: '#fff', borderRadius: 12, padding: '14px 16px', margin: '14px 0 0', textDecoration: 'none', fontWeight: 800, flexWrap: 'wrap' }}>
+                <span style={{ background: '#fff', color: '#bf1b2c', borderRadius: 6, padding: '2px 8px', fontSize: 12 }}>🔴 EN VIVO</span>
+                <span style={{ flex: 1, minWidth: 180 }}>{p.local} <b style={{ fontSize: 22 }}>{p.golesLocal ?? 0} - {p.golesVisitante ?? 0}</b> {p.visitante}</span>
+                <span style={{ fontSize: 13, opacity: 0.9 }}>Ver partido y eventos ›</span>
+              </a>
+            ))}
             <div style={{ display: 'flex', gap: 8, margin: '14px 0 6px', flexWrap: 'wrap' }}>
               {TABS.map((t) => (
                 <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid ' + (tab === t ? '#D9A93A' : '#2a3b55'), background: tab === t ? '#D9A93A' : '#0F223D', color: tab === t ? '#211603' : '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>{t}</button>
