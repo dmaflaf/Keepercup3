@@ -304,6 +304,41 @@
     color:var(--ink-dim); font-size:12.5px; flex-wrap:wrap; gap:10px;
   }
 
+
+  /* ---------- Centro del torneo (datos en vivo) ---------- */
+  .hub{ padding:34px 0 10px; background:var(--bg); }
+  .hub h2{ font-size:26px; margin-bottom:4px; }
+  .hub .sub{ color:var(--ink-dim); font-size:14px; margin:0 0 16px; }
+  .hub-block{ margin-bottom:34px; }
+  .vivo{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:#bf1b2c; color:#fff; border-radius:var(--radius-md); padding:14px 18px; text-decoration:none; font-weight:800; margin-bottom:10px; }
+  .vivo .pill{ background:#fff; color:#bf1b2c; border-radius:6px; padding:2px 8px; font-size:12px; animation:pulso 1.4s infinite; }
+  @keyframes pulso{ 50%{ opacity:.55; } }
+  .vivo .m{ flex:1; min-width:200px; }
+  .vivo .m b{ font-size:22px; margin:0 6px; }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px; }
+  .match{ display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius-md); padding:12px 14px; text-decoration:none; color:var(--ink); font-size:14px; transition:border-color .15s; }
+  .match:hover{ border-color:var(--gold); }
+  .match .l{ flex:1; text-align:right; font-weight:600; }
+  .match .v{ flex:1; font-weight:600; }
+  .match .s{ min-width:56px; text-align:center; font-weight:900; color:var(--gold); font-size:18px; font-family:'League Spartan',sans-serif; }
+  .match .s.h{ font-size:13px; color:var(--ink-dim); font-weight:600; font-family:'Work Sans',sans-serif; }
+  .match small{ display:block; color:var(--ink-dim); font-size:11px; font-weight:400; }
+  .grupos{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px; }
+  .grupo{ background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius-md); padding:12px 14px; }
+  .grupo h3{ font-size:16px; margin-bottom:6px; color:var(--gold); }
+  .grupo .r{ display:flex; gap:8px; padding:5px 0; border-top:1px solid var(--line); font-size:13.5px; }
+  .grupo .r .p{ width:18px; color:var(--ink-dim); }
+  .grupo .r .e{ flex:1; text-decoration:none; color:var(--ink); }
+  .grupo .r .pts{ font-weight:900; color:var(--gold); }
+  .grupo .r.cl .p{ color:var(--green); font-weight:700; }
+  .dest{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+  .dest a{ display:block; background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius-md); padding:14px 16px; text-decoration:none; color:var(--ink); }
+  .dest .k{ color:var(--ink-dim); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+  .dest .n{ font-family:'League Spartan',sans-serif; font-weight:900; font-size:19px; margin:4px 0 2px; }
+  .dest .x{ color:var(--gold); font-weight:700; font-size:14px; }
+  .mas{ display:inline-block; margin-top:12px; color:var(--gold); font-weight:600; font-size:14px; text-decoration:none; }
+  .vacio{ color:var(--ink-dim); font-size:14px; }
+
   @media (max-width: 860px){
     .ficha-row{ grid-template-columns:repeat(2,1fr); row-gap:22px; }
     .reg-grid{ grid-template-columns:1fr; }
@@ -320,25 +355,24 @@
     <img src="logo-kc3.png" alt="Keeper Cup 3" class="logo-img">
     <div class="nav-links">
       <a href="/torneo?tab=resultados">Resultados</a>
-      <a href="/torneo">Torneo</a>
+      <a href="/torneo?tab=tablas">Posiciones</a>
+      <a href="/torneo?tab=fixture">Fixture</a>
+      <a href="/torneo?tab=goleadores">Goleadores</a>
       <a href="#reglamento">Reglamento</a>
-      <a href="#galeria">Galería</a>
-      <a href="keeper-cup-sorteo.html">Sorteo</a>
-      <a href="keeper-cup-jugador.html">Soy jugador</a>
     </div>
-    <a href="keeper-cup-registro.html" class="nav-cta">Inscríbete</a>
+    <a href="/torneo" class="nav-cta">Torneo</a>
     <button type="button" class="nav-burger" id="burgerBtn" onclick="toggleMobileMenu()" aria-label="Abrir menú" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
   </div>
   <div class="mobile-menu" id="mobileMenu">
     <a href="/torneo?tab=resultados">Resultados</a>
-    <a href="/torneo">Torneo</a>
+    <a href="/torneo?tab=tablas">Posiciones</a>
+    <a href="/torneo?tab=fixture">Fixture</a>
+    <a href="/torneo?tab=goleadores">Goleadores</a>
+    <a href="/torneo?tab=estadisticas">Estadísticas</a>
     <a href="#reglamento" onclick="closeMobileMenu()">Reglamento</a>
-    <a href="#galeria" onclick="closeMobileMenu()">Galería</a>
-    <a href="keeper-cup-sorteo.html">Sorteo</a>
-    <a href="keeper-cup-jugador.html">Soy jugador</a>
-    <a href="keeper-cup-registro.html" class="mobile-menu-cta">Inscríbete ↗</a>
+    <a href="/torneo" class="mobile-menu-cta">Ir al torneo ↗</a>
   </div>
 </nav>
 
@@ -348,17 +382,45 @@
   </div>
   <div class="wrap hero-inner">
     <div class="hero-copy">
-      <h1>La pretemporada<span class="line2">se juega acá.</span></h1>
-      <p class="lead">Torneo draft de pre-temporada interclubes. Prepara tu club y llévalo al siguiente nivel. No te quedes fuera.</p>
+      <h1>Keeper Cup 3<span class="line2">ya se juega.</span></h1>
+      <p class="lead" id="heroLead">Torneo draft de pre-temporada interclubes. Sigue resultados, tablas y goleadores en tiempo real.</p>
       <div class="hero-actions">
         <a href="/torneo?tab=resultados" class="btn-gold">⚽ Resultados y partidos jugados <span class="arrow">↗</span></a>
         <a href="/torneo?tab=tablas" class="btn-outline">Tabla de posiciones <span class="arrow">↗</span></a>
       </div>
-      <a href="keeper-cup-jugador.html" class="hero-player-link">¿Ya tienes equipo? Inscríbete como jugador <span class="arrow">↗</span></a>
       <div class="tag-row">
         <span class="tag">18 de septiembre — Copa Oro y Copa Plata</span>
         <span class="tag">Estadio Principal · Liga San Miguel de Ibarra</span>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="hub" id="centro">
+  <div class="wrap">
+    <div id="hubVivo"></div>
+    <div class="hub-block">
+      <h2 id="hubResTitulo">Últimos resultados</h2>
+      <p class="sub" id="hubResSub">Toca un partido para ver goles, tarjetas y alineaciones.</p>
+      <div class="cards" id="hubRes"><p class="vacio">Cargando…</p></div>
+      <a class="mas" href="/torneo?tab=resultados">Todos los resultados ›</a>
+    </div>
+    <div class="hub-block" id="hubProxBlock">
+      <h2 id="hubProxTitulo">Próximos partidos</h2>
+      <p class="sub">Día, hora y estadio de la próxima fecha.</p>
+      <div class="cards" id="hubProx"></div>
+      <a class="mas" href="/torneo?tab=fixture">Fixture completo ›</a>
+    </div>
+    <div class="hub-block">
+      <h2>Posiciones</h2>
+      <p class="sub">Los primeros de cada grupo.</p>
+      <div class="grupos" id="hubGrupos"></div>
+      <a class="mas" href="/torneo?tab=tablas">Tablas completas ›</a>
+    </div>
+    <div class="hub-block">
+      <h2>Destacados</h2>
+      <p class="sub">Los que marcan la diferencia en el torneo.</p>
+      <div class="dest" id="hubDest"></div>
     </div>
   </div>
 </section>
@@ -375,7 +437,7 @@
   <div class="wrap reg-grid">
     <div class="reveal">
       <div class="eyebrow">Reglamento oficial</div>
-      <h2>Todo lo que tu equipo necesita saber antes de fichar jugadores.</h2>
+      <h2>Así se juega la Keeper Cup 3.</h2>
       <ul class="reg-points">
         <li>Formato de liga con 9 jornadas y clasificación a etapa Finales.</li>
         <li>1 jugador Profesional + 1 Jugador Fútbol Sala + 2 Jugadores Extranjeros y cambios ilimitados.</li>
@@ -410,12 +472,11 @@
   </div>
 </section>
 
-<section class="cta-final reveal" id="inscripcion">
+<section class="cta-final reveal">
   <div class="wrap">
-    <h2>Asegura el cupo de tu equipo</h2>
-    <p>Quedan cupos limitados de los 32 equipos. La inscripción toma unos minutos: datos del club, escudo y nómina.</p>
-    <a href="/torneo" class="btn-gold">Torneo <span class="arrow">↗</span></a>
-    <p class="cta-sub-link" style="margin-top:18px; font-size:14px;">¿Quieres inscribir a tu equipo? <a href="keeper-cup-registro.html">Regístralo aquí ↗</a> — ¿ya eres parte de un equipo aprobado? <a href="keeper-cup-jugador.html">Inscríbete como jugador ↗</a></p>
+    <h2>Sigue cada fecha en vivo</h2>
+    <p>Marcadores en tiempo real, goleadores, tablas, fair play y la ficha de cada partido.</p>
+    <a href="/torneo" class="btn-gold">Ir al torneo <span class="arrow">↗</span></a>
   </div>
 </section>
 
@@ -470,6 +531,55 @@
   }, { threshold: 0.2 });
 
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ---------- Centro del torneo: datos reales desde el sistema ----------
+  const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const diaCorto = (f) => f ? new Date(f + 'T12:00:00').toLocaleDateString('es-EC', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Por definir';
+  const hoyEc = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
+  async function cargarCentro(){
+    let d;
+    try { d = await fetch('/api/torneo/publico', { cache: 'no-store' }).then((r) => r.json()); } catch { return; }
+    if (!d || !d.ok || !d.torneo) { document.getElementById('hubRes').innerHTML = '<p class="vacio">El torneo se publicará muy pronto.</p>'; return; }
+    const ps = d.partidos || [];
+    // En vivo
+    const vivos = ps.filter((p) => p.estado !== 'finalizado' && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo));
+    document.getElementById('hubVivo').innerHTML = vivos.map((p) => `<a class="vivo" href="/torneo/vivo/${p.id}"><span class="pill">🔴 EN VIVO</span><span class="m">${esc(p.local)}<b>${p.golesLocal ?? 0} - ${p.golesVisitante ?? 0}</b>${esc(p.visitante)}</span><span>Ver partido ›</span></a>`).join('');
+    // Resultados: hoy o última fecha jugada
+    const fin = ps.filter((p) => p.estado === 'finalizado');
+    const deHoy = fin.filter((p) => p.fecha === hoyEc());
+    const ult = Math.max(0, ...fin.map((p) => p.jornadaNum));
+    const lista = (deHoy.length ? deHoy : fin.filter((p) => p.jornadaNum === ult)).sort((a, b) => `${b.fecha || ''}${b.hora || ''}`.localeCompare(`${a.fecha || ''}${a.hora || ''}`));
+    const jorn = fin.find((p) => p.jornadaNum === ult)?.jornada || '';
+    document.getElementById('hubResTitulo').textContent = deHoy.length ? 'Resultados de hoy' : `Últimos resultados · ${jorn}`;
+    document.getElementById('hubRes').innerHTML = lista.length ? lista.map((p) => `<a class="match" href="/torneo/partido/${p.id}"><span class="l">${esc(p.local)}</span><span class="s">${p.golesLocal}-${p.golesVisitante}</span><span class="v">${esc(p.visitante)}</span></a>`).join('') : '<p class="vacio">Todavía no hay partidos jugados.</p>';
+    // Lead del encabezado
+    const fase = (d.fases || [])[(d.fases || []).length - 1];
+    document.getElementById('heroLead').textContent = `${fase ? fase.nombre + ' · ' : ''}${jorn ? jorn + ' jugada · ' : ''}Sigue resultados, tablas y goleadores en tiempo real.`;
+    // Próximos: la primera fecha con partidos pendientes
+    const pend = ps.filter((p) => p.estado === 'programado' && !vivos.includes(p));
+    const prox = pend.length ? Math.min(...pend.map((p) => p.jornadaNum)) : null;
+    const pl = pend.filter((p) => p.jornadaNum === prox).sort((a, b) => `${a.fecha || 'z'}${a.hora || ''}`.localeCompare(`${b.fecha || 'z'}${b.hora || ''}`));
+    if (!pl.length) document.getElementById('hubProxBlock').style.display = 'none';
+    else {
+      document.getElementById('hubProxTitulo').textContent = `Próximos partidos · ${pl[0].jornada}`;
+      document.getElementById('hubProx').innerHTML = pl.map((p) => `<div class="match"><span class="l">${esc(p.local)}</span><span class="s h">${esc(p.hora || 'vs')}<small>${esc(diaCorto(p.fecha))}${p.escenario ? ' · ' + esc(p.escenario) : ''}</small></span><span class="v">${esc(p.visitante)}</span></div>`).join('');
+    }
+    // Grupos: top 4
+    const grupos = fase ? fase.grupos.filter((g) => g.tabla.length) : [];
+    document.getElementById('hubGrupos').innerHTML = grupos.map((g) => `<div class="grupo"><h3>${esc(g.nombre)}</h3>${g.tabla.slice(0, 4).map((r, i) => `<div class="r${i < 2 ? ' cl' : ''}"><span class="p">${r.pos}</span><a class="e" href="/torneo/club/${r.teamId}">${esc(r.equipo)}</a><span style="color:var(--ink-dim)">${r.pj} PJ</span><span class="pts">${r.pts}</span></div>`).join('')}</div>`).join('') || '<p class="vacio">Sin tablas todavía.</p>';
+    // Destacados
+    const g = (d.goleadores || [])[0], po = d.estadisticas?.porteros?.[0], at = d.estadisticas?.ataque?.[0], fp = (d.fairplay || [])[0];
+    const card = (k, n, x, href) => `<a href="${href}"><div class="k">${k}</div><div class="n">${esc(n)}</div><div class="x">${esc(x)}</div></a>`;
+    document.getElementById('hubDest').innerHTML = [
+      g && card('⚽ Goleador', g.jugador, `${g.goles} goles · ${g.equipo}`, '/torneo?tab=goleadores'),
+      po && card('🧤 Mejor portero', po.jugador, `${po.promedio} goles recibidos por partido · ${po.equipo}`, '/torneo?tab=estadisticas'),
+      at && card('🔥 Mejor ataque', at.equipo, `${at.valor} goles a favor`, `/torneo/club/${at.teamId}`),
+      fp && card('🤝 Fair play', fp.equipo, `${fp.puntos} puntos de conducta`, '/torneo?tab=fairplay'),
+    ].filter(Boolean).join('') || '<p class="vacio">Pronto.</p>';
+  }
+  cargarCentro();
+  setInterval(cargarCentro, 20000);
+
 </script>
 
 </body>

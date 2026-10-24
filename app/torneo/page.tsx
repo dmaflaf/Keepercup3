@@ -20,7 +20,8 @@ export default function TorneoPublico() {
     fetch('/api/torneo/publico' + (id ? `?torneoId=${id}` : '')).then((r) => r.json()).then((r) => (r.ok ? setD(r) : setError('No disponible'))).catch(() => setError('No disponible'))
   useEffect(() => {
     const q = new URLSearchParams(window.location.search).get('tab')?.toLowerCase()
-    const t = TABS.find((x) => x.toLowerCase().replace(/[^a-z]/g, '') === (q || '').replace(/[^a-z]/g, ''))
+    const n = (v: string) => v.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')
+    const t = TABS.find((x) => n(x) === n(q || ''))
     if (t) setTab(t)
   }, [])
   useEffect(() => { cargar(); const t = setInterval(() => cargar(d?.torneo?.id), 10000); return () => clearInterval(t) }, [d?.torneo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
