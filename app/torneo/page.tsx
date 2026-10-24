@@ -10,14 +10,19 @@ interface Gol { playerId: string; jugador: string; numero: number | null; equipo
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean }
 interface Datos { ok: boolean; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
 
-const TABS = ['Fixture', 'Tablas', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
+const TABS = ['Resultados', 'Fixture', 'Tablas', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
 
 export default function TorneoPublico() {
   const [d, setD] = useState<Datos | null>(null)
-  const [tab, setTab] = useState<(typeof TABS)[number]>('Tablas')
+  const [tab, setTab] = useState<(typeof TABS)[number]>('Resultados')
   const [error, setError] = useState('')
   const cargar = (id?: string) =>
     fetch('/api/torneo/publico' + (id ? `?torneoId=${id}` : '')).then((r) => r.json()).then((r) => (r.ok ? setD(r) : setError('No disponible'))).catch(() => setError('No disponible'))
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('tab')?.toLowerCase()
+    const t = TABS.find((x) => x.toLowerCase().replace(/[^a-z]/g, '') === (q || '').replace(/[^a-z]/g, ''))
+    if (t) setTab(t)
+  }, [])
   useEffect(() => { cargar(); const t = setInterval(() => cargar(d?.torneo?.id), 10000); return () => clearInterval(t) }, [d?.torneo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const enVivo = (d?.partidos || []).filter((p) => p.estado !== 'finalizado' && p.periodo && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo))
@@ -66,6 +71,25 @@ export default function TorneoPublico() {
             {(tab === 'Tablas' || tab === 'Goleadores') && (
               <button onClick={() => compartir(d, tab)} style={{ margin: '0 0 14px', padding: '9px 14px', borderRadius: 8, border: '1px solid #2a3b55', background: '#0F223D', color: '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>📤 Descargar como imagen para compartir</button>
             )}
+
+            {tab === 'Resultados' && (() => {
+              const jugados = d.partidos.filter((p) => p.estado === 'finalizado')
+              if (!jugados.length) return <div style={card}><p style={{ color: '#93A4B8', margin: 0 }}>Todavía no hay partidos jugados.</p></div>
+              const fechas = Array.from(new Set(jugados.map((p) => p.jornada))).sort((a, b) => (jugados.find((p) => p.jornada === b)?.jornadaNum ?? 0) - (jugados.find((p) => p.jornada === a)?.jornadaNum ?? 0))
+              return fechas.map((j) => (
+                <div key={j} style={card}>
+                  <h3 style={h3}>{j} <span style={{ color: '#93A4B8', fontWeight: 400, fontSize: 13 }}>· {jugados.filter((p) => p.jornada === j).length} partidos jugados</span></h3>
+                  {jugados.filter((p) => p.jornada === j).sort((a, b) => `${a.fecha || ''}${a.hora || ''}`.localeCompare(`${b.fecha || ''}${b.hora || ''}`)).map((p) => (
+                    <a key={p.id} href={`/torneo/partido/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 0', borderTop: '1px solid #1f3150', fontSize: 14, color: '#F3F6F8', textDecoration: 'none' }}>
+                      <span style={{ flex: 1, textAlign: 'right', fontWeight: 600 }}>{p.local}</span>
+                      <b style={{ minWidth: 64, textAlign: 'center', color: '#D9A93A', fontSize: 18 }}>{p.golesLocal} - {p.golesVisitante}</b>
+                      <span style={{ flex: 1, fontWeight: 600 }}>{p.visitante}</span>
+                      <span style={{ width: 96, color: '#93A4B8', fontSize: 12, textAlign: 'right' }}>{fecha(p.fecha)} ›</span>
+                    </a>
+                  ))}
+                </div>
+              ))
+            })()}
 
             {tab === 'Tablas' && d.fases.map((f) => f.grupos.filter((g) => g.tabla.length).map((g) => (
               <div key={g.id} style={card}>
