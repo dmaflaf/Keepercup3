@@ -56,7 +56,7 @@ export default function Vivo() {
         </div>
         {p.penalesLocal !== null && <p style={{ textAlign: 'center', margin: '6px 0 0', color: '#93A4B8' }}>Penales {p.penalesLocal} - {p.penalesVisitante}</p>}
         <p style={{ textAlign: 'center', margin: '14px 0 0' }}>
-          {fin ? <b style={{ color: '#2fb344' }}>FINALIZADO</b> : p.periodo === 'previo' ? <span style={{ color: '#93A4B8' }}>Comienza {p.hora || 'pronto'}</span>
+          {fin ? <><b style={{ color: '#2fb344' }}>FINALIZADO</b> · <a href={`/torneo/partido/${id}`} style={{ color: '#D9A93A' }}>Ver ficha completa del partido ›</a></> : p.periodo === 'previo' ? <span style={{ color: '#93A4B8' }}>Comienza {p.hora || 'pronto'}</span>
             : <>{enJuego && <span style={{ color: '#fff', background: '#bf1b2c', borderRadius: 6, padding: '2px 8px', fontWeight: 800, marginRight: 8 }}>EN VIVO</span>}
               <b style={{ fontSize: 24, fontVariantNumeric: 'tabular-nums' }}>{enJuego ? `${anadido ? etiquetaMinuto(minuto, periodoNumero(p.periodo), p.dur) : mmss(seg)}` : ''}</b>
               <span style={{ color: '#93A4B8', marginLeft: 8 }}>{PERIODO[p.periodo]}</span></>}
