@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 interface Fila { teamId: string; equipo: string; pj: number; pg: number; pe: number; pp: number; gf: number; gc: number; dg: number; pts: number; pos: number }
 interface Grupo { id: string; nombre: string; tabla: Fila[] }
 interface Fase { id: string; nombre: string; tipo: string; grupos: Grupo[] }
-interface Partido { id: string; localId: string; visitanteId: string; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
+interface Partido { id: string; localId: string; visitanteId: string; jornadaJuego?: number | null; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
 interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number }
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean }
 interface Datos { ok: boolean; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
@@ -133,7 +133,7 @@ export default function TorneoPublico() {
                               : p.estado === 'finalizado' ? `${p.golesLocal} - ${p.golesVisitante}` : p.hora || 'vs'}
                           </span>
                           <a href={`/torneo/club/${p.visitanteId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{p.visitante}</a>
-                          <span style={{ width: 120, color: '#93A4B8', fontSize: 12, textAlign: 'right' }}>{fecha(p.fecha)}{p.escenario ? ' · ' + p.escenario : ''}{p.estado === 'suspendido' ? ' · suspendido' : ''}{p.estado === 'finalizado' && <> · <a href={`/torneo/partido/${p.id}`} style={{ color: '#D9A93A' }}>Detalle</a></>}</span>
+                          <span style={{ width: 120, color: '#93A4B8', fontSize: 12, textAlign: 'right' }}>{fecha(p.fecha)}{p.escenario ? ' · ' + p.escenario : ''}{p.estado === 'suspendido' ? ' · suspendido' : ''}{p.jornadaJuego && p.jornadaJuego !== p.jornadaNum && p.estado !== 'finalizado' ? <b style={{ color: '#fb923c' }}> · {p.jornadaJuego > p.jornadaNum ? 'diferido' : 'adelantado'} a la Fecha {p.jornadaJuego}</b> : ''}{p.estado === 'finalizado' && <> · <a href={`/torneo/partido/${p.id}`} style={{ color: '#D9A93A' }}>Detalle</a></>}</span>
                         </div>
                       ))}
                     </div>

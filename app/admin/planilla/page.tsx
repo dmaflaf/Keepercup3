@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-interface P { id: string; jornada: string; fecha: string | null; hora: string | null; escenario: string | null; local: string; visitante: string; estado: string; golesLocal: number | null; golesVisitante: number | null }
+interface P { id: string; jornada: string; jornadaNum: number; jornadaJuego?: number | null; fecha: string | null; hora: string | null; escenario: string | null; local: string; visitante: string; estado: string; golesLocal: number | null; golesVisitante: number | null }
 
 export default function ListaPlanilla() {
   const [partidos, setPartidos] = useState<P[]>([])
@@ -33,7 +33,7 @@ export default function ListaPlanilla() {
         <div className="space-y-3">
           {visibles.map((p) => (
             <Link key={p.id} href={`/admin/planilla/${p.id}`} className="block bg-slate-800 border border-slate-700 rounded-2xl p-4 active:bg-slate-700">
-              <p className="text-yellow-300 text-xs">{p.jornada} · {p.fecha === hoy ? 'HOY' : p.fecha || 'sin fecha'} {p.hora || ''} {p.escenario ? '· ' + p.escenario : ''}</p>
+              <p className="text-yellow-300 text-xs">{p.jornada}{p.jornadaJuego && p.jornadaJuego !== p.jornadaNum ? <b className="text-orange-300"> ({p.jornadaJuego > p.jornadaNum ? 'diferido' : 'adelantado'} a Fecha {p.jornadaJuego})</b> : null} · {p.fecha === hoy ? 'HOY' : p.fecha || 'sin fecha'} {p.hora || ''} {p.escenario ? '· ' + p.escenario : ''}</p>
               <p className="text-lg font-bold mt-1">{p.local} <span className="text-yellow-400">{p.estado === 'finalizado' ? `${p.golesLocal}-${p.golesVisitante}` : 'vs'}</span> {p.visitante}</p>
             </Link>
           ))}

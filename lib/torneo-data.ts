@@ -57,7 +57,7 @@ export async function cargarTorneo(torneoId: string) {
 
   const partidos = partidosDB.map((p, i) => ({
     id: p.id, faseId: p.faseId, grupoId: p.grupoId, jornada: p.jornada, jornadaNum: p.jornadaNum, fecha: p.fecha, hora: p.hora,
-    escenario: p.escenario, veedor: p.veedor, observaciones: p.observaciones, estado: p.estado,
+    escenario: p.escenario, veedor: p.veedor, observaciones: p.observaciones, estado: p.estado, jornadaJuego: p.jornadaJuego,
     localId: p.localId, visitanteId: p.visitanteId, local: nombreEquipo.get(p.localId) || '?', visitante: nombreEquipo.get(p.visitanteId) || '?',
     golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, marcadorManual: p.marcadorManual,
     penalesLocal: p.penalesLocal, penalesVisitante: p.penalesVisitante, periodo: p.periodo,

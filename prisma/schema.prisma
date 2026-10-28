@@ -372,6 +372,7 @@ model Partido {
   grupoId          String?
   jornada          String   // etiqueta: "Fecha 1", "Cuartos de final"
   jornadaNum       Int      @default(0)
+  jornadaJuego     Int?     // si se juega en otra fecha: diferido (posterior) o adelantado (anterior)
   fecha            String?  // YYYY-MM-DD
   hora             String?
   escenario        String?

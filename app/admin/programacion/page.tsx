@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { avisosPara, balance, ConfigProg, CONFIG_DEFECTO, diaSemana, diasDeJornada, DIAS, DIA3, etiquetaSlot, fechaLarga, horaValida, PartidoProg } from '@/lib/programacion'
+import { avisosPara, balance, ConfigProg, CONFIG_DEFECTO, diaSemana, diasDeJornada, DIAS, DIA3, etiquetaMovido, etiquetaSlot, fechaLarga, horaValida, juegaEn, PartidoProg } from '@/lib/programacion'
 
 interface Grupo { id: string; nombre: string; equipos: { id: string; nombre: string }[] }
 const COL = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ef4444', '#14b8a6']
@@ -36,12 +36,12 @@ export default function Programacion() {
   useEffect(() => { cargar() }, [cargar])
 
   const post = (b: Record<string, unknown>) => fetch('/api/admin/programacion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Error de conexión' }))
-  const jornadas = useMemo(() => Array.from(new Set(partidos.map((p) => p.jornadaNum))).sort((a, b) => a - b), [partidos])
+  const jornadas = useMemo(() => Array.from(new Set(partidos.map((p) => juegaEn(p)))).sort((a, b) => a - b), [partidos])
   const colorDe = (g: string | null) => COL[Math.max(0, grupos.findIndex((x) => x.nombre === g)) % COL.length]
   const cerrada = cerradas.includes(jornada)
-  const delaJ = partidos.filter((p) => p.jornadaNum === jornada && (!filtro || p.grupo === filtro))
+  const delaJ = partidos.filter((p) => juegaEn(p) === jornada && (!filtro || p.grupo === filtro))
   const pendientes = delaJ.filter((p) => !p.fecha || !p.hora || !p.escenario)
-  const dias = useMemo(() => Array.from(new Set([...diasDeJornada(cfg, jornada), ...partidos.filter((p) => p.jornadaNum === jornada && p.fecha).map((p) => p.fecha as string)])).sort(), [cfg, jornada, partidos])
+  const dias = useMemo(() => Array.from(new Set([...diasDeJornada(cfg, jornada), ...partidos.filter((p) => juegaEn(p) === jornada && p.fecha).map((p) => p.fecha as string)])).sort(), [cfg, jornada, partidos])
 
   async function asignar(p: PartidoProg, fecha: string, hora: string, escenario: string) {
     const r = await post({ accion: 'asignar', partidoId: p.id, fecha, hora, escenario })
@@ -49,22 +49,26 @@ export default function Programacion() {
     setCasilla(null); setProg(null); cargar(tid)
   }
   async function liberar(p: PartidoProg) { const r = await post({ accion: 'liberar', partidoId: p.id }); if (!r.ok) alert(r.message); setCasilla(null); cargar(tid) }
+  async function mover(p: PartidoProg, j: number | null) { const r = await post({ accion: 'mover', partidoId: p.id, jornada: j }); if (!r.ok) alert(r.message); cargar(tid) }
+  // Partidos sin jugar de otras fechas que se pueden traer a esta (diferidos o adelantados)
+  const otrosSinJugar = partidos.filter((p) => juegaEn(p) !== jornada && p.estado !== 'finalizado' && (!filtro || p.grupo === filtro)).sort((a, b) => a.jornadaNum - b.jornadaNum)
   async function cerrarFecha(c: boolean) { await post({ accion: 'cerrar', torneoId: tid, jornada, cerrada: c }); cargar(tid) }
 
   const celda = (est: string, fecha: string, hora: string) => {
-    const p = partidos.find((x) => x.jornadaNum === jornada && x.escenario === est && x.fecha === fecha && x.hora === hora && (!filtro || x.grupo === filtro))
+    const p = partidos.find((x) => juegaEn(x) === jornada && x.escenario === est && x.fecha === fecha && x.hora === hora && (!filtro || x.grupo === filtro))
     const base = 'w-full min-h-[3.2rem] rounded-lg text-left px-2 py-1 text-xs'
     if (!p) return <button className={`${base} border border-dashed border-slate-600 text-slate-400 hover:border-yellow-400 disabled:opacity-40`} disabled={cerrada} onClick={() => setCasilla({ fecha, hora, estadio: est })}>+ libre</button>
     return (
       <button className={`${base} bg-slate-700 hover:bg-slate-600 disabled:opacity-80`} disabled={cerrada || p.estado === 'finalizado'} onClick={() => setCasilla({ fecha, hora, estadio: est })}>
         <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: colorDe(p.grupo) }} /><b>{p.local}</b><br />vs {p.visitante}
+        {etiquetaMovido(p) && <span className="block text-[10px] text-orange-300 font-semibold">{etiquetaMovido(p)}</span>}
         {p.estado === 'finalizado' && <b className="text-yellow-300"> · {p.golesLocal}-{p.golesVisitante}</b>}
       </button>
     )
   }
 
   const opcionesCasilla = casilla ? pendientes.filter((p) => p.estado !== 'finalizado') : []
-  const ocupante = casilla ? partidos.find((x) => x.jornadaNum === jornada && x.escenario === casilla.estadio && x.fecha === casilla.fecha && x.hora === casilla.hora) : null
+  const ocupante = casilla ? partidos.find((x) => juegaEn(x) === jornada && x.escenario === casilla.estadio && x.fecha === casilla.fecha && x.hora === casilla.hora) : null
 
   const Avisos = ({ p, fecha, hora, est }: { p: PartidoProg; fecha: string; hora: string; est: string }) => {
     if (!fecha || !horaValida(hora) || !est) return null
@@ -79,7 +83,7 @@ export default function Programacion() {
   }
 
   function poster() {
-    const W = 1080, filas: { dia: string; items: { h: string; est: string; t: string }[] }[] = dias.map((d) => ({ dia: fechaLarga(d), items: partidos.filter((p) => p.jornadaNum === jornada && p.fecha === d && p.hora && p.escenario).sort((a, b) => (a.hora as string).localeCompare(b.hora as string) || (a.escenario as string).localeCompare(b.escenario as string)).map((p) => ({ h: p.hora as string, est: p.escenario as string, t: `${p.local}  vs  ${p.visitante}` })) })).filter((f) => f.items.length)
+    const W = 1080, filas: { dia: string; items: { h: string; est: string; t: string; m: string }[] }[] = dias.map((d) => ({ dia: fechaLarga(d), items: partidos.filter((p) => juegaEn(p) === jornada && p.fecha === d && p.hora && p.escenario).sort((a, b) => (a.hora as string).localeCompare(b.hora as string) || (a.escenario as string).localeCompare(b.escenario as string)).map((p) => ({ h: p.hora as string, est: p.escenario as string, t: `${p.local}  vs  ${p.visitante}`, m: etiquetaMovido(p) })) })).filter((f) => f.items.length)
     const alto = 200 + filas.reduce((n, f) => n + 70 + f.items.length * 64, 0) + 80
     const c = document.createElement('canvas'); c.width = W; c.height = alto
     const g = c.getContext('2d')!
@@ -92,7 +96,7 @@ export default function Programacion() {
       for (const it of f.items) {
         g.fillStyle = '#ffffff'; g.font = '700 30px system-ui, sans-serif'; g.fillText(it.h, 60, y + 36)
         g.font = '600 30px system-ui, sans-serif'; g.fillText(it.t.length > 34 ? it.t.slice(0, 33) + '…' : it.t, 190, y + 36)
-        g.fillStyle = '#93a4b8'; g.font = '500 26px system-ui, sans-serif'; g.textAlign = 'right'; g.fillText(it.est, W - 60, y + 36); g.textAlign = 'left'
+        g.fillStyle = '#93a4b8'; g.font = '500 26px system-ui, sans-serif'; g.textAlign = 'right'; g.fillText(it.est, W - 60, y + 36); if (it.m) { g.fillStyle = '#fb923c'; g.font = '700 20px system-ui, sans-serif'; g.fillText(it.m.toUpperCase(), W - 60, y + 12) } g.textAlign = 'left'
         g.strokeStyle = '#26304d'; g.beginPath(); g.moveTo(60, y + 54); g.lineTo(W - 60, y + 54); g.stroke(); y += 64
       }
       y += 6
@@ -129,13 +133,28 @@ export default function Programacion() {
               <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 mb-4">
                 {pendientes.map((p) => (
                   <div key={p.id} className="flex items-center justify-between gap-2 py-1.5 text-sm border-t first:border-t-0 border-slate-700">
-                    <span><span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: colorDe(p.grupo) }} />{p.local} <span className="text-slate-400">vs</span> {p.visitante}</span>
-                    <button className={btn2} onClick={() => { setProg(p); setPe({ estadio: cfg.estadios[0], fecha: dias[0], hora: '' }) }}>Programar</button>
+                    <span><span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: colorDe(p.grupo) }} />{p.local} <span className="text-slate-400">vs</span> {p.visitante}{etiquetaMovido(p) && <span className="ml-2 text-xs text-orange-300 font-semibold">{etiquetaMovido(p)}</span>}</span>
+                    <span className="flex gap-1">
+                      {etiquetaMovido(p) && <button className={btn2} onClick={() => mover(p, null)}>Devolver a Fecha {p.jornadaNum}</button>}
+                      <button className={btn2} onClick={() => { setProg(p); setPe({ estadio: cfg.estadios[0], fecha: dias[0], hora: '' }) }}>Programar</button>
+                    </span>
                   </div>))}
               </div>
             )}
+            {!cerrada && otrosSinJugar.length > 0 && (
+              <details className="bg-slate-800 border border-orange-700/60 rounded-xl p-3 mb-4">
+                <summary className="cursor-pointer text-sm"><b className="text-orange-300">Partidos diferidos o adelantados</b> <span className="text-slate-400">· {otrosSinJugar.filter((p) => juegaEn(p) < jornada).length} pendientes de fechas anteriores · {otrosSinJugar.filter((p) => juegaEn(p) > jornada).length} de fechas siguientes</span></summary>
+                <p className="text-xs text-slate-400 mt-2 mb-1">«Jugar en esta fecha» lo trae a la Fecha {jornada} para programarlo aquí. Sigue contando como partido de su fecha original (tabla y fixture no cambian).</p>
+                {otrosSinJugar.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 py-1.5 text-sm border-t border-slate-700">
+                    <span><span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: colorDe(p.grupo) }} />{p.local} <span className="text-slate-400">vs</span> {p.visitante} <span className="text-xs text-slate-400">· Fecha {p.jornadaNum}{p.jornadaJuego ? ` (ahora en Fecha ${p.jornadaJuego})` : ''}</span>
+                      <span className={`ml-2 text-xs font-semibold ${p.jornadaNum < jornada ? 'text-orange-300' : 'text-sky-300'}`}>{p.jornadaNum < jornada ? 'Diferido' : p.jornadaNum > jornada ? 'Adelantado' : ''}</span></span>
+                    <button className={btn2} onClick={() => mover(p, jornada)}>Jugar en esta fecha</button>
+                  </div>))}
+              </details>
+            )}
             {dias.map((d) => {
-              const usados = partidos.filter((p) => p.jornadaNum === jornada && p.fecha === d && p.hora).map((p) => p.hora as string)
+              const usados = partidos.filter((p) => juegaEn(p) === jornada && p.fecha === d && p.hora).map((p) => p.hora as string)
               const horas = Array.from(new Set([...(cfg.horarios[String(diaSemana(d))] || []), ...usados])).sort()
               if (!horas.length) return null
               return (

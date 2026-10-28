@@ -17,7 +17,13 @@ export const horaValida = (h: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(h)
 /** Viernes, sábado y domingo de la fecha (jornada) n. */
 export const diasDeJornada = (cfg: ConfigProg, n: number) => { const v = sumarDias(cfg.inicio, 7 * (n - 1)); return [v, sumarDias(v, 1), sumarDias(v, 2)] }
 
-export interface PartidoProg { id: string; jornadaNum: number; grupo: string | null; localId: string; visitanteId: string; local: string; visitante: string; fecha: string | null; hora: string | null; escenario: string | null; estado: string; golesLocal: number | null; golesVisitante: number | null }
+export interface PartidoProg { id: string; jornadaNum: number; jornadaJuego?: number | null; grupo: string | null; localId: string; visitanteId: string; local: string; visitante: string; fecha: string | null; hora: string | null; escenario: string | null; estado: string; golesLocal: number | null; golesVisitante: number | null }
+
+/** Fecha (jornada) en que se juega el partido: la suya, o otra si fue diferido/adelantado. */
+export const juegaEn = (p: { jornadaNum: number; jornadaJuego?: number | null }) => p.jornadaJuego ?? p.jornadaNum
+/** «Diferido · Fecha 6» / «Adelantado · Fecha 8» o '' si se juega en su fecha. */
+export const etiquetaMovido = (p: { jornadaNum: number; jornadaJuego?: number | null }) =>
+  p.jornadaJuego == null || p.jornadaJuego === p.jornadaNum ? '' : `${p.jornadaJuego > p.jornadaNum ? 'Diferido' : 'Adelantado'} · Fecha ${p.jornadaNum}`
 
 /** Etiqueta «Sáb 14:00» para contar repeticiones de horario. */
 export const etiquetaSlot = (p: { fecha: string | null; hora: string | null }) => (p.fecha && p.hora ? `${DIA3[diaSemana(p.fecha)]} ${p.hora}` : '')

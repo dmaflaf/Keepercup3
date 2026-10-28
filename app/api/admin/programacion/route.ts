@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { exigirAdmin } from '@/lib/sorteo'
-import { CONFIG_DEFECTO, ConfigProg, horaValida } from '@/lib/programacion'
+import { CONFIG_DEFECTO, ConfigProg, horaValida, juegaEn } from '@/lib/programacion'
 
 export const dynamic = 'force-dynamic'
 const falla = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status })
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true, torneos, torneoId: id, config: await leerConfig(), cerradas: await cerradas(id),
     grupos: grupos.map((g) => ({ id: g.id, nombre: g.nombre, equipos: miembros.filter((m) => m.grupoId === g.id).map((m) => ({ id: m.teamId, nombre: nombre.get(m.teamId) || '?' })) })),
-    partidos: partidos.map((p) => ({ id: p.id, jornadaNum: p.jornadaNum, grupo: p.grupoId ? gnombre.get(p.grupoId) || null : null, localId: p.localId, visitanteId: p.visitanteId, local: nombre.get(p.localId) || '?', visitante: nombre.get(p.visitanteId) || '?', fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante })),
+    partidos: partidos.map((p) => ({ id: p.id, jornadaNum: p.jornadaNum, jornadaJuego: p.jornadaJuego, grupo: p.grupoId ? gnombre.get(p.grupoId) || null : null, localId: p.localId, visitanteId: p.visitanteId, local: nombre.get(p.localId) || '?', visitante: nombre.get(p.visitanteId) || '?', fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante })),
   })
 }
 
@@ -64,7 +64,19 @@ export async function POST(req: NextRequest) {
 
   const p = await prisma.partido.findUnique({ where: { id: String(b.partidoId) } })
   if (!p) return falla('Partido no encontrado', 404)
-  if ((await cerradas(p.torneoId)).includes(p.jornadaNum)) return falla(`La Fecha ${p.jornadaNum} está cerrada. Pulsa «Editar fecha» para modificarla.`, 409)
+  const lista = await cerradas(p.torneoId)
+
+  // Jugar un partido pendiente en otra fecha (diferido o adelantado), o devolverlo a la suya
+  if (b.accion === 'mover') {
+    if (p.estado === 'finalizado') return falla('Ese partido ya se jugó.')
+    const destino = b.jornada === null ? null : Number(b.jornada)
+    if (destino !== null && (!Number.isInteger(destino) || destino < 1 || destino > 99)) return falla('Fecha inválida')
+    const nueva = destino === null || destino === p.jornadaNum ? null : destino
+    if (lista.includes(juegaEn(p)) || lista.includes(nueva ?? p.jornadaNum)) return falla('Esa fecha está cerrada. Pulsa «Editar fecha» para modificarla.', 409)
+    await prisma.partido.update({ where: { id: p.id }, data: { jornadaJuego: nueva, fecha: null, hora: null, escenario: null } })
+    return NextResponse.json({ ok: true })
+  }
+  if (lista.includes(juegaEn(p))) return falla(`La Fecha ${juegaEn(p)} está cerrada. Pulsa «Editar fecha» para modificarla.`, 409)
 
   if (b.accion === 'liberar') {
     await prisma.partido.update({ where: { id: p.id }, data: { fecha: null, hora: null, escenario: null } })
