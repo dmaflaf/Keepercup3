@@ -13,7 +13,9 @@ const EN_MESA: { fecha: number; clubes: [string, string] }[] = [{ fecha: 1, club
 export function buscarClub(nombre: string, clubes: { id: string; name: string }[]): string | null {
   const n = normalizar(ALIAS[normalizar(nombre)] ?? nombre)
   const unico = (clave: (t: string) => string) => { const k = clave(n); const cand = clubes.filter((x) => clave(x.name) === k); return k && cand.length === 1 ? cand[0] : undefined }
-  const c = clubes.find((x) => normalizar(x.name) === n) || unico(claveClub) || unico((t) => claveClub(t).replace(/ /g, ''))
+  // Compacto: sin espacios ni puntos y sin «SC/FC/CF/CD/Club» al final («Libert S.C.» = «Libert», «Sub 21» = «Sub21»)
+  const compacto = (t: string) => normalizar(t).replace(/ /g, '').replace(/(sc|fc|cf|cd|club)$/, '')
+  const c = clubes.find((x) => normalizar(x.name) === n) || unico(claveClub) || unico((t) => claveClub(t).replace(/ /g, '')) || unico(compacto)
   return c?.id ?? null
 }
 
