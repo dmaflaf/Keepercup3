@@ -76,9 +76,12 @@ export async function GET(req: NextRequest) {
   const simular = !!q.get('simular')
   if (!simular && cambios.length) {
     const previo: Previo[] = cambios.map(({ p }) => ({ id: p.id, fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, marcadorManual: p.marcadorManual, observaciones: p.observaciones }))
+    // Guarda el estado ORIGINAL de cada partido una sola vez (los que se suman en otra pasada también)
     const ya = await prisma.ajuste.findUnique({ where: { key: CLAVE } })
+    const guardado: Previo[] = ya ? JSON.parse(ya.value) : []
+    const respaldo = [...guardado, ...previo.filter((x) => !guardado.some((g) => g.id === x.id))]
     await prisma.$transaction([
-      ...(ya ? [] : [prisma.ajuste.create({ data: { key: CLAVE, value: JSON.stringify(previo) } })]), // guarda el estado ORIGINAL una sola vez
+      prisma.ajuste.upsert({ where: { key: CLAVE }, update: { value: JSON.stringify(respaldo) }, create: { key: CLAVE, value: JSON.stringify(respaldo) } }),
       ...cambios.map(({ p, data }) => prisma.partido.update({ where: { id: p.id }, data })),
     ])
   }

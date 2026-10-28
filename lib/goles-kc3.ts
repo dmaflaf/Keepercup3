@@ -10,13 +10,29 @@ const ALIAS: Record<string, string> = { leipzig: 'Leipzig RB', 'leipzig rb': 'Le
 const EN_MESA: { fecha: number; clubes: [string, string] }[] = [{ fecha: 1, clubes: ['leipzig', 'america'] }]
 
 /** Club del sistema que corresponde al nombre escrito: igual; sin «SC/FC…» (Libert = Libert SC); o sin espacios (Sub 21 = Sub21). */
+function distancia(a: string, b: string): number {
+  const m = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    let prev = m[0]; m[0] = i
+    for (let j = 1; j <= b.length; j++) { const t = m[j]; m[j] = Math.min(m[j] + 1, m[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t }
+  }
+  return m[b.length]
+}
+
 export function buscarClub(nombre: string, clubes: { id: string; name: string }[]): string | null {
   // Compacto: sin espacios ni puntos y sin «SC/FC/CF/CD/Club» al final («Libert S.C.» = «Libert», «Sub 21» = «Sub21»)
   const compacto = (t: string) => normalizar(t).replace(/ /g, '').replace(/(sc|fc|cf|cd|club)$/, '')
+  // Último recurso: el único club cuyo nombre difiere en 1-2 letras («Corintians» = «Corinthians»)
+  const parecido = (k: string) => {
+    if (k.length < 5) return undefined
+    const tope = k.length >= 9 ? 2 : 1
+    const cand = clubes.map((x) => ({ x, d: distancia(k, compacto(x.name)) })).filter((c) => c.d <= tope).sort((a, b) => a.d - b.d)
+    return cand.length && (cand.length === 1 || cand[0].d < cand[1].d) ? cand[0].x : undefined
+  }
   const intento = (texto: string) => {
     const n = normalizar(texto)
     const unico = (clave: (t: string) => string) => { const k = clave(n); const cand = clubes.filter((x) => clave(x.name) === k); return k && cand.length === 1 ? cand[0] : undefined }
-    return clubes.find((x) => normalizar(x.name) === n) || unico(claveClub) || unico((t) => claveClub(t).replace(/ /g, '')) || unico(compacto)
+    return clubes.find((x) => normalizar(x.name) === n) || unico(claveClub) || unico((t) => claveClub(t).replace(/ /g, '')) || unico(compacto) || parecido(compacto(texto))
   }
   // Primero el alias conocido (p. ej. Atl. Madrid = San Francisco); si no existe así, el nombre tal cual
   const alias = ALIAS[normalizar(nombre)]
