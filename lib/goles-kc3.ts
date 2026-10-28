@@ -11,11 +11,16 @@ const EN_MESA: { fecha: number; clubes: [string, string] }[] = [{ fecha: 1, club
 
 /** Club del sistema que corresponde al nombre escrito: igual; sin «SC/FC…» (Libert = Libert SC); o sin espacios (Sub 21 = Sub21). */
 export function buscarClub(nombre: string, clubes: { id: string; name: string }[]): string | null {
-  const n = normalizar(ALIAS[normalizar(nombre)] ?? nombre)
-  const unico = (clave: (t: string) => string) => { const k = clave(n); const cand = clubes.filter((x) => clave(x.name) === k); return k && cand.length === 1 ? cand[0] : undefined }
   // Compacto: sin espacios ni puntos y sin «SC/FC/CF/CD/Club» al final («Libert S.C.» = «Libert», «Sub 21» = «Sub21»)
   const compacto = (t: string) => normalizar(t).replace(/ /g, '').replace(/(sc|fc|cf|cd|club)$/, '')
-  const c = clubes.find((x) => normalizar(x.name) === n) || unico(claveClub) || unico((t) => claveClub(t).replace(/ /g, '')) || unico(compacto)
+  const intento = (texto: string) => {
+    const n = normalizar(texto)
+    const unico = (clave: (t: string) => string) => { const k = clave(n); const cand = clubes.filter((x) => clave(x.name) === k); return k && cand.length === 1 ? cand[0] : undefined }
+    return clubes.find((x) => normalizar(x.name) === n) || unico(claveClub) || unico((t) => claveClub(t).replace(/ /g, '')) || unico(compacto)
+  }
+  // Primero el alias conocido (p. ej. Atl. Madrid = San Francisco); si no existe así, el nombre tal cual
+  const alias = ALIAS[normalizar(nombre)]
+  const c = (alias && intento(alias)) || intento(nombre)
   return c?.id ?? null
 }
 
