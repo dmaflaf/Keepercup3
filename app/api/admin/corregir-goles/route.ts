@@ -5,8 +5,8 @@ import { buscarClub } from '@/lib/goles-kc3'
 
 export const dynamic = 'force-dynamic'
 
-// Goles que faltaban asignar (indicados por la organización). El marcador manda: si el club ya tiene todos sus goles
-// asignados, se quita uno de los que el sistema había dado al goleador del club en esa carga automática.
+// Goles que faltaban en el marcador (indicados por la organización): se agrega el gol al jugador y se SUBE el marcador del club.
+// Si se indica el resultado final, el marcador queda en ese resultado.
 //   ?simular=1 → muestra qué haría · (sin parámetros) → aplica (repetible) · ?deshacer=1 → quita lo agregado y repone lo quitado
 const PREFIJO = 'manualgol:'
 interface Corr { a: string; b: string; club: string; numero: number; goles: number; resultado?: { [club: string]: number } }
@@ -60,15 +60,15 @@ export async function GET(req: NextRequest) {
     const p = a && b ? partidos.find((x) => (x.localId === a && x.visitanteId === b) || (x.localId === b && x.visitanteId === a)) : undefined
     if (!p || !club) { filas.push(`<li style="color:#fca5a5">${esc(c.a)} vs ${esc(c.b)}: partido no encontrado.</li>`); continue }
     const titulo = `${p.jornada} · ${esc(nom(p.localId))} vs ${esc(nom(p.visitanteId))}`
-    // Resultado (solo si el partido aún no lo tiene)
+    // Resultado final indicado (se aplica junto con el gol que faltaba)
     if (c.resultado) {
       const gl = c.resultado[Object.keys(c.resultado).find((k) => buscarClub(k, clubes) === p.localId) || ''], gv = c.resultado[Object.keys(c.resultado).find((k) => buscarClub(k, clubes) === p.visitanteId) || '']
-      if (p.golesLocal === null || p.estado !== 'finalizado') {
-        previo.partidos.push({ id: p.id, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, marcadorManual: p.marcadorManual })
+      if (p.golesLocal !== gl || p.golesVisitante !== gv || p.estado !== 'finalizado') {
+        if (!previo.partidos.some((x) => x.id === p.id)) previo.partidos.push({ id: p.id, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, marcadorManual: p.marcadorManual })
+        filas.push(`<li style="color:#fde68a">${titulo}: resultado ${p.golesLocal ?? '–'} - ${p.golesVisitante ?? '–'} → <b>${gl} - ${gv}</b>.</li>`)
         p.golesLocal = gl; p.golesVisitante = gv; p.estado = 'finalizado'; p.marcadorManual = true
         ops.push(() => prisma.partido.update({ where: { id: p.id }, data: { golesLocal: gl, golesVisitante: gv, estado: 'finalizado', marcadorManual: true } }))
-        filas.push(`<li style="color:#fde68a">${titulo}: se registra el resultado <b>${gl} - ${gv}</b>.</li>`)
-      } else if (p.golesLocal !== gl || p.golesVisitante !== gv) filas.push(`<li style="color:#fca5a5">${titulo}: el sistema tiene ${p.golesLocal} - ${p.golesVisitante} y la corrección dice ${gl} - ${gv}; no se cambió el resultado.</li>`)
+      }
     }
     const j = jugadores.find((x) => x.teamId === club && x.number === c.numero)
     if (!j) { filas.push(`<li style="color:#fca5a5">${titulo}: ${esc(nom(club))} no tiene jugador con el #${c.numero}.</li>`); continue }
@@ -77,32 +77,26 @@ export async function GET(req: NextRequest) {
     const cid = `${PREFIJO}${p.id}:${club}:${j.id}:${c.numero}`
     const ya = ev.filter((e) => e.clienteId?.startsWith(cid)).length
     if (ya >= c.goles) { filas.push(`<li>${titulo}: el gol de #${c.numero} ${esc(j.firstName)} ${esc(j.lastName)} ya estaba agregado.</li>`); continue }
-    const objetivo = p.localId === club ? p.golesLocal : p.golesVisitante
     for (let k = ya; k < c.goles; k++) {
-      const actuales = ev.filter((e) => e.teamId === club && GOL.includes(e.tipo)).length + ev.filter((e) => e.tipo === 'autogol' && e.teamId !== club).length
-      let nota = ''
-      if (objetivo !== null && actuales >= objetivo) {
-        // Quitar uno de los goles de la carga automática del que más tiene (no del jugador corregido)
-        const auto = ev.filter((e) => e.teamId === club && GOL.includes(e.tipo) && e.clienteId?.startsWith('xlsxgol:') && e.playerId !== j.id)
-        const cuenta = new Map<string, number>(); for (const e of auto) cuenta.set(e.playerId as string, (cuenta.get(e.playerId as string) || 0) + 1)
-        const victima = auto.sort((x, y) => (cuenta.get(y.playerId as string) || 0) - (cuenta.get(x.playerId as string) || 0))[0]
-        if (!victima) { filas.push(`<li style="color:#fca5a5">${titulo}: ${esc(nom(club))} ya tiene sus ${objetivo} goles asignados y no hay goles automáticos que reemplazar; no se agregó el del #${c.numero}.</li>`); break }
-        const vj = jugadores.find((x) => x.id === victima.playerId)
-        nota = ` (reemplaza un gol que el sistema había dado a #${vj?.number ?? '?'} ${esc(vj ? vj.firstName + ' ' + vj.lastName : '')})`
-        previo.quitados.push({ partidoId: victima.partidoId, teamId: victima.teamId, playerId: victima.playerId, tipo: victima.tipo, minuto: victima.minuto, periodo: victima.periodo, clienteId: victima.clienteId })
-        ev.splice(ev.indexOf(victima), 1)
-        ops.push(() => prisma.evento.delete({ where: { id: victima.id } }))
-      }
       const nuevo = { partidoId: p.id, teamId: club, playerId: j.id, tipo: 'gol', minuto: null, periodo: null, clienteId: `${cid}:${k}` }
       ev.push({ ...nuevo, id: `nuevo-${cid}-${k}`, createdAt: new Date() })
       ops.push(() => prisma.evento.create({ data: nuevo }))
-      filas.push(`<li style="color:#86efac">${titulo}: gol de <b>#${c.numero} ${esc(j.firstName)} ${esc(j.lastName)}</b> (${esc(nom(club))})${nota}.</li>`)
+      if (!previo.partidos.some((x) => x.id === p.id)) previo.partidos.push({ id: p.id, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, marcadorManual: p.marcadorManual })
+      if (!c.resultado) {
+        if (p.localId === club) p.golesLocal = (p.golesLocal ?? 0) + 1; else p.golesVisitante = (p.golesVisitante ?? 0) + 1
+        p.estado = 'finalizado'; p.marcadorManual = true
+      }
+      const marcador = { golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, estado: 'finalizado', marcadorManual: true }
+      ops.push(() => prisma.partido.update({ where: { id: p.id }, data: marcador }))
+      filas.push(`<li style="color:#86efac">${titulo}: gol de <b>#${c.numero} ${esc(j.firstName)} ${esc(j.lastName)}</b> (${esc(nom(club))}) · marcador: <b>${nom(p.localId)} ${p.golesLocal} - ${p.golesVisitante} ${nom(p.visitanteId)}</b></li>`)
     }
   }
+  const previa = await prisma.ajuste.findUnique({ where: { key: CLAVE } })
+  if (previa && (JSON.parse(previa.value) as Respaldo).quitados.length) return pagina('Primero deshaz la corrección anterior', '<p>La versión anterior de esta corrección reemplazó goles sin subir el marcador. Abre primero <code>/api/admin/corregir-goles?deshacer=1</code> y después vuelve a abrir esta dirección.</p>')
   if (!simular && ops.length) {
-    const a = await prisma.ajuste.findUnique({ where: { key: CLAVE } })
+    const a = previa
     const r: Respaldo = a ? JSON.parse(a.value) : { quitados: [], partidos: [] }
-    r.quitados.push(...previo.quitados); for (const x of previo.partidos) if (!r.partidos.some((y) => y.id === x.id)) r.partidos.push(x)
+    for (const x of previo.partidos) if (!r.partidos.some((y) => y.id === x.id)) r.partidos.push(x)
     for (const op of ops) await op()
     await prisma.ajuste.upsert({ where: { key: CLAVE }, update: { value: JSON.stringify(r) }, create: { key: CLAVE, value: JSON.stringify(r) } })
   }
