@@ -16,12 +16,13 @@ async function cargarFuentes() {
 const imagen = (src: string) => new Promise<HTMLImageElement | null>((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src })
 const hh = (h: string) => h.replace(':', 'h')
 
-export async function posterHorario(jornada: number, estadios: string[], items: ItemPoster[]): Promise<Blob | null> {
+export async function posterHorario(jornada: number, estadios: string[], items: ItemPoster[], horariosCfg: Record<string, string[]> = {}): Promise<Blob | null> {
   await cargarFuentes()
   const F = (peso: string, px: number, it = false) => `${it ? 'italic ' : ''}${peso} ${px}px Barlow, 'Arial Narrow', system-ui, sans-serif`
   const cols = estadios.slice(0, 2).length ? estadios.slice(0, 2) : ['San Miguel']
   const dias = Array.from(new Set(items.map((i) => i.fecha))).sort()
-  const horasDe = (d: string) => Array.from(new Set(items.filter((i) => i.fecha === d).map((i) => i.hora))).sort()
+  // Filas de cada día: las horas configuradas para ese día más las de los partidos
+  const horasDe = (d: string) => Array.from(new Set([...(horariosCfg[String(diaSemana(d))] || []), ...items.filter((i) => i.fecha === d).map((i) => i.hora)])).sort()
   const FILA = 50, CAB_DIA = 40
   const W = 1600, panelY = 228, cuerpoY = panelY + 110
   const altoCuerpo = dias.reduce((n, d) => n + CAB_DIA + horasDe(d).length * FILA + 16, 0)
@@ -40,24 +41,32 @@ export async function posterHorario(jornada: number, estadios: string[], items: 
   // Títulos
   g.textAlign = 'center'; g.textBaseline = 'alphabetic'
   g.fillStyle = '#2fd3f7'; g.font = F('800', 44, true); g.fillText('KEEPER CUP 3', W / 2, 84)
-  g.save(); g.shadowColor = 'rgba(110,190,255,0.9)'; g.shadowBlur = 28
+  g.save(); g.shadowColor = 'rgba(120,180,255,0.55)'; g.shadowBlur = 12
   g.fillStyle = '#ffffff'; g.font = F('900', 112, true); g.fillText(`HORARIOS FECHA ${jornada}`, W / 2, 182); g.restore()
 
   // Panel con borde luminoso
   const px = 75, pw = W - 150, ph = H - panelY - 40, r = 38
   const rr = () => { g.beginPath(); g.moveTo(px + r, panelY); g.arcTo(px + pw, panelY, px + pw, panelY + ph, r); g.arcTo(px + pw, panelY + ph, px, panelY + ph, r); g.arcTo(px, panelY + ph, px, panelY, r); g.arcTo(px, panelY, px + pw, panelY, r); g.closePath() }
   rr(); g.fillStyle = 'rgba(14,24,92,0.55)'; g.fill()
-  g.save(); g.shadowColor = '#3fd2ff'; g.shadowBlur = 24; g.strokeStyle = '#43d4ff'; g.lineWidth = 5; rr(); g.stroke(); g.restore()
+  g.save(); g.shadowColor = 'rgba(63,210,255,0.7)'; g.shadowBlur = 10; g.strokeStyle = '#3fd0fb'; g.lineWidth = 4.5; rr(); g.stroke(); g.restore()
 
-  // Marca de agua: arte oficial del trofeo (estadio y copa), tenue y dentro del panel
+  // Marca de agua: el trofeo del arte oficial, recortado y con bordes difuminados, al centro del panel
   const arte = await imagen('/trofeo-kc3.jpg')
   if (arte) {
-    g.save(); rr(); g.clip()
-    const ah = ph * 1.05, aw = (arte.width / arte.height) * ah
-    g.globalAlpha = 0.16; g.globalCompositeOperation = 'luminosity'
-    g.drawImage(arte, W / 2 - aw / 2, panelY + ph / 2 - ah / 2, aw, ah)
-    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 0.35; g.fillStyle = '#0e185c'; g.fillRect(px, panelY, pw, ph)
-    g.restore()
+    const sx = arte.width * 0.3, sy = arte.height * 0.2, sw = arte.width * 0.4, sh = arte.height * 0.72
+    const ah = ph * 0.98, aw = (sw / sh) * ah
+    const off = document.createElement('canvas'); off.width = Math.round(aw); off.height = Math.round(ah)
+    const o = off.getContext('2d')
+    if (o) {
+      o.drawImage(arte, sx, sy, sw, sh, 0, 0, aw, ah)
+      o.globalCompositeOperation = 'destination-in'
+      const m = o.createRadialGradient(aw / 2, ah * 0.48, Math.min(aw, ah) * 0.18, aw / 2, ah * 0.5, Math.max(aw, ah) * 0.55)
+      m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(0.7, 'rgba(0,0,0,0.85)'); m.addColorStop(1, 'rgba(0,0,0,0)')
+      o.fillStyle = m; o.fillRect(0, 0, aw, ah)
+      g.save(); rr(); g.clip(); g.globalAlpha = 0.17
+      g.drawImage(off, W / 2 - aw / 2, panelY + ph / 2 - ah / 2 + 10)
+      g.restore()
+    }
   }
 
   // Línea vertical entre estadios
@@ -82,8 +91,18 @@ export async function posterHorario(jornada: number, estadios: string[], items: 
       cols.forEach((e, i) => {
         const x = colX(i)
         const it = items.find((m) => m.fecha === d && m.hora === h && m.escenario === e)
-        if (!it) { g.textAlign = 'center'; g.fillStyle = 'rgba(200,210,240,0.45)'; g.font = F('500', 30); g.fillText('-', x.vs - 85, y - 6); return }
         g.textAlign = 'left'; g.fillStyle = '#ffffff'; g.font = F('700', 31); g.fillText(hh(h), x.hora, y - 6)
+        if (!it) {
+          // Casilla libre: «— vs —» si el estadio ya está en uso ese día (o es de tarde); «-» si aún no abre
+          const delDia = items.filter((m) => m.fecha === d && m.escenario === e).map((m) => m.hora).sort()
+          const abierto = delDia.length ? h > delDia[0] : h >= '14:00'
+          g.fillStyle = 'rgba(200,210,240,0.5)'
+          if (abierto) {
+            g.fillRect(x.local - 22, y - 16, 18, 2.5); g.fillRect(x.visita + 4, y - 16, 18, 2.5)
+            g.textAlign = 'center'; g.fillStyle = '#2fd3f7'; g.font = F('800', 20, true); g.fillText('vs', x.vs, y - 8)
+          } else { g.textAlign = 'center'; g.font = F('500', 30); g.fillText('-', x.vs - 2, y - 6) }
+          return
+        }
         g.font = F('500', 31); g.textAlign = 'right'; g.fillText(it.local, x.local, y - 6)
         g.textAlign = 'center'; g.fillStyle = '#2fd3f7'; g.font = F('800', 20, true); g.fillText('vs', x.vs, y - 8)
         g.textAlign = 'left'; g.fillStyle = '#ffffff'; g.font = F('500', 31); g.fillText(it.visitante, x.visita, y - 6)

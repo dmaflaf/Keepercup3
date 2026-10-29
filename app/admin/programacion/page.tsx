@@ -86,7 +86,7 @@ export default function Programacion() {
   async function poster() {
     const items = partidos.filter((p) => juegaEn(p) === jornada && p.fecha && p.hora && p.escenario).map((p) => ({ fecha: p.fecha as string, hora: p.hora as string, escenario: p.escenario as string, local: p.local, visitante: p.visitante, marca: etiquetaMovido(p) }))
     if (!items.length) { alert('Esta fecha todavía no tiene partidos programados.'); return }
-    const b = await posterHorario(jornada, cfg.estadios, items)
+    const b = await posterHorario(jornada, cfg.estadios, items, cfg.horarios)
     if (!b) return
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `horarios-fecha-${jornada}.png`; a.click()
   }
