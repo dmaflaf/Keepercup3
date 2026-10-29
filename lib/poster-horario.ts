@@ -49,9 +49,16 @@ export async function posterHorario(jornada: number, estadios: string[], items: 
   rr(); g.fillStyle = 'rgba(14,24,92,0.55)'; g.fill()
   g.save(); g.shadowColor = '#3fd2ff'; g.shadowBlur = 24; g.strokeStyle = '#43d4ff'; g.lineWidth = 5; rr(); g.stroke(); g.restore()
 
-  // Marca de agua: logo
-  const logo = await imagen('/logo-kc3.png')
-  if (logo) { g.save(); g.globalAlpha = 0.07; const lw = 520, lh = (logo.height / logo.width) * lw; g.drawImage(logo, W / 2 - lw / 2, panelY + ph / 2 - lh / 2, lw, lh); g.restore() }
+  // Marca de agua: arte oficial del trofeo (estadio y copa), tenue y dentro del panel
+  const arte = await imagen('/trofeo-kc3.jpg')
+  if (arte) {
+    g.save(); rr(); g.clip()
+    const ah = ph * 1.05, aw = (arte.width / arte.height) * ah
+    g.globalAlpha = 0.16; g.globalCompositeOperation = 'luminosity'
+    g.drawImage(arte, W / 2 - aw / 2, panelY + ph / 2 - ah / 2, aw, ah)
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 0.35; g.fillStyle = '#0e185c'; g.fillRect(px, panelY, pw, ph)
+    g.restore()
+  }
 
   // Línea vertical entre estadios
   const mid = W / 2
