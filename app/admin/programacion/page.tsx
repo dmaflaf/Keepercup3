@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { posterHorario } from '@/lib/poster-horario'
 import { avisosPara, balance, ConfigProg, CONFIG_DEFECTO, diaSemana, diasDeJornada, DIAS, DIA3, etiquetaMovido, etiquetaSlot, fechaLarga, horaValida, juegaEn, PartidoProg } from '@/lib/programacion'
 
 interface Grupo { id: string; nombre: string; equipos: { id: string; nombre: string }[] }
@@ -82,27 +83,12 @@ export default function Programacion() {
     )
   }
 
-  function poster() {
-    const W = 1080, filas: { dia: string; items: { h: string; est: string; t: string; m: string }[] }[] = dias.map((d) => ({ dia: fechaLarga(d), items: partidos.filter((p) => juegaEn(p) === jornada && p.fecha === d && p.hora && p.escenario).sort((a, b) => (a.hora as string).localeCompare(b.hora as string) || (a.escenario as string).localeCompare(b.escenario as string)).map((p) => ({ h: p.hora as string, est: p.escenario as string, t: `${p.local}  vs  ${p.visitante}`, m: etiquetaMovido(p) })) })).filter((f) => f.items.length)
-    const alto = 200 + filas.reduce((n, f) => n + 70 + f.items.length * 64, 0) + 80
-    const c = document.createElement('canvas'); c.width = W; c.height = alto
-    const g = c.getContext('2d')!
-    g.fillStyle = '#0b1226'; g.fillRect(0, 0, W, alto)
-    g.fillStyle = '#f2b705'; g.font = '800 64px system-ui, sans-serif'; g.fillText('KEEPER CUP 3', 60, 100)
-    g.fillStyle = '#ffffff'; g.font = '700 40px system-ui, sans-serif'; g.fillText(`Fecha ${jornada} · programación`, 60, 160)
-    let y = 220
-    for (const f of filas) {
-      g.fillStyle = '#16223f'; g.fillRect(40, y, W - 80, 56); g.fillStyle = '#f2b705'; g.font = '700 30px system-ui, sans-serif'; g.fillText(f.dia, 60, y + 38); y += 70
-      for (const it of f.items) {
-        g.fillStyle = '#ffffff'; g.font = '700 30px system-ui, sans-serif'; g.fillText(it.h, 60, y + 36)
-        g.font = '600 30px system-ui, sans-serif'; g.fillText(it.t.length > 34 ? it.t.slice(0, 33) + '…' : it.t, 190, y + 36)
-        g.fillStyle = '#93a4b8'; g.font = '500 26px system-ui, sans-serif'; g.textAlign = 'right'; g.fillText(it.est, W - 60, y + 36); if (it.m) { g.fillStyle = '#fb923c'; g.font = '700 20px system-ui, sans-serif'; g.fillText(it.m.toUpperCase(), W - 60, y + 12) } g.textAlign = 'left'
-        g.strokeStyle = '#26304d'; g.beginPath(); g.moveTo(60, y + 54); g.lineTo(W - 60, y + 54); g.stroke(); y += 64
-      }
-      y += 6
-    }
-    g.fillStyle = '#5b6478'; g.font = '500 22px system-ui, sans-serif'; g.fillText('keeper.com.ec', 60, alto - 36)
-    c.toBlob((b) => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `horario-fecha-${jornada}.png`; a.click() }, 'image/png')
+  async function poster() {
+    const items = partidos.filter((p) => juegaEn(p) === jornada && p.fecha && p.hora && p.escenario).map((p) => ({ fecha: p.fecha as string, hora: p.hora as string, escenario: p.escenario as string, local: p.local, visitante: p.visitante, marca: etiquetaMovido(p) }))
+    if (!items.length) { alert('Esta fecha todavía no tiene partidos programados.'); return }
+    const b = await posterHorario(jornada, cfg.estadios, items)
+    if (!b) return
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `horarios-fecha-${jornada}.png`; a.click()
   }
 
   return (
