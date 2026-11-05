@@ -10,6 +10,13 @@ async function leerConfig(): Promise<ConfigProg> {
   const a = await prisma.ajuste.findUnique({ where: { key: 'programacion' } })
   try { const c = a ? (JSON.parse(a.value) as Partial<ConfigProg>) : {}; return { estadios: c.estadios?.length ? c.estadios : CONFIG_DEFECTO.estadios, inicio: c.inicio || CONFIG_DEFECTO.inicio, horarios: c.horarios || CONFIG_DEFECTO.horarios } } catch { return CONFIG_DEFECTO }
 }
+// Días y horas propios de una fecha (si se editaron): [{ fecha: 'YYYY-MM-DD', horas: ['HH:MM'] }]
+type DiaFecha = { fecha: string; horas: string[] }
+const claveDias = (torneoId: string) => `programacion_dias:${torneoId}`
+async function diasFecha(torneoId: string): Promise<Record<string, DiaFecha[]>> {
+  const a = await prisma.ajuste.findUnique({ where: { key: claveDias(torneoId) } })
+  try { return a ? JSON.parse(a.value) : {} } catch { return {} }
+}
 async function cerradas(torneoId: string): Promise<number[]> {
   const a = await prisma.ajuste.findUnique({ where: { key: `jornadas_cerradas:${torneoId}` } })
   try { return a ? (JSON.parse(a.value) as number[]) : [] } catch { return [] }
@@ -32,7 +39,7 @@ export async function GET(req: NextRequest) {
   const nombre = new Map(equipos.map((t) => [t.id, t.name]))
   const gnombre = new Map(grupos.map((g) => [g.id, g.nombre]))
   return NextResponse.json({
-    ok: true, torneos, torneoId: id, config: await leerConfig(), cerradas: await cerradas(id),
+    ok: true, torneos, torneoId: id, config: await leerConfig(), cerradas: await cerradas(id), diasFecha: await diasFecha(id),
     grupos: grupos.map((g) => ({ id: g.id, nombre: g.nombre, equipos: miembros.filter((m) => m.grupoId === g.id).map((m) => ({ id: m.teamId, nombre: nombre.get(m.teamId) || '?' })) })),
     partidos: partidos.map((p) => ({ id: p.id, jornadaNum: p.jornadaNum, jornadaJuego: p.jornadaJuego, grupo: p.grupoId ? gnombre.get(p.grupoId) || null : null, localId: p.localId, visitanteId: p.visitanteId, local: nombre.get(p.localId) || '?', visitante: nombre.get(p.visitanteId) || '?', fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante })),
   })
@@ -60,6 +67,46 @@ export async function POST(req: NextRequest) {
     const key = `jornadas_cerradas:${String(b.torneoId)}`
     await prisma.ajuste.upsert({ where: { key }, create: { key, value: JSON.stringify(Array.from(lista)) }, update: { value: JSON.stringify(Array.from(lista)) } })
     return NextResponse.json({ ok: true })
+  }
+
+  // Editar los días (agregar, quitar, cambiar fecha) y las horas de una fecha abierta
+  if (b.accion === 'dias' || b.accion === 'dias_reset') {
+    const torneoId = String(b.torneoId), jornada = Number(b.jornada)
+    if (!Number.isInteger(jornada) || jornada < 1) return falla('Fecha inválida')
+    if ((await cerradas(torneoId)).includes(jornada)) return falla(`La Fecha ${jornada} está cerrada. Pulsa «Editar fecha» para modificarla.`, 409)
+    const todos = await diasFecha(torneoId)
+    if (b.accion === 'dias_reset') {
+      delete todos[jornada]
+      await prisma.ajuste.upsert({ where: { key: claveDias(torneoId) }, create: { key: claveDias(torneoId), value: JSON.stringify(todos) }, update: { value: JSON.stringify(todos) } })
+      return NextResponse.json({ ok: true })
+    }
+    const lista = Array.isArray(b.dias) ? (b.dias as { fecha: string; horas: string[]; de?: string | null }[]) : []
+    if (!lista.length) return falla('Deja al menos un día.')
+    const fechas = new Set<string>()
+    for (const d of lista) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.fecha))) return falla('Hay un día con fecha inválida.')
+      if (fechas.has(d.fecha)) return falla(`El día ${d.fecha} está repetido.`)
+      fechas.add(d.fecha)
+      if (!Array.isArray(d.horas) || !d.horas.length || d.horas.some((h) => !horaValida(String(h)))) return falla(`Revisa las horas del ${d.fecha} (formato HH:MM, separadas por coma).`)
+    }
+    const partidos = (await prisma.partido.findMany({ where: { torneoId } })).filter((p) => (p.jornadaJuego ?? p.jornadaNum) === jornada && p.fecha)
+    const nuevoDe = new Map<string, string>() // fecha anterior → nueva
+    for (const d of lista) if (d.de && d.de !== d.fecha) nuevoDe.set(d.de, d.fecha)
+    const updates: { id: string; fecha: string }[] = []
+    for (const p of partidos) {
+      const destino = nuevoDe.get(p.fecha as string) ?? (fechas.has(p.fecha as string) ? p.fecha : null)
+      if (!destino) return falla(`No se puede quitar el ${p.fecha}: tiene partidos programados (${p.hora}). Déjalos sin horario primero.`)
+      if (destino !== p.fecha) {
+        if (p.estado === 'finalizado') return falla(`El ${p.fecha} tiene partidos ya jugados: no se puede cambiar esa fecha.`)
+        updates.push({ id: p.id, fecha: destino })
+      }
+    }
+    todos[jornada] = lista.map((d) => ({ fecha: d.fecha, horas: Array.from(new Set(d.horas.map(String))).sort() })).sort((a, z) => a.fecha.localeCompare(z.fecha))
+    await prisma.$transaction([
+      ...updates.map((u) => prisma.partido.update({ where: { id: u.id }, data: { fecha: u.fecha } })),
+      prisma.ajuste.upsert({ where: { key: claveDias(torneoId) }, create: { key: claveDias(torneoId), value: JSON.stringify(todos) }, update: { value: JSON.stringify(todos) } }),
+    ])
+    return NextResponse.json({ ok: true, movidos: updates.length })
   }
 
   const p = await prisma.partido.findUnique({ where: { id: String(b.partidoId) } })

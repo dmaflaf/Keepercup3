@@ -18,6 +18,8 @@ export default function Programacion() {
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [cfg, setCfg] = useState<ConfigProg>(CONFIG_DEFECTO)
   const [cerradas, setCerradas] = useState<number[]>([])
+  const [diasFecha, setDiasFecha] = useState<Record<string, { fecha: string; horas: string[] }[]>>({})
+  const [editDias, setEditDias] = useState<{ fecha: string; horas: string; de: string | null }[] | null>(null)
   const [jornada, setJornada] = useState(1)
   const [filtro, setFiltro] = useState('')
   const [vista, setVista] = useState<'grilla' | 'balance'>('grilla')
@@ -30,7 +32,7 @@ export default function Programacion() {
   const cargar = useCallback(async (id?: string) => {
     const r = await fetch('/api/admin/programacion' + (id ? `?torneoId=${id}` : ''), { cache: 'no-store' }).then((x) => x.json()).catch(() => null)
     if (!r?.ok) { setMsg(r?.message || 'No se pudo cargar (¿eres administrador?)'); return }
-    setTorneos(r.torneos); setPartidos(r.partidos); setGrupos(r.grupos); setCfg(r.config); setCerradas(r.cerradas || []); setTid(r.torneoId || '')
+    setTorneos(r.torneos); setPartidos(r.partidos); setGrupos(r.grupos); setCfg(r.config); setCerradas(r.cerradas || []); setDiasFecha(r.diasFecha || {}); setTid(r.torneoId || '')
     setMsg(r.partidos.length ? '' : 'Este torneo todavía no tiene partidos.')
     if (r.partidos.length) setJornada((j) => (r.partidos.some((p: PartidoProg) => p.jornadaNum === j) ? j : r.partidos[0].jornadaNum))
   }, [])
@@ -42,7 +44,10 @@ export default function Programacion() {
   const cerrada = cerradas.includes(jornada)
   const delaJ = partidos.filter((p) => juegaEn(p) === jornada && (!filtro || p.grupo === filtro))
   const pendientes = delaJ.filter((p) => !p.fecha || !p.hora || !p.escenario)
-  const dias = useMemo(() => Array.from(new Set([...diasDeJornada(cfg, jornada), ...partidos.filter((p) => juegaEn(p) === jornada && p.fecha).map((p) => p.fecha as string)])).sort(), [cfg, jornada, partidos])
+  const propios = diasFecha[String(jornada)]
+  // Horas de un día: las propias de esta fecha si se editaron; si no, las de ese día de la semana
+  const horasBase = (d: string) => (propios ? propios.find((x) => x.fecha === d)?.horas || [] : cfg.horarios[String(diaSemana(d))] || [])
+  const dias = useMemo(() => Array.from(new Set([...(propios ? propios.map((x) => x.fecha) : diasDeJornada(cfg, jornada)), ...partidos.filter((p) => juegaEn(p) === jornada && p.fecha).map((p) => p.fecha as string)])).sort(), [cfg, jornada, partidos, propios])
 
   async function asignar(p: PartidoProg, fecha: string, hora: string, escenario: string) {
     const r = await post({ accion: 'asignar', partidoId: p.id, fecha, hora, escenario })
@@ -86,7 +91,7 @@ export default function Programacion() {
   async function poster() {
     const items = partidos.filter((p) => juegaEn(p) === jornada && p.fecha && p.hora && p.escenario).map((p) => ({ fecha: p.fecha as string, hora: p.hora as string, escenario: p.escenario as string, local: p.local, visitante: p.visitante, marca: etiquetaMovido(p) }))
     if (!items.length) { alert('Esta fecha todavía no tiene partidos programados.'); return }
-    const b = await posterHorario(jornada, cfg.estadios, items, cfg.horarios)
+    const b = await posterHorario(jornada, cfg.estadios, items, horasBase)
     if (!b) return
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `horarios-fecha-${jornada}.png`; a.click()
   }
@@ -113,7 +118,7 @@ export default function Programacion() {
 
           {vista === 'grilla' && (<>
             <div className={`rounded-xl p-3 mb-4 text-sm flex items-center gap-3 flex-wrap ${cerrada ? 'bg-yellow-900/30 border border-yellow-600' : 'bg-slate-800 border border-slate-700'}`}>
-              {cerrada ? <><b>🔒 Fecha {jornada} cerrada</b><span className="text-slate-300">No se puede modificar hasta que la edites.</span><button className={btn2} onClick={() => cerrarFecha(false)}>✏️ Editar fecha</button></> : <><b>{pendientes.length} por programar</b> · {delaJ.length - pendientes.length} de {delaJ.length} ya tienen horario<button className={btn2 + ' ml-auto'} onClick={() => cerrarFecha(true)}>🔒 Cerrar fecha</button></>}
+              {cerrada ? <><b>🔒 Fecha {jornada} cerrada</b><span className="text-slate-300">No se puede modificar hasta que la edites.</span><button className={btn2} onClick={() => cerrarFecha(false)}>✏️ Editar fecha</button></> : <><b>{pendientes.length} por programar</b> · {delaJ.length - pendientes.length} de {delaJ.length} ya tienen horario<button className={btn2 + ' ml-auto'} onClick={() => setEditDias(dias.map((d) => ({ fecha: d, horas: Array.from(new Set([...horasBase(d), ...partidos.filter((p) => juegaEn(p) === jornada && p.fecha === d && p.hora).map((p) => p.hora as string)])).sort().join(', '), de: d })))}>✏️ Días y horarios</button><button className={btn2} onClick={() => cerrarFecha(true)}>🔒 Cerrar fecha</button></>}
             </div>
             {!cerrada && pendientes.length > 0 && (
               <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 mb-4">
@@ -141,7 +146,7 @@ export default function Programacion() {
             )}
             {dias.map((d) => {
               const usados = partidos.filter((p) => juegaEn(p) === jornada && p.fecha === d && p.hora).map((p) => p.hora as string)
-              const horas = Array.from(new Set([...(cfg.horarios[String(diaSemana(d))] || []), ...usados])).sort()
+              const horas = Array.from(new Set([...horasBase(d), ...usados])).sort()
               if (!horas.length) return null
               return (
                 <div key={d} className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4">
@@ -195,9 +200,41 @@ export default function Programacion() {
               <label className="block text-sm mb-3">Estadio<select className={inp + ' w-full mt-1'} value={pe.estadio} onChange={(e) => setPe({ ...pe, estadio: e.target.value })}>{cfg.estadios.map((s) => <option key={s}>{s}</option>)}</select></label>
               <label className="block text-sm mb-3">Día<select className={inp + ' w-full mt-1'} value={pe.fecha} onChange={(e) => setPe({ ...pe, fecha: e.target.value, hora: '' })}>{dias.map((d) => <option key={d} value={d}>{fechaLarga(d)}</option>)}</select></label>
               <label className="block text-sm mb-1">Hora (HH:MM)<input className={inp + ' w-full mt-1'} placeholder="ej. 14:00" value={pe.hora} onChange={(e) => setPe({ ...pe, hora: e.target.value })} /></label>
-              <div className="flex gap-1 flex-wrap mb-2">{(cfg.horarios[String(diaSemana(pe.fecha))] || []).map((h) => <button key={h} className={btn2} onClick={() => setPe({ ...pe, hora: h })}>{h}</button>)}</div>
+              <div className="flex gap-1 flex-wrap mb-2">{horasBase(pe.fecha).map((h) => <button key={h} className={btn2} onClick={() => setPe({ ...pe, hora: h })}>{h}</button>)}</div>
               <Avisos p={prog} fecha={pe.fecha} hora={pe.hora} est={pe.estadio} />
               <div className="flex gap-2 mt-4"><button className={btn} disabled={!horaValida(pe.hora)} onClick={() => asignar(prog, pe.fecha, pe.hora, pe.estadio)}>Programar</button><button className={btn2 + ' !py-2'} onClick={() => setProg(null)}>Cancelar</button></div>
+            </div>
+          </div>
+        )}
+
+        {editDias && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 overflow-auto" onClick={() => setEditDias(null)}>
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-5 w-full max-w-xl mt-8" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-bold mb-1">Días y horarios de la Fecha {jornada}</h2>
+              <p className="text-sm text-slate-400 mb-3">Agrega o quita días, cambia la fecha de un día (sus partidos se mueven con él) o edita las horas. Solo para esta fecha.</p>
+              {editDias.map((d, i) => {
+                const conPartidos = partidos.filter((p) => juegaEn(p) === jornada && p.fecha === d.de).length
+                return (
+                  <div key={i} className="border-t border-slate-700 py-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input type="date" className={inp} value={d.fecha} onChange={(e) => setEditDias(editDias.map((x, k) => (k === i ? { ...x, fecha: e.target.value } : x)))} />
+                      <span className="text-sm text-slate-300">{/^\d{4}-\d{2}-\d{2}$/.test(d.fecha) ? fechaLarga(d.fecha) : ''}</span>
+                      {conPartidos > 0 && <span className="text-xs text-yellow-300">{conPartidos} partido(s){d.de && d.de !== d.fecha ? ' se moverán a este día' : ''}</span>}
+                      <button className={btn2 + ' ml-auto'} disabled={conPartidos > 0} title={conPartidos ? 'Tiene partidos: déjalos sin horario primero' : ''} onClick={() => setEditDias(editDias.filter((_, k) => k !== i))}>🗑 Quitar día</button>
+                    </div>
+                    <label className="block text-xs text-slate-400 mt-2">Horas (HH:MM separadas por coma)
+                      <input className={inp + ' w-full mt-1'} value={d.horas} onChange={(e) => setEditDias(editDias.map((x, k) => (k === i ? { ...x, horas: e.target.value } : x)))} placeholder="ej. 09:00, 11:00, 13:00" /></label>
+                  </div>)
+              })}
+              <button className={btn2 + ' mt-2'} onClick={() => { const ult = editDias[editDias.length - 1]?.fecha; const sig = ult && /^\d{4}-\d{2}-\d{2}$/.test(ult) ? new Date(new Date(ult + 'T00:00:00Z').getTime() + 86400000).toISOString().slice(0, 10) : diasDeJornada(cfg, jornada)[0]; setEditDias([...editDias, { fecha: sig, horas: (cfg.horarios[String(diaSemana(sig))] || ['10:00', '12:00', '14:00']).join(', '), de: null }]) }}>＋ Agregar día</button>
+              <div className="flex gap-2 mt-4 flex-wrap">
+                <button className={btn} onClick={async () => {
+                  const lista = (t: string) => t.split(',').map((x) => x.trim()).filter(Boolean).map((h) => (/^\d:\d\d$/.test(h) ? '0' + h : h))
+                  const r = await post({ accion: 'dias', torneoId: tid, jornada, dias: editDias.map((d) => ({ fecha: d.fecha, horas: lista(d.horas), de: d.de })) })
+                  if (!r.ok) { alert(r.message); return } setEditDias(null); cargar(tid) }}>Guardar</button>
+                <button className={btn2 + ' !py-2'} onClick={() => setEditDias(null)}>Cancelar</button>
+                {propios && <button className={btn2 + ' !py-2 ml-auto'} onClick={async () => { if (!confirm('¿Volver a los días y horas generales para esta fecha?')) return; const r = await post({ accion: 'dias_reset', torneoId: tid, jornada }); if (!r.ok) { alert(r.message); return } setEditDias(null); cargar(tid) }}>Volver a lo general</button>}
+              </div>
             </div>
           </div>
         )}

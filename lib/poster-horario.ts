@@ -16,13 +16,13 @@ async function cargarFuentes() {
 const imagen = (src: string) => new Promise<HTMLImageElement | null>((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src })
 const hh = (h: string) => h.replace(':', 'h')
 
-export async function posterHorario(jornada: number, estadios: string[], items: ItemPoster[], horariosCfg: Record<string, string[]> = {}): Promise<Blob | null> {
+export async function posterHorario(jornada: number, estadios: string[], items: ItemPoster[], horasDelDia: (fecha: string) => string[] = () => []): Promise<Blob | null> {
   await cargarFuentes()
   const F = (peso: string, px: number, it = false) => `${it ? 'italic ' : ''}${peso} ${px}px Barlow, 'Arial Narrow', system-ui, sans-serif`
   const cols = estadios.slice(0, 2).length ? estadios.slice(0, 2) : ['San Miguel']
   const dias = Array.from(new Set(items.map((i) => i.fecha))).sort()
   // Filas de cada día: las horas configuradas para ese día más las de los partidos
-  const horasDe = (d: string) => Array.from(new Set([...(horariosCfg[String(diaSemana(d))] || []), ...items.filter((i) => i.fecha === d).map((i) => i.hora)])).sort()
+  const horasDe = (d: string) => Array.from(new Set([...horasDelDia(d), ...items.filter((i) => i.fecha === d).map((i) => i.hora)])).sort()
   const FILA = 50, CAB_DIA = 40
   const W = 1600, panelY = 228, cuerpoY = panelY + 110
   const altoCuerpo = dias.reduce((n, d) => n + CAB_DIA + horasDe(d).length * FILA + 16, 0)
