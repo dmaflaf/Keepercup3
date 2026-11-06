@@ -17,6 +17,19 @@ async function ventana(): Promise<Ventana> {
 }
 const ventanaActiva = (v: Ventana) => v.abierta && (!v.hasta || hoyEc() <= v.hasta)
 
+/** Torneo en curso (activo más reciente) y su límite de traspasos por jugador. Los traspasos antiguos sin torneo pasan a él. */
+async function torneoActual() {
+  const t = await prisma.torneo.findFirst({ where: { activo: true }, orderBy: { createdAt: 'desc' }, select: { id: true, nombre: true, traspasosPorJugador: true } })
+  if (t) await prisma.traspaso.updateMany({ where: { torneoId: null }, data: { torneoId: t.id } })
+  return t
+}
+const vigentes = (playerId: string, torneoId: string | null) => prisma.traspaso.count({ where: { playerId, anulado: false, ...(torneoId ? { torneoId } : {}) } })
+/** Registros del jugador en partidos de este torneo (alineaciones, goles, tarjetas). */
+async function eventosEnTorneo(playerId: string, torneoId: string | null, teamId?: string) {
+  const partidoIds = torneoId ? (await prisma.partido.findMany({ where: { torneoId }, select: { id: true } })).map((p) => p.id) : undefined
+  return prisma.evento.count({ where: { playerId, ...(partidoIds ? { partidoId: { in: partidoIds } } : {}), ...(teamId ? { teamId } : {}) } })
+}
+
 export async function GET(req: NextRequest) {
   const no = await exigirAdmin()
   if (no) return no
@@ -31,13 +44,15 @@ export async function GET(req: NextRequest) {
     const palabras = q.toLowerCase().split(/\s+/).filter(Boolean)
     const filtrados = jugadores.filter((j) => dig.length >= 4 && (j.cedula || '').includes(dig) || palabras.every((w) => `${j.firstName} ${j.lastName}`.toLowerCase().includes(w))).slice(0, 15)
     const ids = filtrados.map((j) => j.id)
+    const t = await torneoActual()
+    const partidoIds = t ? (await prisma.partido.findMany({ where: { torneoId: t.id }, select: { id: true } })).map((p) => p.id) : undefined
     const [eventos, pases] = await Promise.all([
-      prisma.evento.groupBy({ by: ['playerId'], where: { playerId: { in: ids } }, _count: { _all: true } }),
-      prisma.traspaso.groupBy({ by: ['playerId'], where: { playerId: { in: ids }, anulado: false }, _count: { _all: true } }),
+      prisma.evento.groupBy({ by: ['playerId'], where: { playerId: { in: ids }, ...(partidoIds ? { partidoId: { in: partidoIds } } : {}) }, _count: { _all: true } }),
+      prisma.traspaso.groupBy({ by: ['playerId'], where: { playerId: { in: ids }, anulado: false, ...(t ? { torneoId: t.id } : {}) }, _count: { _all: true } }),
     ])
     const ev = new Map(eventos.map((e) => [e.playerId, e._count._all]))
     const ps = new Map(pases.map((e) => [e.playerId, e._count._all]))
-    return NextResponse.json({ ok: true, jugadores: filtrados.map((j) => ({ id: j.id, nombre: `${j.firstName} ${j.lastName}`, cedula: j.cedula, numero: j.number, clubId: j.team.id, club: j.team.name, eventos: ev.get(j.id) || 0, pases: ps.get(j.id) || 0 })) })
+    return NextResponse.json({ ok: true, jugadores: filtrados.map((j) => ({ id: j.id, nombre: `${j.firstName} ${j.lastName}`, cedula: j.cedula, numero: j.number, clubId: j.team.id, club: j.team.name, eventos: ev.get(j.id) || 0, pases: ps.get(j.id) || 0, limite: t?.traspasosPorJugador ?? 1 })) })
   }
   const [equipos, historial] = await Promise.all([
     prisma.team.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
@@ -45,7 +60,8 @@ export async function GET(req: NextRequest) {
   ])
   const nombres = new Map((await prisma.player.findMany({ where: { id: { in: historial.map((h) => h.playerId) } }, select: { id: true, firstName: true, lastName: true } })).map((p) => [p.id, `${p.firstName} ${p.lastName}`]))
   const v = await ventana()
-  return NextResponse.json({ ok: true, equipos, ventana: { ...v, activa: ventanaActiva(v) }, historial: historial.map((h) => ({ ...h, jugador: nombres.get(h.playerId) || '(eliminado)' })) })
+  const t = await torneoActual()
+  return NextResponse.json({ ok: true, equipos, torneo: t, ventana: { ...v, activa: ventanaActiva(v) }, historial: historial.map((h) => ({ ...h, jugador: nombres.get(h.playerId) || '(eliminado)' })) })
 }
 
 export async function POST(req: NextRequest) {
@@ -73,8 +89,11 @@ export async function POST(req: NextRequest) {
     const destino = await prisma.team.findUnique({ where: { id: String(b.aTeamId) }, select: { id: true, name: true } })
     if (!destino) return falla('Club de destino no encontrado', 404)
     if (destino.id === j.teamId) return falla('El jugador ya está en ese club')
-    if (await prisma.traspaso.count({ where: { playerId: j.id, anulado: false } })) return falla('Este jugador ya tuvo su único traspaso del torneo.')
-    const eventos = await prisma.evento.count({ where: { playerId: j.id } })
+    const t = await torneoActual()
+    const limite = t?.traspasosPorJugador ?? 1
+    const hechos = await vigentes(j.id, t?.id ?? null)
+    if (hechos >= limite) return falla(limite === 0 ? `En ${t?.nombre || 'este torneo'} no se permiten traspasos.` : limite === 1 ? `Este jugador ya tuvo su único traspaso de ${t?.nombre || 'este torneo'}.` : `Este jugador ya usó sus ${limite} traspasos permitidos en ${t?.nombre || 'este torneo'}.`)
+    const eventos = await eventosEnTorneo(j.id, t?.id ?? null, j.teamId)
     if (eventos > 0) return falla(`${j.firstName} ${j.lastName} ya tiene ${eventos} registro(s) en partidos (alineaciones, goles o tarjetas): no puede cambiar de club.`)
     const numero = b.numero === '' || b.numero === null || b.numero === undefined ? null : Number(b.numero)
     if (numero !== null && (!Number.isInteger(numero) || numero < 0 || numero > 99)) return falla('Número inválido')
@@ -82,7 +101,7 @@ export async function POST(req: NextRequest) {
     if (j.cedula && (await prisma.player.findFirst({ where: { teamId: destino.id, cedula: j.cedula } }))) return falla(`Ya existe un jugador con esa cédula en ${destino.name}. Revisa duplicados en Depuración.`)
     await prisma.$transaction([
       prisma.player.update({ where: { id: j.id }, data: { teamId: destino.id, number: numero } }),
-      prisma.traspaso.create({ data: { playerId: j.id, deTeamId: j.team.id, aTeamId: destino.id, deClub: j.team.name, aClub: destino.name, numeroAnterior: j.number, numeroNuevo: numero, motivo: typeof b.motivo === 'string' ? b.motivo.trim().slice(0, 200) || null : null, usuario: u.email } }),
+      prisma.traspaso.create({ data: { torneoId: t?.id ?? null, playerId: j.id, deTeamId: j.team.id, aTeamId: destino.id, deClub: j.team.name, aClub: destino.name, numeroAnterior: j.number, numeroNuevo: numero, motivo: typeof b.motivo === 'string' ? b.motivo.trim().slice(0, 200) || null : null, usuario: u.email } }),
     ])
     return NextResponse.json({ ok: true, nombre: `${j.firstName} ${j.lastName}`, de: j.team.name, a: destino.name })
   }
@@ -101,7 +120,7 @@ export async function POST(req: NextRequest) {
     const anular = prisma.traspaso.update({ where: { id: t.id }, data: { anulado: true, anuladoMotivo: motivo, anuladoPor: u.email, anuladoEn: new Date() } })
     if (!j) { await anular; return NextResponse.json({ ok: true, aviso: 'El jugador ya no existe; solo se anuló el registro.' }) }
     if (j.teamId !== t.aTeamId) return falla(`El jugador ya no está en ${t.aClub}; no se puede devolver automáticamente.`)
-    const ev = await prisma.evento.count({ where: { playerId: j.id } })
+    const ev = await eventosEnTorneo(j.id, t.torneoId, t.aTeamId)
     if (ev) return falla(`El jugador ya tiene ${ev} registro(s) en partidos con ${t.aClub} (alineaciones, goles o tarjetas). Corrige o borra esos registros antes de eliminar el traspaso.`)
     if (!(await prisma.team.findUnique({ where: { id: t.deTeamId }, select: { id: true } }))) return falla(`El club de origen (${t.deClub}) ya no existe.`)
     if (j.cedula && (await prisma.player.findFirst({ where: { teamId: t.deTeamId, cedula: j.cedula, id: { not: j.id } } }))) return falla(`Ya hay otro jugador con esa cédula en ${t.deClub}.`)

@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     }
     case 'editar_torneo': {
       const data: Record<string, unknown> = {}
-      for (const k of ['puntosVictoria', 'puntosEmpate', 'puntosDerrota', 'amarillasSuspension', 'partidosDobleAmarilla', 'partidosRojaDirecta']) {
+      for (const k of ['puntosVictoria', 'puntosEmpate', 'puntosDerrota', 'amarillasSuspension', 'partidosDobleAmarilla', 'partidosRojaDirecta', 'traspasosPorJugador']) {
         if (b[k] !== undefined) { const n = entero(b[k]); if (n === null || Number.isNaN(n)) return falla('Número inválido en ' + k); data[k] = n }
       }
       if ((data.amarillasSuspension as number) === 0) return falla('Las amarillas para suspensión deben ser 1 o más')

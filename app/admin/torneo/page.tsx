@@ -8,7 +8,7 @@ interface Fila { teamId: string; equipo: string; pj: number; pg: number; pe: num
 interface Grupo { id: string; nombre: string; equipos: (Equipo & { posManual: number | null })[]; tabla: Fila[] }
 interface Fase { id: string; orden: number; nombre: string; tipo: string; criterios: string[]; grupos: Grupo[] }
 interface Partido { id: string; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; veedor: string | null; estado: string; localId: string; visitanteId: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null }
-interface Torneo { id: string; nombre: string; publico: boolean; puntosVictoria: number; puntosEmpate: number; puntosDerrota: number; amarillasSuspension: number; partidosDobleAmarilla: number; partidosRojaDirecta: number; fases: Fase[]; partidos: Partido[] }
+interface Torneo { id: string; nombre: string; publico: boolean; puntosVictoria: number; puntosEmpate: number; puntosDerrota: number; amarillasSuspension: number; partidosDobleAmarilla: number; partidosRojaDirecta: number; traspasosPorJugador: number; fases: Fase[]; partidos: Partido[] }
 
 const CRIT: Record<string, string> = { puntos: 'Puntos', dg: 'Diferencia de gol', gf: 'Goles a favor', gc: 'Goles en contra (menos es mejor)', ganados: 'Partidos ganados', h2h: 'Enfrentamiento directo', fairplay: 'Juego limpio (menos tarjetas)' }
 const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm'
@@ -93,10 +93,10 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 function Reglas({ t, act }: { t: Torneo; act: (a: string, d?: Record<string, unknown>, ok?: string) => Promise<{ ok: boolean; pendientes?: number }> }) {
-  const campos: [keyof Torneo, string][] = [['puntosVictoria', 'Puntos victoria'], ['puntosEmpate', 'Puntos empate'], ['puntosDerrota', 'Puntos derrota'], ['amarillasSuspension', 'Amarillas = 1 partido de suspensión'], ['partidosDobleAmarilla', 'Partidos por doble amarilla'], ['partidosRojaDirecta', 'Partidos por roja directa']]
+  const campos: [keyof Torneo, string][] = [['puntosVictoria', 'Puntos victoria'], ['puntosEmpate', 'Puntos empate'], ['puntosDerrota', 'Puntos derrota'], ['amarillasSuspension', 'Amarillas = 1 partido de suspensión'], ['partidosDobleAmarilla', 'Partidos por doble amarilla'], ['partidosRojaDirecta', 'Partidos por roja directa'], ['traspasosPorJugador', 'Traspasos permitidos por jugador']]
   return (
     <details className={sec}>
-      <summary className="font-bold cursor-pointer">Reglas del torneo (puntos y sanciones)</summary>
+      <summary className="font-bold cursor-pointer">Reglas del torneo (puntos, sanciones y traspasos)</summary>
       <div className="grid md:grid-cols-3 gap-3 mt-3">
         {campos.map(([k, l]) => (
           <label key={k} className="text-sm text-slate-300 flex flex-col gap-1">{l}

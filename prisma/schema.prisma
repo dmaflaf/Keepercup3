@@ -325,6 +325,7 @@ model Torneo {
   amarillasSuspension   Int      @default(3) // cada N amarillas acumuladas = 1 partido de suspensión
   partidosDobleAmarilla Int      @default(1)
   partidosRojaDirecta   Int      @default(2)
+  traspasosPorJugador   Int      @default(1) // traspasos permitidos a cada jugador en este torneo
   minutosTiempo         Int      @default(45)
   titulares             Int      @default(11)
   cambiosMax            Int      @default(29)
@@ -455,6 +456,7 @@ model Traspaso {
   motivo          String?
   usuario         String
   carnetReimpreso Boolean  @default(false)
+  torneoId        String?  // torneo en que se hizo (para el límite por torneo)
   // Eliminado por error: queda en el historial pero no cuenta como el único traspaso del jugador
   anulado         Boolean  @default(false)
   anuladoMotivo   String?

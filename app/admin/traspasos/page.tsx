@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 
 interface Eq { id: string; name: string }
-interface Jug { id: string; nombre: string; cedula: string | null; numero: number | null; clubId: string; club: string; eventos: number; pases: number }
+interface Jug { id: string; nombre: string; cedula: string | null; numero: number | null; clubId: string; club: string; eventos: number; pases: number; limite?: number }
 interface Hist { id: string; jugador: string; deClub: string; aClub: string; numeroAnterior: number | null; numeroNuevo: number | null; motivo: string | null; usuario: string; carnetReimpreso: boolean; createdAt: string; anulado?: boolean; anuladoMotivo?: string | null; anuladoPor?: string | null; anuladoEn?: string | null }
 
 const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm'
@@ -15,6 +15,7 @@ const sec = 'bg-slate-800 border border-slate-700 rounded-xl p-5 mb-5'
 export default function Traspasos() {
   const [equipos, setEquipos] = useState<Eq[]>([])
   const [historial, setHistorial] = useState<Hist[]>([])
+  const [torneo, setTorneo] = useState<{ id: string; nombre: string; traspasosPorJugador: number } | null>(null)
   const [ventana, setVentana] = useState<{ abierta: boolean; hasta: string | null; activa: boolean } | null>(null)
   const [q, setQ] = useState('')
   const [resultados, setResultados] = useState<Jug[] | null>(null)
@@ -28,7 +29,7 @@ export default function Traspasos() {
   const cargar = useCallback(async () => {
     const r = await fetch('/api/admin/traspasos', { cache: 'no-store' }).then((x) => x.json()).catch(() => null)
     if (!r?.ok) { setMsg(r?.message || 'No se pudo cargar (¿eres administrador?)'); return }
-    setEquipos(r.equipos); setHistorial(r.historial); setVentana(r.ventana)
+    setEquipos(r.equipos); setHistorial(r.historial); setVentana(r.ventana); setTorneo(r.torneo || null)
   }, [])
   useEffect(() => { cargar() }, [cargar])
 
@@ -67,7 +68,7 @@ export default function Traspasos() {
       <div className="max-w-4xl mx-auto px-6 py-10">
         <Link href="/admin/dashboard" className="text-slate-400 text-sm hover:text-white">← Inicio</Link>
         <h1 className="text-3xl font-bold mt-3 mb-1">🔁 Traspasos</h1>
-        <p className="text-slate-400 mb-5">Cambia a un jugador de club sin perder su QR, sus fotos ni su historial. <b>Reglas:</b> solo el administrador · solo en la fase preliminar y la Fase 1 · un único traspaso por jugador · quien ya tiene partidos registrados no puede cambiar de club.</p>
+        <p className="text-slate-400 mb-5">Cambia a un jugador de club sin perder su QR, sus fotos ni su historial. <b>Reglas:</b> solo el administrador · solo en la fase preliminar y la Fase 1 · {torneo ? <><b>{torneo.traspasosPorJugador}</b> traspaso(s) por jugador en {torneo.nombre} (se cambia en 🏆 Torneo → Reglas)</> : 'un traspaso por jugador'} · un traspaso eliminado por error no cuenta · quien ya tiene partidos registrados no puede cambiar de club.</p>
         {msg && <div className="bg-slate-700 border border-slate-500 rounded-lg p-3 mb-4 text-sm" onClick={() => setMsg('')}>{msg}</div>}
 
         {ventana && (
@@ -91,7 +92,7 @@ export default function Traspasos() {
           </div>
           {resultados && !resultados.length && <p className="text-slate-400 text-sm mt-3">No se encontró a nadie con ese dato.</p>}
           {resultados && resultados.map((r) => {
-            const bloqueo = r.pases > 0 ? 'Ya tuvo su único traspaso' : r.eventos > 0 ? `Ya tiene ${r.eventos} registro(s) en partidos` : ''
+            const bloqueo = r.pases >= (r.limite ?? 1) ? ((r.limite ?? 1) <= 1 ? 'Ya tuvo su único traspaso' : `Ya usó sus ${r.limite} traspasos`) : r.eventos > 0 ? `Ya tiene ${r.eventos} registro(s) en partidos` : ''
             return (
               <div key={r.id} className={`mt-2 flex items-center gap-3 flex-wrap border rounded-lg px-3 py-2 ${jug?.id === r.id ? 'border-yellow-400 bg-slate-700' : 'border-slate-600'}`}>
                 <span className="flex-1 min-w-[12rem]"><b>{r.nombre}</b> <span className="text-slate-400 text-sm">· {r.club} · N.º {r.numero ?? 's/n'} · {r.cedula}</span></span>
