@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 interface Eq { id: string; name: string }
 interface Jug { id: string; nombre: string; cedula: string | null; numero: number | null; clubId: string; club: string; eventos: number; pases: number }
-interface Hist { id: string; jugador: string; deClub: string; aClub: string; numeroAnterior: number | null; numeroNuevo: number | null; motivo: string | null; usuario: string; carnetReimpreso: boolean; createdAt: string }
+interface Hist { id: string; jugador: string; deClub: string; aClub: string; numeroAnterior: number | null; numeroNuevo: number | null; motivo: string | null; usuario: string; carnetReimpreso: boolean; createdAt: string; anulado?: boolean; anuladoMotivo?: string | null; anuladoPor?: string | null; anuladoEn?: string | null }
 
 const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm'
 const btn = 'px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-semibold text-sm'
@@ -123,16 +123,20 @@ export default function Traspasos() {
         )}
 
         <section className={sec}>
-          <h2 className="font-bold mb-3">Historial de traspasos ({historial.length})</h2>
+          <h2 className="font-bold mb-3">Historial de traspasos ({historial.filter((h) => !h.anulado).length}{historial.some((h) => h.anulado) ? ` · ${historial.filter((h) => h.anulado).length} eliminado(s)` : ''})</h2>
           {!historial.length && <p className="text-slate-400 text-sm">Todavía no hay traspasos.</p>}
           {historial.map((h) => (
-            <div key={h.id} className="border-t border-slate-700 py-3 text-sm flex items-center gap-3 flex-wrap">
+            <div key={h.id} className={`border-t border-slate-700 py-3 text-sm flex items-center gap-3 flex-wrap ${h.anulado ? 'opacity-50' : ''}`}>
               <span className="flex-1 min-w-[16rem]">
-                <b>{h.jugador}</b> · {h.deClub} {h.numeroAnterior !== null && `(N.º ${h.numeroAnterior})`} → <b>{h.aClub}</b> {h.numeroNuevo !== null && `(N.º ${h.numeroNuevo})`}
-                <span className="text-slate-400 block">{fecha(h.createdAt)} · {h.usuario}{h.motivo && ` · ${h.motivo}`}</span>
+                {h.anulado && <b className="text-red-300">ELIMINADO · </b>}<b>{h.jugador}</b> · {h.deClub} {h.numeroAnterior !== null && `(N.º ${h.numeroAnterior})`} → <b>{h.aClub}</b> {h.numeroNuevo !== null && `(N.º ${h.numeroNuevo})`}
+                <span className="text-slate-400 block">{fecha(h.createdAt)} · {h.usuario}{h.motivo && ` · ${h.motivo}`}{h.anulado && <span className="block text-red-300">Eliminado {h.anuladoEn ? fecha(h.anuladoEn) : ''} por {h.anuladoPor} · {h.anuladoMotivo}</span>}</span>
               </span>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={h.carnetReimpreso} onChange={async (e) => { await post({ accion: 'reimpreso', id: h.id, valor: e.target.checked }); cargar() }} /> {h.carnetReimpreso ? <span className="text-green-400">Carnet reimpreso</span> : <span className="text-yellow-300">Falta reimprimir carnet</span>}</label>
-              <button className="text-red-400 underline text-xs" onClick={async () => { if (!confirm('¿Deshacer este traspaso y devolver al jugador a su club anterior?')) return; const r = await post({ accion: 'deshacer', id: h.id }); if (!r.ok) alert(r.message); cargar() }}>Deshacer</button>
+              {!h.anulado && <label className="flex items-center gap-2"><input type="checkbox" checked={h.carnetReimpreso} onChange={async (e) => { await post({ accion: 'reimpreso', id: h.id, valor: e.target.checked }); cargar() }} /> {h.carnetReimpreso ? <span className="text-green-400">Carnet reimpreso</span> : <span className="text-yellow-300">Falta reimprimir carnet</span>}</label>}
+              {!h.anulado && <button className="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs font-semibold" onClick={async () => {
+                const motivo = prompt(`Eliminar el traspaso de ${h.jugador} (${h.deClub} → ${h.aClub}).\n\nEl jugador vuelve a ${h.deClub} con su número anterior. El registro queda en el historial como eliminado y NO cuenta como su único traspaso, así puedes hacer el correcto.\n\nEscribe el motivo del error:`)
+                if (motivo === null) return
+                if (!motivo.trim()) { alert('Escribe el motivo.'); return }
+                const r = await post({ accion: 'eliminar', id: h.id, motivo }); alert(r.ok ? `Traspaso eliminado. ${r.aviso || ''}` : r.message); cargar() }}>🗑 Eliminar traspaso</button>}
             </div>
           ))}
         </section>

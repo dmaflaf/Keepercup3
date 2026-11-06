@@ -455,6 +455,11 @@ model Traspaso {
   motivo          String?
   usuario         String
   carnetReimpreso Boolean  @default(false)
+  // Eliminado por error: queda en el historial pero no cuenta como el único traspaso del jugador
+  anulado         Boolean  @default(false)
+  anuladoMotivo   String?
+  anuladoPor      String?
+  anuladoEn       DateTime?
   createdAt       DateTime @default(now())
 
   @@index([playerId])

@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const ids = filtrados.map((j) => j.id)
     const [eventos, pases] = await Promise.all([
       prisma.evento.groupBy({ by: ['playerId'], where: { playerId: { in: ids } }, _count: { _all: true } }),
-      prisma.traspaso.groupBy({ by: ['playerId'], where: { playerId: { in: ids } }, _count: { _all: true } }),
+      prisma.traspaso.groupBy({ by: ['playerId'], where: { playerId: { in: ids }, anulado: false }, _count: { _all: true } }),
     ])
     const ev = new Map(eventos.map((e) => [e.playerId, e._count._all]))
     const ps = new Map(pases.map((e) => [e.playerId, e._count._all]))
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     const destino = await prisma.team.findUnique({ where: { id: String(b.aTeamId) }, select: { id: true, name: true } })
     if (!destino) return falla('Club de destino no encontrado', 404)
     if (destino.id === j.teamId) return falla('El jugador ya está en ese club')
-    if (await prisma.traspaso.count({ where: { playerId: j.id } })) return falla('Este jugador ya tuvo su único traspaso del torneo.')
+    if (await prisma.traspaso.count({ where: { playerId: j.id, anulado: false } })) return falla('Este jugador ya tuvo su único traspaso del torneo.')
     const eventos = await prisma.evento.count({ where: { playerId: j.id } })
     if (eventos > 0) return falla(`${j.firstName} ${j.lastName} ya tiene ${eventos} registro(s) en partidos (alineaciones, goles o tarjetas): no puede cambiar de club.`)
     const numero = b.numero === '' || b.numero === null || b.numero === undefined ? null : Number(b.numero)
@@ -85,6 +85,32 @@ export async function POST(req: NextRequest) {
       prisma.traspaso.create({ data: { playerId: j.id, deTeamId: j.team.id, aTeamId: destino.id, deClub: j.team.name, aClub: destino.name, numeroAnterior: j.number, numeroNuevo: numero, motivo: typeof b.motivo === 'string' ? b.motivo.trim().slice(0, 200) || null : null, usuario: u.email } }),
     ])
     return NextResponse.json({ ok: true, nombre: `${j.firstName} ${j.lastName}`, de: j.team.name, a: destino.name })
+  }
+
+  // Eliminar un traspaso hecho por error: el jugador vuelve a su club y número anteriores y el registro queda anulado
+  // en el historial (no cuenta como su único traspaso, así se puede hacer el correcto).
+  if (b.accion === 'eliminar') {
+    const t = await prisma.traspaso.findUnique({ where: { id: String(b.id) } })
+    if (!t) return falla('Traspaso no encontrado', 404)
+    if (t.anulado) return falla('Ese traspaso ya fue eliminado.')
+    const motivo = typeof b.motivo === 'string' ? b.motivo.trim().slice(0, 200) : ''
+    if (!motivo) return falla('Escribe el motivo del error.')
+    const ultimo = await prisma.traspaso.findFirst({ where: { playerId: t.playerId, anulado: false }, orderBy: { createdAt: 'desc' } })
+    if (ultimo && ultimo.id !== t.id) return falla('Solo se puede eliminar el último traspaso vigente del jugador.')
+    const j = await prisma.player.findUnique({ where: { id: t.playerId }, select: { id: true, teamId: true, cedula: true } })
+    const anular = prisma.traspaso.update({ where: { id: t.id }, data: { anulado: true, anuladoMotivo: motivo, anuladoPor: u.email, anuladoEn: new Date() } })
+    if (!j) { await anular; return NextResponse.json({ ok: true, aviso: 'El jugador ya no existe; solo se anuló el registro.' }) }
+    if (j.teamId !== t.aTeamId) return falla(`El jugador ya no está en ${t.aClub}; no se puede devolver automáticamente.`)
+    const ev = await prisma.evento.count({ where: { playerId: j.id } })
+    if (ev) return falla(`El jugador ya tiene ${ev} registro(s) en partidos con ${t.aClub} (alineaciones, goles o tarjetas). Corrige o borra esos registros antes de eliminar el traspaso.`)
+    if (!(await prisma.team.findUnique({ where: { id: t.deTeamId }, select: { id: true } }))) return falla(`El club de origen (${t.deClub}) ya no existe.`)
+    if (j.cedula && (await prisma.player.findFirst({ where: { teamId: t.deTeamId, cedula: j.cedula, id: { not: j.id } } }))) return falla(`Ya hay otro jugador con esa cédula en ${t.deClub}.`)
+    const numOcupado = t.numeroAnterior !== null && !!(await prisma.player.findFirst({ where: { teamId: t.deTeamId, number: t.numeroAnterior, id: { not: j.id } } }))
+    await prisma.$transaction([
+      prisma.player.update({ where: { id: j.id }, data: { teamId: t.deTeamId, number: numOcupado ? null : t.numeroAnterior } }),
+      anular,
+    ])
+    return NextResponse.json({ ok: true, aviso: numOcupado ? `Volvió a ${t.deClub} sin número: el N.º ${t.numeroAnterior} ya lo usa otro jugador.` : `Volvió a ${t.deClub}.` })
   }
 
   if (b.accion === 'deshacer') {
