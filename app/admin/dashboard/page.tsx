@@ -93,6 +93,7 @@ export default function AdminDashboard() {
             { icono: '⚙️', titulo: 'Respaldo', texto: 'Descargar copia de datos (Excel/JSON) y fotos por club', ruta: '/admin/respaldo', solo: 'admin' },
             { icono: '🔑', titulo: 'Usuarios', texto: 'Crear vocales para iPad/celulares y restablecer claves', ruta: '/admin/usuarios', solo: 'admin' },
             { icono: '🏟️', titulo: 'Clubes', texto: 'Listado de clubes registrados y avance de cada nómina', ruta: '/admin/clubes', solo: 'admin' },
+            { icono: '➕', titulo: 'Agregar jugador', texto: 'Inscribir un jugador nuevo en un club (cualquier fase)', ruta: '/admin/jugadores/nuevo', solo: 'admin' },
             { icono: '🔁', titulo: 'Traspasos', texto: 'Cambiar a un jugador de club (un solo pase, solo en Fase 1)', ruta: '/admin/traspasos', solo: 'admin' },
             { icono: '🧹', titulo: 'Depuración', texto: 'Qué falta o está mal: cédulas, fotos, duplicados, grupos y fixture', ruta: '/admin/depuracion', solo: 'admin' },
             { icono: '📋', titulo: 'Planilla en vivo', texto: 'Alineaciones, cronómetro, goles, tarjetas y cambios al minuto (iPad/celular)', ruta: '/admin/planilla' },
