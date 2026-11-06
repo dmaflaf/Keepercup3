@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import EliminarJugador from '@/app/components/EliminarJugador'
 
 interface Edit { id: string; firstName: string; lastName: string; cedula: string; number: string; position: string; birthDate: string; email: string; phone: string; estado: string; equipo: string; editadoManual: boolean; regenerarQr: boolean }
 interface J { id: string; nombre: string; numero: number | null; estado: string; tieneQr: boolean; reimprimir?: boolean; selfie: boolean; cedulas: boolean }
@@ -90,16 +91,8 @@ export default function Carnets() {
   }
   const campo = (k: keyof Edit, v: string) => setEdit((e) => (e ? { ...e, [k]: v } : e))
 
-  async function eliminar(id: string, nombre: string) {
-    if (!confirm(`¿Eliminar a ${nombre} de ${club}?\n\nSe borran también sus fotos. Esto no se puede deshacer.`)) return
-    setOcupado(true)
-    const r = await fetch(`/api/admin/jugadores/${id}`, { method: 'DELETE' }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Error de conexión' }))
-    setOcupado(false)
-    if (!r.ok) { alert(r.message || 'No se pudo eliminar'); return }
-    setSel((a) => a.filter((x) => x !== id))
-    setMsg(`Eliminado: ${r.nombre}.`)
-    cargar(club)
-  }
+  const [borrar, setBorrar] = useState<{ id: string; nombre: string } | null>(null)
+  const eliminar = (id: string, nombre: string) => setBorrar({ id, nombre })
 
   // Vista previa: se genera el PDF una sola vez y se muestra aquí; «Descargar» guarda ese mismo archivo (no se vuelve a generar)
   const [vista, setVista] = useState<{ url: string; nombre: string; cantidad: number } | null>(null)
@@ -221,6 +214,7 @@ export default function Carnets() {
           <iframe src={vista.url} title="Vista previa de carnets" className="flex-1 w-full bg-white rounded-b-xl" />
         </div>
       )}
+      {borrar && <EliminarJugador id={borrar.id} nombre={borrar.nombre} club={club} onCerrar={() => setBorrar(null)} onEliminado={(n) => { setSel((x) => x.filter((v) => v !== borrar.id)); setMsg(`Eliminado: ${n}.`); setBorrar(null); cargar(club) }} />}
     </div>
   )
 }

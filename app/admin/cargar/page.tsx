@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import EliminarJugador from '@/app/components/EliminarJugador'
 import * as XLSX from 'xlsx'
 
 interface JugadorClub { id: string; nombre: string; cedula: string | null; numero: number | null; selfie: boolean; frente: boolean; reverso: boolean }
@@ -189,15 +190,8 @@ export default function CargarClub() {
   const enCola = (j: JugadorClub, t: Tipo) => aSubir.some((f) => f.cedula === j.cedula && f.tipo === t)
   const marca = (ya: boolean, nueva: boolean) => (nueva ? <span className="text-yellow-300" title="Se subirá">⬆</span> : ya ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>)
 
-  async function eliminarJugador(j: JugadorClub) {
-    if (!confirm(`¿Eliminar a ${j.nombre} (cédula ${j.cedula || 'sin dato'}) de ${nombreClub}?\n\nSe borran también sus fotos. Esto no se puede deshacer.`)) return
-    setOcupado(true)
-    const r = await fetch(`/api/admin/jugadores/${j.id}`, { method: 'DELETE' }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Error de conexión' }))
-    setOcupado(false)
-    setMsg(r.ok ? `Eliminado: ${r.nombre}.` : r.message || 'No se pudo eliminar')
-    if (!r.ok) alert(r.message || 'No se pudo eliminar') // el aviso de arriba puede quedar fuera de pantalla
-    if (r.ok) cargarClub(nombreClub)
-  }
+  const [borrar, setBorrar] = useState<JugadorClub | null>(null)
+  const eliminarJugador = (j: JugadorClub) => setBorrar(j)
 
   async function subirFotos() {
     setOcupado(true)
@@ -332,6 +326,7 @@ export default function CargarClub() {
           </>)}
         </section>
       </div>
+      {borrar && <EliminarJugador id={borrar.id} nombre={borrar.nombre} club={nombreClub} onCerrar={() => setBorrar(null)} onEliminado={(n) => { setMsg(`Eliminado: ${n}.`); setBorrar(null); cargarClub(nombreClub) }} />}
     </div>
   )
 }
