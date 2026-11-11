@@ -246,6 +246,14 @@
     text-decoration:none; text-transform:uppercase; letter-spacing:0.03em;
   }
   .reg-download:hover{ background:var(--gold); color:var(--gold-ink); }
+  .reg-download{ cursor:pointer; font-family:inherit; }
+  .reg-download:disabled{ opacity:.6; cursor:wait; }
+  .reg-form{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .reg-form label{ font-size:12.5px; color:var(--ink-dim); }
+  .reg-form input{ width:100%; max-width:260px; background:var(--bg); border:1px solid var(--line-strong); color:var(--ink); border-radius:var(--radius-sm); padding:10px 12px; font-size:15px; text-align:center; letter-spacing:.06em; font-family:inherit; }
+  .reg-form input:focus{ outline:none; border-color:var(--gold); }
+  .reg-msg{ min-height:18px; font-size:13px; margin:0 !important; }
+  .reg-msg.err{ color:#ff8a7a; } .reg-msg.ok{ color:var(--green); }
 
   /* ---------- Galería (scroll horizontal) ---------- */
   .gallery-scroll{
@@ -452,8 +460,13 @@
     <div class="reg-card reveal">
       <div class="reg-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></div>
       <h3>Reglamento Keeper Cup 3</h3>
-      <p>PDF con el formato completo, fechas y condiciones de participación.</p>
-      <a href="#" class="reg-download">Descargar PDF <span class="arrow">↓</span></a>
+      <p>PDF con el formato completo, fechas y condiciones de participación. Exclusivo para los clubes inscritos.</p>
+      <form id="regForm" class="reg-form" onsubmit="return descargarReglamento(event)">
+        <label for="regCedula">Cédula del director técnico que inscribió al equipo</label>
+        <input id="regCedula" inputmode="numeric" autocomplete="off" maxlength="13" placeholder="Ej. 1003399134" required>
+        <button type="submit" class="reg-download" id="regBtn">Descargar PDF <span class="arrow">↓</span></button>
+        <p class="reg-msg" id="regMsg" role="status"></p>
+      </form>
     </div>
   </div>
 </section>
@@ -535,6 +548,24 @@
   }, { threshold: 0.2 });
 
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ---------- Reglamento: descarga con la cédula del director técnico ----------
+  async function descargarReglamento(e){
+    e.preventDefault();
+    const btn = document.getElementById('regBtn'), msg = document.getElementById('regMsg');
+    const cedula = document.getElementById('regCedula').value.replace(/\D/g, '');
+    if (cedula.length < 9) { msg.className = 'reg-msg err'; msg.textContent = 'Escribe la cédula completa (10 dígitos).'; return false; }
+    btn.disabled = true; msg.className = 'reg-msg'; msg.textContent = 'Verificando…';
+    try {
+      const r = await fetch('/api/reglamento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cedula }) });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); msg.className = 'reg-msg err'; msg.textContent = j.message || 'No se pudo descargar.'; return false; }
+      const club = decodeURIComponent(r.headers.get('X-Club') || '');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = 'Reglamento_Keeper_Cup_3.pdf'; document.body.appendChild(a); a.click(); a.remove();
+      msg.className = 'reg-msg ok'; msg.textContent = club ? `Listo. Reglamento descargado para ${club}.` : 'Listo. Reglamento descargado.';
+    } catch { msg.className = 'reg-msg err'; msg.textContent = 'Sin conexión. Intenta de nuevo.'; }
+    finally { btn.disabled = false; }
+    return false;
+  }
 
   // ---------- Centro del torneo: datos reales desde el sistema ----------
   const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
