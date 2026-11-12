@@ -48,4 +48,16 @@ const rp = [P('1','A','B',0,0,1,[{teamId:'A',playerId:'p9',tipo:'roja'}]), P('2'
 eq(sanciones(rp.slice(0,1), cfg)[0].suspendidoProximo, 2, 'roja 2'); eq(sanciones(rp.slice(0,2), cfg)[0].suspendidoProximo, 1, 'roja cumple 1'); eq(sanciones(rp, cfg)[0].suspendidoProximo, 0, 'roja cumple 2')
 // doble amarilla = 1
 eq(sanciones([P('1','A','B',0,0,1,[{teamId:'A',playerId:'p8',tipo:'doble_amarilla'}])], cfg)[0].suspendidoProximo, 1, 'doble 1')
+// Art. 50: las amarillas se reinician al cambiar de fase de grupos; la suspensión pendiente se mantiene
+const C = (x: PartidoCalc, ciclo: string): PartidoCalc => ({ ...x, ciclo })
+const ca = [C(P('1','A','B',0,0,1,[a('amarilla')]),'f1'), C(P('2','A','C',0,0,2,[a('amarilla')]),'f1'), C(P('8','A','D',0,0,8,[a('amarilla')]),'f2')]
+s = sanciones(ca, cfg)[0]; eq([s.amarillas, s.suspendidoProximo, s.totalAmarillas], [1, 0, 3], 'reinicio: 2 de F1 + 1 de F2 = 1, sin suspensión')
+s = sanciones([...ca.slice(0, 2), C(P('8','A','D',0,0,8,[],'programado'),'f2')], cfg)[0]; eq([s.amarillas, s.precaucion], [0, false], 'al terminar F1 la precaución se anula')
+s = sanciones(ca.slice(0, 2), cfg)[0]; eq([s.amarillas, s.precaucion], [2, true], 'durante F1 sigue la precaución')
+const cs = [C(P('1','A','B',0,0,1,[a('amarilla')]),'f1'), C(P('2','A','C',0,0,2,[a('amarilla')]),'f1'), C(P('3','A','D',0,0,3,[a('amarilla')]),'f1'), C(P('8','A','E',0,0,8),'f2')]
+s = sanciones(cs.slice(0, 3), cfg)[0]; eq(s.suspendidoProximo, 1, 'suspendido al final de F1')
+s = sanciones(cs, cfg)[0]; eq([s.suspendidoProximo, s.cumplidos], [0, 1], 'la cumple en el primer partido de F2')
+const c3 = [C(P('8','A','B',0,0,8,[a('amarilla')]),'f2'), C(P('9','A','C',0,0,9,[a('amarilla')]),'f2'), C(P('10','A','D',0,0,10,[a('amarilla')]),'f2')]
+eq(sanciones(c3, cfg)[0].suspendidoProximo, 1, '3 amarillas en F2 = 1 fecha')
+eq(sanciones([...c3.slice(0, 2), C(P('11','A','D',0,0,11,[a('amarilla')]),'f2')], cfg)[0].suspendidoProximo, 1, 'cuartos siguen el ciclo de su fase')
 console.log(`OK ${ok}  FALLAS ${mal}`)

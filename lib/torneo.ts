@@ -22,6 +22,8 @@ export interface PartidoCalc {
   fecha: string | null
   duracion?: number | null // minutos totales jugados (planilla en vivo)
   eventos: EventoCalc[]
+  /** Ciclo de amarillas: cambia al empezar una fase nueva de grupos (Art. 50: el conteo vuelve a cero). */
+  ciclo?: string
 }
 
 export interface FilaTabla {
@@ -156,6 +158,7 @@ export interface EstadoSancion {
 export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancion[] {
   const fin = partidos.filter(finalizado).sort((a, b) => a.jornadaNum - b.jornadaNum || (a.fecha || '').localeCompare(b.fecha || '') || a.id.localeCompare(b.id))
   const jugadores = new Map<string, EstadoSancion>()
+  const cicloDe = new Map<string, string | undefined>() // ciclo en que se contaron las amarillas de cada jugador
   const get = (e: EventoCalc) => {
     const id = e.playerId as string
     if (!jugadores.has(id)) jugadores.set(id, { playerId: id, teamId: e.teamId, amarillas: 0, rojas: 0, totalAmarillas: 0, suspendidoProximo: 0, precaucion: false, cumplidos: 0, motivos: [] })
@@ -177,6 +180,9 @@ export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancio
       if (!e.playerId) continue
       if (e.tipo === 'amarilla') {
         const s = get(e)
+        // Art. 50: al pasar a otra fase las amarillas que no generaron suspensión se anulan (las suspensiones pendientes siguen)
+        if (cicloDe.has(s.playerId) && cicloDe.get(s.playerId) !== p.ciclo) s.amarillas = 0
+        cicloDe.set(s.playerId, p.ciclo)
         s.amarillas++; s.totalAmarillas++
         if (s.amarillas >= cfg.amarillasSuspension) {
           s.amarillas -= cfg.amarillasSuspension
@@ -196,6 +202,10 @@ export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancio
       }
     }
   }
+  // Ciclo actual: el del próximo partido por jugar (o el del último jugado). Quien tenía amarillas de un ciclo anterior queda en 0.
+  const pendiente = partidos.filter((p) => !finalizado(p)).sort((a, b) => a.jornadaNum - b.jornadaNum)[0]
+  const actual = pendiente ? pendiente.ciclo : fin[fin.length - 1]?.ciclo
+  for (const s of jugadores.values()) if (cicloDe.has(s.playerId) && cicloDe.get(s.playerId) !== actual) s.amarillas = 0
   for (const s of jugadores.values()) s.precaucion = s.suspendidoProximo === 0 && cfg.amarillasSuspension > 1 && s.amarillas === cfg.amarillasSuspension - 1
   return Array.from(jugadores.values())
 }

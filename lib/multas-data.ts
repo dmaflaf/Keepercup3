@@ -16,7 +16,7 @@ export async function cargarMultas(torneoId: string): Promise<DatosMultas | null
   const d = await cargarTorneo(torneoId)
   if (!d) return null
   const t = d.torneo as typeof d.torneo & { precioAmarilla: number; precioRoja: number }
-  const partidos: PartidoSan[] = d.calc.map((c) => ({ id: c.id, jornadaNum: c.jornadaNum, fecha: c.fecha, localId: c.localId, visitanteId: c.visitanteId, estado: c.estado, eventos: c.eventos }))
+  const partidos: PartidoSan[] = d.calc.map((c) => ({ id: c.id, jornadaNum: c.jornadaNum, fecha: c.fecha, localId: c.localId, visitanteId: c.visitanteId, estado: c.estado, eventos: c.eventos, ciclo: c.ciclo }))
   const grupos = d.fases.flatMap((f) => f.grupos.map((g) => ({ id: g.id, nombre: g.nombre, fase: f.nombre, equipos: g.equipos.map((e) => ({ id: e.id, nombre: e.name })) })))
   const grupoDe = new Map<string, string>()
   for (const g of grupos) for (const e of g.equipos) grupoDe.set(e.id, g.nombre)

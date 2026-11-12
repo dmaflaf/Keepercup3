@@ -31,7 +31,12 @@ export async function cargarTorneo(torneoId: string) {
 
   const eventosPorPartido = new Map<string, EventoCalc[]>()
   for (const e of eventos) eventosPorPartido.set(e.partidoId, [...(eventosPorPartido.get(e.partidoId) || []), { teamId: e.teamId, playerId: e.playerId, tipo: e.tipo, minuto: e.minuto }])
+  // Ciclo de amarillas (Art. 50): cada fase por grupos empieza uno nuevo; una eliminatoria sigue el de la fase anterior
+  const ciclo = new Map<string, string>()
+  let actual = ''
+  for (const f of fases) { if (f.tipo === 'grupos' || !actual) actual = f.id; ciclo.set(f.id, actual) }
   const calc: PartidoCalc[] = partidosDB.map((p) => ({
+    ciclo: ciclo.get(p.faseId),
     id: p.id, grupoId: p.grupoId, localId: p.localId, visitanteId: p.visitanteId, estado: p.estado,
     golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, jornadaNum: p.jornadaNum, fecha: p.fecha, duracion: p.duracionReal,
     eventos: eventosPorPartido.get(p.id) || [],

@@ -1,7 +1,7 @@
 // Sanciones por tarjetas (reglas del torneo): amarillas acumuladas, doble amarilla en un partido y roja directa.
 // A diferencia del cálculo rápido de lib/torneo.ts, este reparte los partidos de sanción en las siguientes fechas del equipo
 // y dice cuáles ya se cumplieron y cuáles están pendientes. Puro: lo usan las pantallas y los PDFs.
-export interface PartidoSan { id: string; jornadaNum: number; fecha: string | null; localId: string; visitanteId: string; estado: string; eventos: { teamId: string; playerId: string | null; tipo: string }[] }
+export interface PartidoSan { id: string; jornadaNum: number; fecha: string | null; localId: string; visitanteId: string; estado: string; eventos: { teamId: string; playerId: string | null; tipo: string }[]; ciclo?: string /* Art. 50: cambia en cada fase de grupos */ }
 export interface CfgSan { amarillasSuspension: number; partidosDobleAmarilla: number; partidosRojaDirecta: number }
 export interface FilaSancion {
   playerId: string; teamId: string
@@ -33,6 +33,9 @@ export function calcularSanciones(partidos: PartidoSan[], cfg: CfgSan): FilaSanc
   for (const m of partidos) for (const t of [m.localId, m.visitanteId]) fechasDe.set(t, [...(fechasDe.get(t) || []), m])
   fechasDe.forEach((l) => l.sort((a, b) => a.jornadaNum - b.jornadaNum || (a.fecha || '').localeCompare(b.fecha || '')))
 
+  // Ciclo actual: el del próximo partido por jugar (o el del último jugado)
+  const orden = [...partidos].sort((a, b) => a.jornadaNum - b.jornadaNum || (a.fecha || '').localeCompare(b.fecha || ''))
+  const cicloActual = (orden.find((p) => p.estado !== 'finalizado') || orden[orden.length - 1])?.ciclo
   return Array.from(filas.values()).map((r) => {
     const events: { jornada: number; n: number }[] = []
     const motivos = new Set<string>()
@@ -43,9 +46,11 @@ export function calcularSanciones(partidos: PartidoSan[], cfg: CfgSan): FilaSanc
       x.n += t === 'D' ? 2 : 1
       porPartido.set(m.id, x)
     }
-    let sueltas = 0
+    let sueltas = 0, cicloAm: string | undefined = undefined, hay = false
     Array.from(porPartido.values()).sort((a, b) => a.m.jornadaNum - b.m.jornadaNum).forEach(({ m, n }) => {
       if (n >= 2) { events.push({ jornada: m.jornadaNum, n: cfg.partidosDobleAmarilla }); motivos.add('Doble amarilla'); n -= 2 }
+      // Art. 50: al cambiar de fase las amarillas sueltas que no generaron suspensión se anulan
+      if (n > 0) { if (hay && cicloAm !== m.ciclo) sueltas = 0; cicloAm = m.ciclo; hay = true }
       for (let i = 0; i < n; i++) { sueltas++; if (sueltas % cfg.amarillasSuspension === 0) { events.push({ jornada: m.jornadaNum, n: 1 }); motivos.add(`${cfg.amarillasSuspension} amarillas`) } }
     })
     events.sort((a, b) => a.jornada - b.jornada)
@@ -65,7 +70,7 @@ export function calcularSanciones(partidos: PartidoSan[], cfg: CfgSan): FilaSanc
       }
       idx = start + ev.n
     }
-    const acum = sueltas % cfg.amarillasSuspension
+    const acum = hay && cicloAm !== cicloActual ? 0 : sueltas % cfg.amarillasSuspension
     const estado: FilaSancion['estado'] = pendientes.length || fuera ? 'SUSPENDIDO' : total ? 'Cumplida' : acum ? 'Acumula' : '—'
     return { playerId: r.playerId, teamId: r.teamId, y: r.y, r: r.r, dobles: r.dobles, total, cumplidos, pendientes, fuera, acum, motivo: Array.from(motivos).join(' + ') || '—', estado }
   })
