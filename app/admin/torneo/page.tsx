@@ -1,5 +1,6 @@
 'use client'
 
+import { primeraFecha } from '@/lib/fases-prog'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
@@ -177,6 +178,8 @@ function GrupoCard({ g, f, t, equipos, esAdmin, act, partidos }: { g: Grupo; f: 
   const [q, setQ] = useState('')
   const [tr, setTr] = useState({ fase: '', desde: 1, hasta: 4 })
   const [doble, setDoble] = useState(false)
+  const sugerida = primeraFecha(f.id, t.fases, t.partidos)
+  const [desde, setDesde] = useState<number | ''>('')
   const otras = t.fases.filter((x) => x.id !== f.id)
   const filtrados = equipos.filter((e) => e.name.toLowerCase().includes(q.toLowerCase()))
   return (
@@ -223,8 +226,9 @@ function GrupoCard({ g, f, t, equipos, esAdmin, act, partidos }: { g: Grupo; f: 
 
       {esAdmin && f.tipo === 'grupos' && partidos.length === 0 && g.equipos.length >= 2 && (
         <div className="mt-3 flex items-center gap-3 text-sm">
-          <button className={btn} onClick={() => act('generar_fixture', { grupoId: g.id, dobleVuelta: doble }, 'Fixture generado')}>Generar fixture (todos contra todos)</button>
+          <button className={btn} onClick={() => act('generar_fixture', { grupoId: g.id, dobleVuelta: doble, primeraFecha: desde || sugerida }, 'Fixture generado')}>Generar fixture (todos contra todos)</button>
           <label className="flex items-center gap-2"><input type="checkbox" checked={doble} onChange={(e) => setDoble(e.target.checked)} /> ida y vuelta</label>
+          <label className="flex items-center gap-2" title="Sigue la numeración del torneo: si la fase anterior terminó en la Fecha 7, esta empieza en la 8">desde la Fecha <input type="number" min={1} className={inp + ' w-20 py-1'} value={desde || sugerida} onChange={(e) => setDesde(Number(e.target.value) || '')} /></label>
         </div>
       )}
       <PartidosFase partidos={partidos} f={f} t={t} esAdmin={esAdmin} act={act} equipos={equipos} grupo={g} />
@@ -234,7 +238,7 @@ function GrupoCard({ g, f, t, equipos, esAdmin, act, partidos }: { g: Grupo; f: 
 
 function PartidosFase({ partidos, f, t, esAdmin, act, equipos, grupo, sueltos }: { partidos: Partido[]; f: Fase; t: Torneo; esAdmin: boolean; act: (a: string, d?: Record<string, unknown>, ok?: string) => Promise<{ ok: boolean; pendientes?: number }>; equipos: Equipo[]; grupo?: Grupo; sueltos?: boolean }) {
   const [editando, setEditando] = useState<string | null>(null)
-  const [np, setNp] = useState({ jornada: '', jornadaNum: 1, localId: '', visitanteId: '', fecha: '', hora: '', escenario: '' })
+  const [np, setNp] = useState({ jornada: '', jornadaNum: primeraFecha(f.id, t.fases, t.partidos), localId: '', visitanteId: '', fecha: '', hora: '', escenario: '' })
   const [abierto, setAbierto] = useState(false)
   const porJornada = useMemo(() => { const m = new Map<string, Partido[]>(); for (const p of partidos) m.set(p.jornada, [...(m.get(p.jornada) || []), p]); return Array.from(m.entries()) }, [partidos])
   const candidatos = grupo ? grupo.equipos : equipos

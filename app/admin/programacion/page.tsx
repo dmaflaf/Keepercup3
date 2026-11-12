@@ -31,12 +31,13 @@ export default function Programacion() {
   const [fases, setFases] = useState<FaseInfo[]>([])
   const [clubes, setClubes] = useState<string[]>([])
   const [modal, setModal] = useState<'json' | 'fase' | null>(null)
+  const [siguiente, setSiguiente] = useState(1)
   const [editCfg, setEditCfg] = useState<{ estadios: string; inicio: string; v: string; s: string; d: string } | null>(null)
 
   const cargar = useCallback(async (id?: string) => {
     const r = await fetch('/api/admin/programacion' + (id ? `?torneoId=${id}` : ''), { cache: 'no-store' }).then((x) => x.json()).catch(() => null)
     if (!r?.ok) { setMsg(r?.message || 'No se pudo cargar (¿eres administrador?)'); return }
-    setTorneos(r.torneos); setPartidos(r.partidos); setGrupos(r.grupos); setCfg(r.config); setCerradas(r.cerradas || []); setDiasFecha(r.diasFecha || {}); setTid(r.torneoId || ''); setFases(r.fases || []); setClubes(r.clubes || [])
+    setTorneos(r.torneos); setPartidos(r.partidos); setGrupos(r.grupos); setCfg(r.config); setCerradas(r.cerradas || []); setDiasFecha(r.diasFecha || {}); setTid(r.torneoId || ''); setFases(r.fases || []); setClubes(r.clubes || []); setSiguiente(r.siguiente || 1)
     setMsg(r.partidos.length ? '' : 'Este torneo todavía no tiene partidos.')
     if (r.partidos.length) setJornada((j) => (r.partidos.some((p: PartidoProg) => p.jornadaNum === j) ? j : r.partidos[0].jornadaNum))
   }, [])
@@ -46,7 +47,6 @@ export default function Programacion() {
   const jornadas = useMemo(() => Array.from(new Set(partidos.map((p) => juegaEn(p)))).sort((a, b) => a - b), [partidos])
   // Nombre de cada fecha: «Fecha 8» o el de la ronda («Cuartos de final»)
   const nombreFecha = (j: number) => { const e = partidos.find((p) => p.jornadaNum === j && p.jornada && !/^fecha\s*\d+$/i.test(p.jornada))?.jornada; return e ? `${e} (F${j})` : `Fecha ${j}` }
-  const siguiente = (partidos.length ? Math.max(...partidos.map((p) => Math.max(p.jornadaNum, p.jornadaJuego ?? 0))) : 0) + 1
   const gruposJ = grupos.filter((g) => partidos.some((p) => juegaEn(p) === jornada && p.grupo === g.nombre))
   const colorDe = (g: string | null) => COL[Math.max(0, grupos.findIndex((x) => x.nombre === g)) % COL.length]
   const cerrada = cerradas.includes(jornada)

@@ -223,3 +223,21 @@ export function crucesPrimeroSegundo(grupos: string[][]): [string, string][] {
   if (grupos.length % 2 === 1) { const u = grupos[grupos.length - 1]; if (u[0] && u[1]) out.push([u[0], u[1]]) }
   return out
 }
+
+/** Primera fecha que le toca a una fase, siguiendo la numeración del torneo (Fase 1 = 1..7 → la siguiente es 8).
+ *  - Si la fase ya tiene partidos, su primera fecha (así todos sus grupos comparten Fecha 8, 9, 10).
+ *  - Si no, la fecha siguiente a las fases anteriores. Una fase anterior sin ningún partido jugado se toma como
+ *    paralela (Copa Plata junto a Copa Oro) siempre que otra fase anterior sí tenga partidos jugados. */
+export function primeraFecha(
+  faseId: string | null, fases: { id: string; orden: number }[],
+  partidos: { faseId: string; jornadaNum: number; jornadaJuego?: number | null; estado: string }[],
+): number {
+  const propios = faseId ? partidos.filter((p) => p.faseId === faseId) : []
+  if (propios.length) return Math.min(...propios.map((p) => p.jornadaNum))
+  const orden = faseId ? fases.find((f) => f.id === faseId)?.orden ?? Infinity : Infinity
+  const antes = fases.filter((f) => f.id !== faseId && f.orden < orden).map((f) => ({ f, ps: partidos.filter((p) => p.faseId === f.id) })).filter((x) => x.ps.length)
+  const jugadas = antes.filter((x) => x.ps.some((p) => p.estado === 'finalizado'))
+  const base = jugadas.length ? jugadas : antes
+  const max = base.flatMap((x) => x.ps.map((p) => Math.max(p.jornadaNum, p.jornadaJuego ?? 0)))
+  return max.length ? Math.max(...max) + 1 : 1
+}
