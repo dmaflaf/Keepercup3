@@ -1,6 +1,6 @@
 'use client'
 
-import { primeraFecha } from '@/lib/fases-prog'
+import { fechasChocadas, primeraFecha } from '@/lib/fases-prog'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
@@ -136,12 +136,25 @@ function FaseCard({ f, t, equipos, esAdmin, act }: { f: Fase; t: Torneo; equipos
   const [crit, setCrit] = useState(f.criterios)
   const mover = (i: number, d: number) => { const c = [...crit]; const j = i + d; if (j < 0 || j >= c.length) return;[c[i], c[j]] = [c[j], c[i]]; setCrit(c) }
   const partidos = t.partidos.filter((p) => p.faseId === f.id)
+  // Fechas de la fase y la que le tocaría siguiendo al torneo (para arreglar fases generadas como Fecha 1, 2, 3)
+  const fechas = Array.from(new Set(partidos.map((p) => p.jornadaNum))).sort((a, b) => a - b)
+  const clubesFase = Array.from(new Set([...f.grupos.flatMap((g) => g.equipos.map((e) => e.id)), ...partidos.flatMap((p) => [p.localId, p.visitanteId])]))
+  const deberia = primeraFecha(f.id, t.fases, t.partidos.filter((p) => p.faseId !== f.id), clubesFase)
+  const [desde, setDesde] = useState(deberia)
+  const choca = fechasChocadas(f.id, t.fases, t.partidos).length > 0
   return (
     <section className={sec}>
       <div className="flex flex-wrap justify-between gap-2 items-center">
-        <h2 className="text-xl font-bold cursor-pointer" onClick={() => setAbierta(!abierta)}>{abierta ? '▾' : '▸'} Fase {f.orden}: {f.nombre} <span className="text-slate-400 text-sm font-normal">({f.tipo === 'grupos' ? 'por grupos' : 'eliminatoria'} · {partidos.length} partidos)</span></h2>
+        <h2 className="text-xl font-bold cursor-pointer" onClick={() => setAbierta(!abierta)}>{abierta ? '▾' : '▸'} Fase {f.orden}: {f.nombre} <span className="text-slate-400 text-sm font-normal">({f.tipo === 'grupos' ? 'por grupos' : 'eliminatoria'} · {partidos.length} partidos{fechas.length ? ` · Fecha${fechas.length > 1 ? `s ${fechas[0]}–${fechas[fechas.length - 1]}` : ` ${fechas[0]}`}` : ''})</span></h2>
         {esAdmin && <button className="text-red-400 text-sm" onClick={() => confirm(`¿Borrar la fase "${f.nombre}" con todos sus grupos, partidos y resultados?`) && act('borrar_fase', { id: f.id }, 'Fase borrada')}>Borrar fase</button>}
       </div>
+      {esAdmin && choca && (
+        <div className="mt-3 p-3 rounded-lg bg-yellow-900/30 border border-yellow-600 text-sm flex flex-wrap items-center gap-2">
+          <span>⚠ Los partidos de esta fase están en la{fechas.length > 1 ? `s Fechas ${fechas[0]}–${fechas[fechas.length - 1]}` : ` Fecha ${fechas[0]}`}, donde sus clubes ya juegan otra fase (Fecha {fechasChocadas(f.id, t.fases, t.partidos).join(', ')}). Deberían empezar en la <b>Fecha {deberia}</b>.</span>
+          <label className="flex items-center gap-1">Pasar a partir de la Fecha <input type="number" min={1} className={inp + ' w-20 py-1'} value={desde} onChange={(e) => setDesde(Number(e.target.value))} /></label>
+          <button className={btn} onClick={() => confirm(`¿Mover los ${partidos.length} partidos de "${f.nombre}" para que empiecen en la Fecha ${desde}? (Fecha ${fechas[0]} → ${desde}, Fecha ${fechas[0] + 1} → ${desde + 1}…) No cambia rivales, grupos ni horarios.`) && act('renumerar_fase', { id: f.id, desde }, 'Fechas corregidas')}>Corregir fechas</button>
+        </div>
+      )}
       {abierta && (
         <>
           {esAdmin && (
@@ -178,7 +191,7 @@ function GrupoCard({ g, f, t, equipos, esAdmin, act, partidos }: { g: Grupo; f: 
   const [q, setQ] = useState('')
   const [tr, setTr] = useState({ fase: '', desde: 1, hasta: 4 })
   const [doble, setDoble] = useState(false)
-  const sugerida = primeraFecha(f.id, t.fases, t.partidos)
+  const sugerida = primeraFecha(f.id, t.fases, t.partidos, g.equipos.map((e) => e.id))
   const [desde, setDesde] = useState<number | ''>('')
   const otras = t.fases.filter((x) => x.id !== f.id)
   const filtrados = equipos.filter((e) => e.name.toLowerCase().includes(q.toLowerCase()))
@@ -238,7 +251,7 @@ function GrupoCard({ g, f, t, equipos, esAdmin, act, partidos }: { g: Grupo; f: 
 
 function PartidosFase({ partidos, f, t, esAdmin, act, equipos, grupo, sueltos }: { partidos: Partido[]; f: Fase; t: Torneo; esAdmin: boolean; act: (a: string, d?: Record<string, unknown>, ok?: string) => Promise<{ ok: boolean; pendientes?: number }>; equipos: Equipo[]; grupo?: Grupo; sueltos?: boolean }) {
   const [editando, setEditando] = useState<string | null>(null)
-  const [np, setNp] = useState({ jornada: '', jornadaNum: primeraFecha(f.id, t.fases, t.partidos), localId: '', visitanteId: '', fecha: '', hora: '', escenario: '' })
+  const [np, setNp] = useState({ jornada: '', jornadaNum: primeraFecha(f.id, t.fases, t.partidos, (grupo ? grupo.equipos : []).map((e) => e.id)), localId: '', visitanteId: '', fecha: '', hora: '', escenario: '' })
   const [abierto, setAbierto] = useState(false)
   const porJornada = useMemo(() => { const m = new Map<string, Partido[]>(); for (const p of partidos) m.set(p.jornada, [...(m.get(p.jornada) || []), p]); return Array.from(m.entries()) }, [partidos])
   const candidatos = grupo ? grupo.equipos : equipos

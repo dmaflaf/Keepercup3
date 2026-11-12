@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     grupos: f.grupos.map((g) => ({ nombre: g.nombre, tabla: g.tabla.map((r) => r.equipo) })),
   }))
   return NextResponse.json({
-    ok: true, torneos, torneoId: id, fases: fasesInfo, siguiente: primeraFecha(null, (d?.fases || []).map((f) => ({ id: f.id, orden: f.orden })), partidos), clubes: (await prisma.team.findMany({ select: { name: true }, orderBy: { name: 'asc' } })).map((t) => t.name), config: await leerConfig(), cerradas: await cerradas(id), diasFecha: await diasFecha(id),
+    ok: true, torneos, torneoId: id, fases: fasesInfo, siguiente: primeraFecha(null, (d?.fases || []).map((f) => ({ id: f.id, orden: f.orden })), partidos.filter((p) => p.faseId === d?.fases[0]?.id)), clubes: (await prisma.team.findMany({ select: { name: true }, orderBy: { name: 'asc' } })).map((t) => t.name), config: await leerConfig(), cerradas: await cerradas(id), diasFecha: await diasFecha(id),
     grupos: grupos.map((g) => ({ id: g.id, nombre: g.nombre, equipos: miembros.filter((m) => m.grupoId === g.id).map((m) => ({ id: m.teamId, nombre: nombre.get(m.teamId) || '?' })) })),
     partidos: partidos.map((p) => ({ id: p.id, jornada: p.jornada, jornadaNum: p.jornadaNum, jornadaJuego: p.jornadaJuego, grupo: p.grupoId ? gnombre.get(p.grupoId) || null : null, localId: p.localId, visitanteId: p.visitanteId, local: nombre.get(p.localId) || '?', visitante: nombre.get(p.visitanteId) || '?', fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante })),
   })

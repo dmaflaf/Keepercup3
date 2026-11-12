@@ -226,18 +226,32 @@ export function crucesPrimeroSegundo(grupos: string[][]): [string, string][] {
 
 /** Primera fecha que le toca a una fase, siguiendo la numeración del torneo (Fase 1 = 1..7 → la siguiente es 8).
  *  - Si la fase ya tiene partidos, su primera fecha (así todos sus grupos comparten Fecha 8, 9, 10).
- *  - Si no, la fecha siguiente a las fases anteriores. Una fase anterior sin ningún partido jugado se toma como
- *    paralela (Copa Plata junto a Copa Oro) siempre que otra fase anterior sí tenga partidos jugados. */
+ *  - Si no, la fecha siguiente a las fases anteriores donde juegan sus mismos clubes (Copa Plata no espera a
+ *    Copa Oro; los cuartos de Oro sí van después de Copa Oro). Sin clubes conocidos: después de las fases
+ *    anteriores con partidos jugados (o de todas, si ninguna se jugó). */
 export function primeraFecha(
   faseId: string | null, fases: { id: string; orden: number }[],
-  partidos: { faseId: string; jornadaNum: number; jornadaJuego?: number | null; estado: string }[],
+  partidos: { faseId: string; jornadaNum: number; jornadaJuego?: number | null; estado: string; localId?: string; visitanteId?: string }[],
+  clubes: string[] = [],
 ): number {
   const propios = faseId ? partidos.filter((p) => p.faseId === faseId) : []
   if (propios.length) return Math.min(...propios.map((p) => p.jornadaNum))
   const orden = faseId ? fases.find((f) => f.id === faseId)?.orden ?? Infinity : Infinity
   const antes = fases.filter((f) => f.id !== faseId && f.orden < orden).map((f) => ({ f, ps: partidos.filter((p) => p.faseId === f.id) })).filter((x) => x.ps.length)
+  const mios = new Set(clubes)
+  const comparten = mios.size ? antes.filter((x) => x.ps.some((p) => mios.has(p.localId as string) || mios.has(p.visitanteId as string))) : []
   const jugadas = antes.filter((x) => x.ps.some((p) => p.estado === 'finalizado'))
-  const base = jugadas.length ? jugadas : antes
+  const base = comparten.length ? comparten : jugadas.length ? jugadas : antes
   const max = base.flatMap((x) => x.ps.map((p) => Math.max(p.jornadaNum, p.jornadaJuego ?? 0)))
   return max.length ? Math.max(...max) + 1 : 1
+}
+
+/** Fechas donde un club de la fase juega también un partido de una fase anterior (fase mal numerada). */
+export function fechasChocadas(
+  faseId: string, fases: { id: string; orden: number }[], partidos: { faseId: string; jornadaNum: number; jornadaJuego?: number | null; localId: string; visitanteId: string }[],
+): number[] {
+  const orden = fases.find((f) => f.id === faseId)?.orden ?? 0
+  const anteriores = new Set(fases.filter((f) => f.orden < orden).map((f) => f.id))
+  const juega = new Set(partidos.filter((p) => anteriores.has(p.faseId)).flatMap((p) => [p.jornadaNum, p.jornadaJuego].filter((x): x is number => x != null).flatMap((j) => [`${j}|${p.localId}`, `${j}|${p.visitanteId}`])))
+  return Array.from(new Set(partidos.filter((p) => p.faseId === faseId && (juega.has(`${p.jornadaNum}|${p.localId}`) || juega.has(`${p.jornadaNum}|${p.visitanteId}`))).map((p) => p.jornadaNum))).sort((a, b) => a - b)
 }

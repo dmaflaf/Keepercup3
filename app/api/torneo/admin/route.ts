@@ -120,6 +120,36 @@ export async function POST(req: NextRequest) {
       ])
       return NextResponse.json({ ok: true })
     }
+    case 'renumerar_fase': {
+      // Mueve todas las fechas de una fase para que empiecen en «desde» (Fecha 1,2,3 → 8,9,10). No toca rivales, grupos ni horarios.
+      const fase = await prisma.fase.findUnique({ where: { id: String(b.id) } })
+      if (!fase) return falla('Fase no encontrada')
+      const desde = entero(b.desde)
+      if (!desde || Number.isNaN(desde) || desde < 1 || desde > 99) return falla('Número de fecha inválido')
+      const ps = await prisma.partido.findMany({ where: { faseId: fase.id } })
+      if (!ps.length) return falla('La fase no tiene partidos')
+      if (ps.some((p) => p.estado === 'finalizado') || (await prisma.evento.count({ where: { partidoId: { in: ps.map((p) => p.id) } } }))) return falla('Esta fase ya tiene partidos jugados o con eventos: no se mueven sus fechas.', 409)
+      // Cada grupo (y los partidos sueltos) se corre para que su primera fecha sea «desde»: así se arregla
+      // también una fase con un grupo en 8-10 y otro en 1-3.
+      const nueva = new Map<string, number>()
+      for (const k of Array.from(new Set(ps.map((p) => p.grupoId ?? '')))) {
+        const del = ps.filter((p) => (p.grupoId ?? '') === k)
+        const salto = desde - Math.min(...del.map((p) => p.jornadaNum))
+        for (const p of del) nueva.set(p.id, p.jornadaNum + salto)
+      }
+      const cambian = ps.filter((p) => nueva.get(p.id) !== p.jornadaNum)
+      if (!cambian.length) return NextResponse.json({ ok: true, movidos: 0 })
+      // Un club no puede quedar con dos partidos en la misma fecha (con otra fase)
+      const otros = await prisma.partido.findMany({ where: { torneoId: fase.torneoId, faseId: { not: fase.id } }, select: { jornadaNum: true, jornadaJuego: true, localId: true, visitanteId: true } })
+      const ocupado = new Set(otros.flatMap((o) => [o.jornadaNum, o.jornadaJuego].filter((x): x is number => x != null).flatMap((j) => [`${j}|${o.localId}`, `${j}|${o.visitanteId}`])))
+      const choque = cambian.find((p) => ocupado.has(`${nueva.get(p.id)}|${p.localId}`) || ocupado.has(`${nueva.get(p.id)}|${p.visitanteId}`))
+      if (choque) return falla(`En la Fecha ${nueva.get(choque.id)} algún club de esta fase ya juega otro partido (de otra fase). Elige otra fecha de inicio.`, 409)
+      await prisma.$transaction(cambian.map((p) => {
+        const n = nueva.get(p.id) as number
+        return prisma.partido.update({ where: { id: p.id }, data: { jornadaNum: n, jornadaJuego: null, jornada: /^fecha\s*\d+$/i.test(p.jornada) ? `Fecha ${n}` : p.jornada } })
+      }))
+      return NextResponse.json({ ok: true, movidos: cambian.length })
+    }
     case 'crear_grupo': {
       const nombre = texto(b.nombre, 60)
       if (!nombre) return falla('Falta el nombre del grupo')
@@ -190,7 +220,7 @@ export async function POST(req: NextRequest) {
       if (!fase) return falla('Fase no encontrada')
       // Las fechas siguen la numeración del torneo (Fase 1 = 1..7 → esta empieza en 8), salvo que se indique otra
       const pedida = entero(b.primeraFecha)
-      const desde = pedida && !Number.isNaN(pedida) && pedida >= 1 ? pedida : await fechaSiguiente(fase.torneoId, fase.id)
+      const desde = pedida && !Number.isNaN(pedida) && pedida >= 1 ? pedida : await fechaSiguiente(fase.torneoId, fase.id, equipos)
       await prisma.partido.createMany({
         data: cruces.map((c) => ({ torneoId: fase.torneoId, faseId: fase.id, grupoId, jornada: `Fecha ${desde + c.jornada - 1}`, jornadaNum: desde + c.jornada - 1, localId: c.local, visitanteId: c.visitante })),
       })
@@ -201,7 +231,7 @@ export async function POST(req: NextRequest) {
       if (!fase) return falla('Fase no encontrada')
       if (!b.localId || !b.visitanteId || b.localId === b.visitanteId) return falla('Elige dos equipos distintos')
       const jn0 = entero(b.jornadaNum)
-      const jn = jn0 && !Number.isNaN(jn0) && jn0 >= 1 ? jn0 : await fechaSiguiente(fase.torneoId, fase.id)
+      const jn = jn0 && !Number.isNaN(jn0) && jn0 >= 1 ? jn0 : await fechaSiguiente(fase.torneoId, fase.id, [String(b.localId), String(b.visitanteId)])
       const p = await prisma.partido.create({
         data: {
           torneoId: fase.torneoId, faseId: fase.id, grupoId: b.grupoId ? String(b.grupoId) : null,
@@ -295,10 +325,10 @@ async function recalcular(partidoId: string) {
   await prisma.partido.update({ where: { id: partidoId }, data: marcadorDesdeEventos(p, ev) })
 }
 
-async function fechaSiguiente(torneoId: string, faseId: string) {
+async function fechaSiguiente(torneoId: string, faseId: string, clubes: string[] = []) {
   const [fases, partidos] = await Promise.all([
     prisma.fase.findMany({ where: { torneoId }, select: { id: true, orden: true } }),
-    prisma.partido.findMany({ where: { torneoId }, select: { faseId: true, jornadaNum: true, jornadaJuego: true, estado: true } }),
+    prisma.partido.findMany({ where: { torneoId }, select: { faseId: true, jornadaNum: true, jornadaJuego: true, estado: true, localId: true, visitanteId: true } }),
   ])
-  return primeraFecha(faseId, fases, partidos)
+  return primeraFecha(faseId, fases, partidos, clubes)
 }
