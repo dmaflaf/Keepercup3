@@ -12,6 +12,7 @@ export interface FilaSancion {
   cumplidos: number
   pendientes: number[] // jornadas (fechas) que aún debe cumplir
   fuera: number // partidos que pasan a la siguiente etapa
+  anulados?: number // suspensiones por amarillas no cumplidas en su fase (Art. 50: se anulan al cambiar de fase)
   acum: number // amarillas sueltas acumuladas
   motivo: string
   estado: 'SUSPENDIDO' | 'Cumplida' | 'Acumula' | '—'
@@ -37,7 +38,7 @@ export function calcularSanciones(partidos: PartidoSan[], cfg: CfgSan): FilaSanc
   const orden = [...partidos].sort((a, b) => a.jornadaNum - b.jornadaNum || (a.fecha || '').localeCompare(b.fecha || ''))
   const cicloActual = (orden.find((p) => p.estado !== 'finalizado') || orden[orden.length - 1])?.ciclo
   return Array.from(filas.values()).map((r) => {
-    const events: { jornada: number; n: number }[] = []
+    const events: { jornada: number; n: number; am?: boolean; ciclo?: string }[] = []
     const motivos = new Set<string>()
     const porPartido = new Map<string, { m: PartidoSan; n: number }>()
     for (const { m, t } of r.cards) {
@@ -51,28 +52,31 @@ export function calcularSanciones(partidos: PartidoSan[], cfg: CfgSan): FilaSanc
       if (n >= 2) { events.push({ jornada: m.jornadaNum, n: cfg.partidosDobleAmarilla }); motivos.add('Doble amarilla'); n -= 2 }
       // Art. 50: al cambiar de fase las amarillas sueltas que no generaron suspensión se anulan
       if (n > 0) { if (hay && cicloAm !== m.ciclo) sueltas = 0; cicloAm = m.ciclo; hay = true }
-      for (let i = 0; i < n; i++) { sueltas++; if (sueltas % cfg.amarillasSuspension === 0) { events.push({ jornada: m.jornadaNum, n: 1 }); motivos.add(`${cfg.amarillasSuspension} amarillas`) } }
+      for (let i = 0; i < n; i++) { sueltas++; if (sueltas % cfg.amarillasSuspension === 0) { events.push({ jornada: m.jornadaNum, n: 1, am: true, ciclo: m.ciclo }); motivos.add(`${cfg.amarillasSuspension} amarillas`) } }
     })
     events.sort((a, b) => a.jornada - b.jornada)
     const tf = fechasDe.get(r.teamId) || []
-    let idx = 0, total = 0, cumplidos = 0, fuera = 0
+    let idx = 0, total = 0, cumplidos = 0, fuera = 0, anulados = 0
     const pendientes: number[] = []
     for (const ev of events) {
       let start = tf.findIndex((p) => p.jornadaNum > ev.jornada)
       if (start < 0) start = tf.length
       start = Math.max(start, idx)
+      let usados = 0
       for (let k = 0; k < ev.n; k++) {
-        total++
         const p = tf[start + k]
+        // Suspensión por amarillas que llega a la fase siguiente sin cumplirse: se anula (no se cumple allá)
+        if (ev.am && (p ? p.ciclo !== ev.ciclo : cicloActual !== ev.ciclo)) { anulados += ev.n - k; motivos.add('amarillas de la fase anterior anuladas'); break }
+        total++; usados++
         if (!p) fuera++
         else if (p.estado === 'finalizado') cumplidos++
         else pendientes.push(p.jornadaNum)
       }
-      idx = start + ev.n
+      idx = start + usados
     }
     const acum = hay && cicloAm !== cicloActual ? 0 : sueltas % cfg.amarillasSuspension
     const estado: FilaSancion['estado'] = pendientes.length || fuera ? 'SUSPENDIDO' : total ? 'Cumplida' : acum ? 'Acumula' : '—'
-    return { playerId: r.playerId, teamId: r.teamId, y: r.y, r: r.r, dobles: r.dobles, total, cumplidos, pendientes, fuera, acum, motivo: Array.from(motivos).join(' + ') || '—', estado }
+    return { playerId: r.playerId, teamId: r.teamId, y: r.y, r: r.r, dobles: r.dobles, total, cumplidos, pendientes, fuera, anulados, acum, motivo: Array.from(motivos).join(' + ') || '—', estado }
   })
 }
 

@@ -159,53 +159,66 @@ export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancio
   const fin = partidos.filter(finalizado).sort((a, b) => a.jornadaNum - b.jornadaNum || (a.fecha || '').localeCompare(b.fecha || '') || a.id.localeCompare(b.id))
   const jugadores = new Map<string, EstadoSancion>()
   const cicloDe = new Map<string, string | undefined>() // ciclo en que se contaron las amarillas de cada jugador
+  // Partidos de suspensión pendientes, en orden. «am» = por amarillas acumuladas: si no se cumple dentro de su fase, se anula
+  // al cambiar de fase (Art. 50, según la organización). Doble amarilla y roja directa pasan a la fase siguiente.
+  const cola = new Map<string, { n: number; am: boolean; ciclo?: string }[]>()
   const get = (e: EventoCalc) => {
     const id = e.playerId as string
-    if (!jugadores.has(id)) jugadores.set(id, { playerId: id, teamId: e.teamId, amarillas: 0, rojas: 0, totalAmarillas: 0, suspendidoProximo: 0, precaucion: false, cumplidos: 0, motivos: [] })
+    if (!jugadores.has(id)) { jugadores.set(id, { playerId: id, teamId: e.teamId, amarillas: 0, rojas: 0, totalAmarillas: 0, suspendidoProximo: 0, precaucion: false, cumplidos: 0, motivos: [] }); cola.set(id, []) }
     return jugadores.get(id) as EstadoSancion
   }
-  const equiposDe = new Map<string, string[]>() // teamId -> partidos propios (para el cumplimiento)
-  for (const p of fin) for (const t of [p.localId, p.visitanteId]) equiposDe.set(t, [...(equiposDe.get(t) || []), p.id])
+  const anular = (s: EstadoSancion, ciclo: string | undefined) => {
+    const q = cola.get(s.playerId) || []
+    const quedan = q.filter((x) => !x.am || x.ciclo === ciclo)
+    const n = q.reduce((t, x) => t + x.n, 0) - quedan.reduce((t, x) => t + x.n, 0)
+    if (n) s.motivos.push(`Suspensión por amarillas de la fase anterior anulada al cambiar de fase (${n} partido(s))`)
+    cola.set(s.playerId, quedan)
+  }
+  const pendientes = (s: EstadoSancion) => (cola.get(s.playerId) || []).reduce((t, x) => t + x.n, 0)
 
   for (const p of fin) {
     // 1) cumplimiento: quien tenía suspensión pendiente de su equipo descansa este partido (antes de contar lo ocurrido en él)
     for (const s of jugadores.values()) {
-      if ((s.teamId === p.localId || s.teamId === p.visitanteId) && s.suspendidoProximo > 0) {
-        const jugo = p.eventos.some((e) => e.playerId === s.playerId)
-        if (!jugo) { s.suspendidoProximo--; s.cumplidos++ }
-      }
+      if (s.teamId !== p.localId && s.teamId !== p.visitanteId) continue
+      anular(s, p.ciclo)
+      const q = cola.get(s.playerId) as { n: number }[]
+      if (q.length && !p.eventos.some((e) => e.playerId === s.playerId)) { q[0].n--; if (!q[0].n) q.shift(); s.cumplidos++ }
     }
     // 2) lo ocurrido en el partido genera sanciones para los siguientes
     for (const e of p.eventos) {
       if (!e.playerId) continue
       if (e.tipo === 'amarilla') {
         const s = get(e)
-        // Art. 50: al pasar a otra fase las amarillas que no generaron suspensión se anulan (las suspensiones pendientes siguen)
+        // Art. 50: al pasar a otra fase las amarillas que no generaron suspensión se anulan (no los totales ni las multas)
         if (cicloDe.has(s.playerId) && cicloDe.get(s.playerId) !== p.ciclo) s.amarillas = 0
         cicloDe.set(s.playerId, p.ciclo)
         s.amarillas++; s.totalAmarillas++
         if (s.amarillas >= cfg.amarillasSuspension) {
           s.amarillas -= cfg.amarillasSuspension
-          s.suspendidoProximo += 1
+          cola.get(s.playerId)!.push({ n: 1, am: true, ciclo: p.ciclo })
           s.motivos.push(`${cfg.amarillasSuspension} amarillas acumuladas = 1 partido`)
         }
       } else if (e.tipo === 'doble_amarilla') {
         const s = get(e)
         s.totalAmarillas += 2; s.rojas++
-        s.suspendidoProximo += cfg.partidosDobleAmarilla
+        if (cfg.partidosDobleAmarilla > 0) cola.get(s.playerId)!.push({ n: cfg.partidosDobleAmarilla, am: false })
         s.motivos.push(`Doble amarilla = ${cfg.partidosDobleAmarilla} partido(s)`)
       } else if (e.tipo === 'roja') {
         const s = get(e)
         s.rojas++
-        s.suspendidoProximo += cfg.partidosRojaDirecta
+        if (cfg.partidosRojaDirecta > 0) cola.get(s.playerId)!.push({ n: cfg.partidosRojaDirecta, am: false })
         s.motivos.push(`Roja directa = ${cfg.partidosRojaDirecta} partido(s)`)
       }
     }
   }
-  // Ciclo actual: el del próximo partido por jugar (o el del último jugado). Quien tenía amarillas de un ciclo anterior queda en 0.
+  // Ciclo actual: el del próximo partido por jugar (o el del último jugado). Lo de amarillas de un ciclo anterior queda anulado.
   const pendiente = partidos.filter((p) => !finalizado(p)).sort((a, b) => a.jornadaNum - b.jornadaNum)[0]
   const actual = pendiente ? pendiente.ciclo : fin[fin.length - 1]?.ciclo
-  for (const s of jugadores.values()) if (cicloDe.has(s.playerId) && cicloDe.get(s.playerId) !== actual) s.amarillas = 0
+  for (const s of jugadores.values()) {
+    if (cicloDe.has(s.playerId) && cicloDe.get(s.playerId) !== actual) s.amarillas = 0
+    anular(s, actual)
+    s.suspendidoProximo = pendientes(s)
+  }
   for (const s of jugadores.values()) s.precaucion = s.suspendidoProximo === 0 && cfg.amarillasSuspension > 1 && s.amarillas === cfg.amarillasSuspension - 1
   return Array.from(jugadores.values())
 }

@@ -55,8 +55,16 @@ s = sanciones(ca, cfg)[0]; eq([s.amarillas, s.suspendidoProximo, s.totalAmarilla
 s = sanciones([...ca.slice(0, 2), C(P('8','A','D',0,0,8,[],'programado'),'f2')], cfg)[0]; eq([s.amarillas, s.precaucion], [0, false], 'al terminar F1 la precaución se anula')
 s = sanciones(ca.slice(0, 2), cfg)[0]; eq([s.amarillas, s.precaucion], [2, true], 'durante F1 sigue la precaución')
 const cs = [C(P('1','A','B',0,0,1,[a('amarilla')]),'f1'), C(P('2','A','C',0,0,2,[a('amarilla')]),'f1'), C(P('3','A','D',0,0,3,[a('amarilla')]),'f1'), C(P('8','A','E',0,0,8),'f2')]
-s = sanciones(cs.slice(0, 3), cfg)[0]; eq(s.suspendidoProximo, 1, 'suspendido al final de F1')
-s = sanciones(cs, cfg)[0]; eq([s.suspendidoProximo, s.cumplidos], [0, 1], 'la cumple en el primer partido de F2')
+s = sanciones(cs.slice(0, 3), cfg)[0]; eq(s.suspendidoProximo, 1, 'suspendido al final de F1 (sin partidos de F2 aún)')
+s = sanciones([...cs.slice(0, 3), C(P('8','A','E',0,0,8,[],'programado'),'f2')], cfg)[0]; eq(s.suspendidoProximo, 0, '3 amarillas de F1 no pasan a F2')
+s = sanciones(cs, cfg)[0]; eq([s.suspendidoProximo, s.cumplidos, s.totalAmarillas], [0, 0, 3], 'no la cumple en F2 (anulada), totales intactos')
+const r1 = { teamId: 'A', playerId: 'p7', tipo: 'roja' }, d1 = { teamId: 'A', playerId: 'p6', tipo: 'doble_amarilla' }
+const cr = [C(P('7','A','B',0,0,7,[r1, d1]),'f1'), C(P('8','A','C',0,0,8,[],'programado'),'f2')]
+const sr = sanciones(cr, cfg); eq([sr.find((x) => x.playerId === 'p7')!.suspendidoProximo, sr.find((x) => x.playerId === 'p6')!.suspendidoProximo], [2, 1], 'roja y doble de F1 pasan a F2')
+const cr2 = [C(P('7','A','B',0,0,7,[r1]),'f1'), C(P('8','A','C',0,0,8),'f2'), C(P('9','A','D',0,0,9,[],'programado'),'f2')]
+eq(sanciones(cr2, cfg)[0].suspendidoProximo, 1, 'roja de F1 cumple 1 en F2, queda 1')
+const mix = [C(P('6','A','B',0,0,6,[a('amarilla'), a('amarilla'), a('amarilla')]),'f1'), C(P('7','A','C',0,0,7,[{ teamId: 'A', playerId: 'p1', tipo: 'roja' }]),'f1'), C(P('8','A','D',0,0,8,[],'programado'),'f2')]
+eq(sanciones(mix, cfg)[0].suspendidoProximo, 2, 'jugó en F1 sin cumplir las amarillas: esa se anula, la roja pasa entera')
 const c3 = [C(P('8','A','B',0,0,8,[a('amarilla')]),'f2'), C(P('9','A','C',0,0,9,[a('amarilla')]),'f2'), C(P('10','A','D',0,0,10,[a('amarilla')]),'f2')]
 eq(sanciones(c3, cfg)[0].suspendidoProximo, 1, '3 amarillas en F2 = 1 fecha')
 eq(sanciones([...c3.slice(0, 2), C(P('11','A','D',0,0,11,[a('amarilla')]),'f2')], cfg)[0].suspendidoProximo, 1, 'cuartos siguen el ciclo de su fase')
