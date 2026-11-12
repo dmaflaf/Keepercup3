@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { exigirAdmin } from '@/lib/sorteo'
 import { CONFIG_DEFECTO, ConfigProg, horaValida, juegaEn } from '@/lib/programacion'
+import { leerDatos, planificar, EstadoTorneo, Plan } from '@/lib/fases-prog'
+import { cargarTorneo } from '@/lib/torneo-data'
 
 export const dynamic = 'force-dynamic'
 const falla = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status })
@@ -38,10 +40,18 @@ export async function GET(req: NextRequest) {
   const equipos = await prisma.team.findMany({ where: { id: { in: Array.from(new Set([...miembros.map((m) => m.teamId), ...partidos.flatMap((p) => [p.localId, p.visitanteId])])) } }, select: { id: true, name: true } })
   const nombre = new Map(equipos.map((t) => [t.id, t.name]))
   const gnombre = new Map(grupos.map((g) => [g.id, g.nombre]))
+  // Fases con su tabla (para «Adicionar fase»: llenar grupos con los puestos o armar cruces)
+  const d = await cargarTorneo(id)
+  const fasesInfo = (d?.fases || []).map((f) => ({
+    id: f.id, nombre: f.nombre, tipo: f.tipo,
+    fechas: Array.from(new Set(partidos.filter((p) => p.faseId === f.id).map((p) => p.jornadaNum))).sort((a, b) => a - b),
+    pendientes: partidos.filter((p) => p.faseId === f.id && p.estado !== 'finalizado').length,
+    grupos: f.grupos.map((g) => ({ nombre: g.nombre, tabla: g.tabla.map((r) => r.equipo) })),
+  }))
   return NextResponse.json({
-    ok: true, torneos, torneoId: id, config: await leerConfig(), cerradas: await cerradas(id), diasFecha: await diasFecha(id),
+    ok: true, torneos, torneoId: id, fases: fasesInfo, clubes: (await prisma.team.findMany({ select: { name: true }, orderBy: { name: 'asc' } })).map((t) => t.name), config: await leerConfig(), cerradas: await cerradas(id), diasFecha: await diasFecha(id),
     grupos: grupos.map((g) => ({ id: g.id, nombre: g.nombre, equipos: miembros.filter((m) => m.grupoId === g.id).map((m) => ({ id: m.teamId, nombre: nombre.get(m.teamId) || '?' })) })),
-    partidos: partidos.map((p) => ({ id: p.id, jornadaNum: p.jornadaNum, jornadaJuego: p.jornadaJuego, grupo: p.grupoId ? gnombre.get(p.grupoId) || null : null, localId: p.localId, visitanteId: p.visitanteId, local: nombre.get(p.localId) || '?', visitante: nombre.get(p.visitanteId) || '?', fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante })),
+    partidos: partidos.map((p) => ({ id: p.id, jornada: p.jornada, jornadaNum: p.jornadaNum, jornadaJuego: p.jornadaJuego, grupo: p.grupoId ? gnombre.get(p.grupoId) || null : null, localId: p.localId, visitanteId: p.visitanteId, local: nombre.get(p.localId) || '?', visitante: nombre.get(p.visitanteId) || '?', fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante })),
   })
 }
 
@@ -109,6 +119,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, movidos: updates.length })
   }
 
+  // Subir JSON / Adicionar fase: vista previa, aplicar y deshacer la última carga
+  if (b.accion === 'fases_vista' || b.accion === 'fases_aplicar') {
+    const torneoId = String(b.torneoId)
+    if (!(await prisma.torneo.findUnique({ where: { id: torneoId }, select: { id: true } }))) return falla('Torneo no encontrado', 404)
+    const { datos, error } = leerDatos(b.datos)
+    if (!datos) return falla(error || 'JSON inválido')
+    const plan = planificar(datos, await estadoTorneo(torneoId))
+    const vista = { ok: true, resumen: plan.resumen, errores: plan.errores, avisos: plan.avisos, jugados: plan.jugados, cuentas: { fases: plan.fasesNuevas.length, grupos: plan.gruposNuevos.length, equipos: plan.miembrosNuevos.length, crear: plan.crear.length, actualizar: plan.actualizar.length, sinCambio: plan.sinCambio, jugados: plan.jugados.length } }
+    if (b.accion === 'fases_vista') return NextResponse.json(vista)
+    if (plan.errores.length) return NextResponse.json({ ...vista, ok: false, message: 'Corrige los errores antes de aplicar.' }, { status: 400 })
+    if (!plan.fasesNuevas.length && !plan.gruposNuevos.length && !plan.miembrosNuevos.length && !plan.crear.length && !plan.actualizar.length) return NextResponse.json({ ...vista, aplicado: false, message: 'No hay nada nuevo que cargar: todo ya está igual en el sistema.' })
+    const respaldo = await aplicarPlan(torneoId, plan)
+    const key = `respaldo:subir-fases:${torneoId}`
+    const prev = await prisma.ajuste.findUnique({ where: { key } })
+    let lista: unknown[] = []; try { lista = prev ? JSON.parse(prev.value) : [] } catch { lista = [] }
+    lista.push(respaldo)
+    await prisma.ajuste.upsert({ where: { key }, create: { key, value: JSON.stringify(lista) }, update: { value: JSON.stringify(lista) } })
+    return NextResponse.json({ ...vista, aplicado: true })
+  }
+  if (b.accion === 'fases_deshacer') {
+    const torneoId = String(b.torneoId), key = `respaldo:subir-fases:${torneoId}`
+    const prev = await prisma.ajuste.findUnique({ where: { key } })
+    let lista: Respaldo[] = []; try { lista = prev ? JSON.parse(prev.value) : [] } catch { lista = [] }
+    const r = lista.pop()
+    if (!r) return falla('No hay ninguna carga para deshacer.')
+    const creados = await prisma.partido.findMany({ where: { id: { in: r.partidos } } })
+    const conEventos = new Set((await prisma.evento.findMany({ where: { partidoId: { in: r.partidos } }, select: { partidoId: true } })).map((x) => x.partidoId))
+    const trabados = creados.filter((p) => p.estado === 'finalizado' || conEventos.has(p.id))
+    if (trabados.length) return falla(`No se puede deshacer: ${trabados.length} partido(s) de esa carga ya se jugaron o tienen eventos.`, 409)
+    await prisma.$transaction([
+      prisma.partido.deleteMany({ where: { id: { in: r.partidos } } }),
+      ...r.antes.map((a) => prisma.partido.update({ where: { id: a.id }, data: { jornada: a.jornada, jornadaNum: a.jornadaNum, grupoId: a.grupoId, localId: a.localId, visitanteId: a.visitanteId, fecha: a.fecha, hora: a.hora, escenario: a.escenario } })),
+      ...r.miembros.map((m) => prisma.grupoEquipo.deleteMany({ where: { grupoId: m.grupoId, teamId: m.teamId } })),
+      prisma.grupo.deleteMany({ where: { id: { in: r.grupos } } }),
+      prisma.fase.deleteMany({ where: { id: { in: r.fases } } }),
+      prisma.ajuste.update({ where: { key }, data: { value: JSON.stringify(lista) } }),
+    ])
+    return NextResponse.json({ ok: true, message: `Carga del ${new Date(r.en).toLocaleString('es-EC', { timeZone: 'America/Guayaquil' })} deshecha.` })
+  }
+
   const p = await prisma.partido.findUnique({ where: { id: String(b.partidoId) } })
   if (!p) return falla('Partido no encontrado', 404)
   const lista = await cerradas(p.torneoId)
@@ -145,4 +195,58 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, desplazado: ocupante ? { id: ocupante.id } : null })
   }
   return falla('Acción desconocida')
+}
+
+async function estadoTorneo(torneoId: string): Promise<EstadoTorneo> {
+  const [fases, partidos, clubes] = await Promise.all([
+    prisma.fase.findMany({ where: { torneoId }, orderBy: { orden: 'asc' } }),
+    prisma.partido.findMany({ where: { torneoId } }),
+    prisma.team.findMany({ select: { id: true, name: true } }),
+  ])
+  const grupos = await prisma.grupo.findMany({ where: { faseId: { in: fases.map((f) => f.id) } } })
+  const miembros = await prisma.grupoEquipo.findMany({ where: { grupoId: { in: grupos.map((g) => g.id) } } })
+  const ev = await prisma.evento.groupBy({ by: ['partidoId'], where: { partidoId: { in: partidos.map((p) => p.id) } }, _count: { _all: true } })
+  const nEv = new Map(ev.map((x) => [x.partidoId, x._count._all]))
+  return {
+    fases: fases.map((f) => ({ id: f.id, nombre: f.nombre, tipo: f.tipo })), grupos: grupos.map((g) => ({ id: g.id, faseId: g.faseId, nombre: g.nombre })),
+    miembros: miembros.map((m) => ({ grupoId: m.grupoId, teamId: m.teamId })), clubes, cerradas: await cerradas(torneoId),
+    partidos: partidos.map((p) => ({ id: p.id, faseId: p.faseId, grupoId: p.grupoId, jornada: p.jornada, jornadaNum: p.jornadaNum, jornadaJuego: p.jornadaJuego, localId: p.localId, visitanteId: p.visitanteId, fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, eventos: nEv.get(p.id) || 0 })),
+  }
+}
+
+interface Respaldo { en: number; fases: string[]; grupos: string[]; miembros: { grupoId: string; teamId: string }[]; partidos: string[]; antes: { id: string; jornada: string; jornadaNum: number; grupoId: string | null; localId: string; visitanteId: string; fecha: string | null; hora: string | null; escenario: string | null }[] }
+
+async function aplicarPlan(torneoId: string, plan: Plan): Promise<Respaldo> {
+  return prisma.$transaction(async (tx) => {
+    const id = new Map<string, string>()
+    const real = (ref: string | null) => (ref === null ? null : id.get(ref) ?? ref)
+    let orden = await tx.fase.count({ where: { torneoId } })
+    const r: Respaldo = { en: Date.now(), fases: [], grupos: [], miembros: [], partidos: [], antes: [] }
+    for (const f of plan.fasesNuevas) {
+      const x = await tx.fase.create({ data: { torneoId, nombre: f.nombre, tipo: f.tipo, orden: ++orden } })
+      id.set(f.ref, x.id); r.fases.push(x.id)
+    }
+    for (const g of plan.gruposNuevos) {
+      const faseId = real(g.faseRef) as string
+      const n = await tx.grupo.count({ where: { faseId } })
+      const x = await tx.grupo.create({ data: { faseId, nombre: g.nombre, orden: n + 1 } })
+      id.set(g.ref, x.id); r.grupos.push(x.id)
+    }
+    for (const m of plan.miembrosNuevos) {
+      const grupoId = real(m.grupoRef) as string
+      await tx.grupoEquipo.create({ data: { grupoId, teamId: m.teamId } })
+      r.miembros.push({ grupoId, teamId: m.teamId })
+    }
+    for (const c of plan.crear) {
+      const x = await tx.partido.create({ data: { torneoId, faseId: real(c.faseRef) as string, grupoId: real(c.grupoRef), jornada: c.jornada, jornadaNum: c.jornadaNum, localId: c.localId, visitanteId: c.visitanteId, fecha: c.fecha, hora: c.hora, escenario: c.escenario } })
+      r.partidos.push(x.id)
+    }
+    for (const u of plan.actualizar) {
+      const a = await tx.partido.findUniqueOrThrow({ where: { id: u.id } })
+      r.antes.push({ id: a.id, jornada: a.jornada, jornadaNum: a.jornadaNum, grupoId: a.grupoId, localId: a.localId, visitanteId: a.visitanteId, fecha: a.fecha, hora: a.hora, escenario: a.escenario })
+      const { grupoRef, ...resto } = u.data
+      await tx.partido.update({ where: { id: u.id }, data: { ...resto, ...(grupoRef !== undefined ? { grupoId: real(grupoRef) } : {}), ...(resto.jornadaNum !== undefined ? { jornadaJuego: null } : {}) } })
+    }
+    return r
+  }, { timeout: 30000 })
 }

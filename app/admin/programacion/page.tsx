@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { posterHorario } from '@/lib/poster-horario'
+import { AdicionarFase, FaseInfo, SubirJson } from './Fases'
 import { avisosPara, balance, ConfigProg, CONFIG_DEFECTO, diaSemana, diasDeJornada, DIAS, DIA3, etiquetaMovido, etiquetaSlot, fechaLarga, horaValida, juegaEn, PartidoProg } from '@/lib/programacion'
 
 interface Grupo { id: string; nombre: string; equipos: { id: string; nombre: string }[] }
@@ -27,12 +28,15 @@ export default function Programacion() {
   const [casilla, setCasilla] = useState<{ fecha: string; hora: string; estadio: string } | null>(null)
   const [prog, setProg] = useState<PartidoProg | null>(null)
   const [pe, setPe] = useState({ estadio: '', fecha: '', hora: '' })
+  const [fases, setFases] = useState<FaseInfo[]>([])
+  const [clubes, setClubes] = useState<string[]>([])
+  const [modal, setModal] = useState<'json' | 'fase' | null>(null)
   const [editCfg, setEditCfg] = useState<{ estadios: string; inicio: string; v: string; s: string; d: string } | null>(null)
 
   const cargar = useCallback(async (id?: string) => {
     const r = await fetch('/api/admin/programacion' + (id ? `?torneoId=${id}` : ''), { cache: 'no-store' }).then((x) => x.json()).catch(() => null)
     if (!r?.ok) { setMsg(r?.message || 'No se pudo cargar (¿eres administrador?)'); return }
-    setTorneos(r.torneos); setPartidos(r.partidos); setGrupos(r.grupos); setCfg(r.config); setCerradas(r.cerradas || []); setDiasFecha(r.diasFecha || {}); setTid(r.torneoId || '')
+    setTorneos(r.torneos); setPartidos(r.partidos); setGrupos(r.grupos); setCfg(r.config); setCerradas(r.cerradas || []); setDiasFecha(r.diasFecha || {}); setTid(r.torneoId || ''); setFases(r.fases || []); setClubes(r.clubes || [])
     setMsg(r.partidos.length ? '' : 'Este torneo todavía no tiene partidos.')
     if (r.partidos.length) setJornada((j) => (r.partidos.some((p: PartidoProg) => p.jornadaNum === j) ? j : r.partidos[0].jornadaNum))
   }, [])
@@ -40,6 +44,10 @@ export default function Programacion() {
 
   const post = (b: Record<string, unknown>) => fetch('/api/admin/programacion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Error de conexión' }))
   const jornadas = useMemo(() => Array.from(new Set(partidos.map((p) => juegaEn(p)))).sort((a, b) => a - b), [partidos])
+  // Nombre de cada fecha: «Fecha 8» o el de la ronda («Cuartos de final»)
+  const nombreFecha = (j: number) => { const e = partidos.find((p) => p.jornadaNum === j && p.jornada && !/^fecha\s*\d+$/i.test(p.jornada))?.jornada; return e ? `${e} (F${j})` : `Fecha ${j}` }
+  const siguiente = (partidos.length ? Math.max(...partidos.map((p) => Math.max(p.jornadaNum, p.jornadaJuego ?? 0))) : 0) + 1
+  const gruposJ = grupos.filter((g) => partidos.some((p) => juegaEn(p) === jornada && p.grupo === g.nombre))
   const colorDe = (g: string | null) => COL[Math.max(0, grupos.findIndex((x) => x.nombre === g)) % COL.length]
   const cerrada = cerradas.includes(jornada)
   const delaJ = partidos.filter((p) => juegaEn(p) === jornada && (!filtro || p.grupo === filtro))
@@ -91,7 +99,7 @@ export default function Programacion() {
   async function poster() {
     const items = partidos.filter((p) => juegaEn(p) === jornada && p.fecha && p.hora && p.escenario).map((p) => ({ fecha: p.fecha as string, hora: p.hora as string, escenario: p.escenario as string, local: p.local, visitante: p.visitante, marca: etiquetaMovido(p) }))
     if (!items.length) { alert('Esta fecha todavía no tiene partidos programados.'); return }
-    const b = await posterHorario(jornada, cfg.estadios, items, horasBase)
+    const b = await posterHorario(jornada, cfg.estadios, items, horasBase, nombreFecha(jornada).replace(/ \(F\d+\)$/, ''))
     if (!b) return
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `horarios-fecha-${jornada}.png`; a.click()
   }
@@ -103,12 +111,19 @@ export default function Programacion() {
         <h1 className="text-3xl font-bold mt-3 mb-1">🗓️ Programación de partidos</h1>
         <p className="text-slate-400 mb-4">Toca una casilla libre para asignarle un partido, o «Programar» en un partido pendiente. Avisa si un equipo ya juega a esa hora o repite día y horario.</p>
         {msg && <p className="text-slate-300 mb-4">{msg}</p>}
+        {tid && <div className="flex flex-wrap gap-2 mb-4">
+          <button className={btn} onClick={() => setModal('fase')}>➕ Adicionar fase</button>
+          <button className={btn + ' !bg-slate-600 hover:!bg-slate-500'} onClick={() => setModal('json')}>📤 Subir JSON</button>
+          {fases.length > 0 && <span className="text-xs text-slate-400 self-center">Fases: {fases.map((f) => `${f.nombre}${f.fechas.length ? ` (F${f.fechas[0]}${f.fechas.length > 1 ? `–${f.fechas[f.fechas.length - 1]}` : ''})` : ''}`).join('  |  ')}</span>}
+        </div>}
+        {modal === 'json' && <SubirJson tid={tid} post={post} onDone={() => cargar(tid)} onClose={() => setModal(null)} />}
+        {modal === 'fase' && <AdicionarFase tid={tid} post={post} onDone={() => cargar(tid)} onClose={() => setModal(null)} fases={fases} clubes={clubes} siguiente={siguiente} />}
         {torneos.length > 1 && <select className={inp + ' mb-3'} value={tid} onChange={(e) => cargar(e.target.value)}>{torneos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}</select>}
         {!!partidos.length && (<>
-          <div className="flex flex-wrap gap-2 mb-3">{jornadas.map((j) => <button key={j} className={`px-3 py-1.5 rounded-lg text-sm ${jornada === j ? 'bg-yellow-500 text-black font-semibold' : 'bg-slate-700'}`} onClick={() => setJornada(j)}>Fecha {j}{cerradas.includes(j) ? ' 🔒' : ''}</button>)}</div>
+          <div className="flex flex-wrap gap-2 mb-3">{jornadas.map((j) => <button key={j} className={`px-3 py-1.5 rounded-lg text-sm ${jornada === j ? 'bg-yellow-500 text-black font-semibold' : 'bg-slate-700'}`} onClick={() => { setJornada(j); setFiltro('') }}>{nombreFecha(j)}{cerradas.includes(j) ? ' 🔒' : ''}</button>)}</div>
           <div className="flex flex-wrap gap-2 mb-4 items-center">
             <button className={`px-3 py-1.5 rounded-lg text-sm ${!filtro ? 'bg-slate-500' : 'bg-slate-700'}`} onClick={() => setFiltro('')}>Todos los grupos</button>
-            {grupos.map((g) => <button key={g.id} className={`px-3 py-1.5 rounded-lg text-sm ${filtro === g.nombre ? 'bg-slate-500' : 'bg-slate-700'}`} onClick={() => setFiltro(g.nombre)}><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: colorDe(g.nombre) }} />{g.nombre}</button>)}
+            {gruposJ.length > 1 && gruposJ.map((g) => <button key={g.id} className={`px-3 py-1.5 rounded-lg text-sm ${filtro === g.nombre ? 'bg-slate-500' : 'bg-slate-700'}`} onClick={() => setFiltro(g.nombre)}><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: colorDe(g.nombre) }} />{g.nombre}</button>)}
             <span className="ml-auto flex gap-2 flex-wrap">
               <button className={btn2} onClick={() => setVista(vista === 'grilla' ? 'balance' : 'grilla')}>{vista === 'grilla' ? '⚖️ Ver balance' : '🗓️ Ver casillas'}</button>
               <button className={btn2} onClick={poster}>🖼 Imagen del horario</button>

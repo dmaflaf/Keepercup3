@@ -16,7 +16,7 @@ async function cargarFuentes() {
 const imagen = (src: string) => new Promise<HTMLImageElement | null>((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src })
 const hh = (h: string) => h.replace(':', 'h')
 
-export async function posterHorario(jornada: number, estadios: string[], items: ItemPoster[], horasDelDia: (fecha: string) => string[] = () => []): Promise<Blob | null> {
+export async function posterHorario(jornada: number, estadios: string[], items: ItemPoster[], horasDelDia: (fecha: string) => string[] = () => [], titulo = `Fecha ${jornada}`): Promise<Blob | null> {
   await cargarFuentes()
   const F = (peso: string, px: number, it = false) => `${it ? 'italic ' : ''}${peso} ${px}px Barlow, 'Arial Narrow', system-ui, sans-serif`
   const cols = estadios.slice(0, 2).length ? estadios.slice(0, 2) : ['San Miguel']
@@ -42,7 +42,10 @@ export async function posterHorario(jornada: number, estadios: string[], items: 
   g.textAlign = 'center'; g.textBaseline = 'alphabetic'
   g.fillStyle = '#2fd3f7'; g.font = F('800', 44, true); g.fillText('KEEPER CUP 3', W / 2, 84)
   g.save(); g.shadowColor = 'rgba(120,180,255,0.55)'; g.shadowBlur = 12
-  g.fillStyle = '#ffffff'; g.font = F('900', 112, true); g.fillText(`HORARIOS FECHA ${jornada}`, W / 2, 182); g.restore()
+  const tit = `HORARIOS ${titulo.toUpperCase()}`
+  let tam = 112; g.font = F('900', tam, true)
+  while (tam > 60 && g.measureText(tit).width > W - 120) { tam -= 4; g.font = F('900', tam, true) }
+  g.fillStyle = '#ffffff'; g.fillText(tit, W / 2, 182); g.restore()
 
   // Panel con borde luminoso
   const px = 75, pw = W - 150, ph = H - panelY - 40, r = 38
