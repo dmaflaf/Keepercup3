@@ -23,8 +23,12 @@ export async function POST(req: NextRequest) {
     if (!TIPOS.includes(kind) || !(archivo instanceof File)) return NextResponse.json({ ok: false, message: 'Datos incompletos' }, { status: 400 })
     if (archivo.size > 4 * 1024 * 1024) return NextResponse.json({ ok: false, message: 'Foto demasiado grande' }, { status: 413 })
 
-    const jugador = await prisma.player.findFirst({ where: { cedula, ...(equipo && { team: { name: equipo } }) }, select: { id: true } })
-    if (!jugador) return NextResponse.json({ ok: false, message: 'No hay un jugador con esa cédula en este club' }, { status: 404 })
+    // Desde la ficha del jugador llega su id; desde la carga por club, la cédula
+    const playerId = String(f.get('playerId') || '')
+    const jugador = playerId
+      ? await prisma.player.findUnique({ where: { id: playerId }, select: { id: true } })
+      : cedula ? await prisma.player.findFirst({ where: { cedula, ...(equipo && { team: { name: equipo } }) }, select: { id: true } }) : null
+    if (!jugador) return NextResponse.json({ ok: false, message: playerId ? 'Jugador no encontrado' : 'No hay un jugador con esa cédula en este club' }, { status: 404 })
 
     const lado = kind === 'selfie' ? 800 : 1200
     const data = await sharp(Buffer.from(await archivo.arrayBuffer()))
