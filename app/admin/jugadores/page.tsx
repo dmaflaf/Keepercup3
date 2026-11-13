@@ -24,6 +24,32 @@ export default function JugadoresPage() {
   const [q, setQ] = useState('')
   const [equipo, setEquipo] = useState('')
   const [soloPendientes, setSoloPendientes] = useState(false)
+  const [listo, setListo] = useState(false)
+
+  // Recordar club, búsqueda y posición al entrar a un jugador y volver (en esta pestaña)
+  const CLAVE = 'admin-jugadores-filtros'
+  useEffect(() => {
+    try {
+      const f = JSON.parse(sessionStorage.getItem(CLAVE) || '{}')
+      if (typeof f.q === 'string') setQ(f.q)
+      if (typeof f.equipo === 'string') setEquipo(f.equipo)
+      if (typeof f.soloPendientes === 'boolean') setSoloPendientes(f.soloPendientes)
+    } catch { /* sin almacenamiento */ }
+    setListo(true)
+  }, [])
+  useEffect(() => {
+    if (!listo) return
+    try { const f = JSON.parse(sessionStorage.getItem(CLAVE) || '{}'); sessionStorage.setItem(CLAVE, JSON.stringify({ ...f, q, equipo, soloPendientes })) } catch { /* */ }
+  }, [q, equipo, soloPendientes, listo])
+  useEffect(() => {
+    const guardar = () => { try { const f = JSON.parse(sessionStorage.getItem(CLAVE) || '{}'); sessionStorage.setItem(CLAVE, JSON.stringify({ ...f, scroll: window.scrollY })) } catch { /* */ } }
+    window.addEventListener('scroll', guardar, { passive: true })
+    return () => window.removeEventListener('scroll', guardar)
+  }, [])
+  useEffect(() => {
+    if (cargando || !listo) return
+    try { const y = JSON.parse(sessionStorage.getItem(CLAVE) || '{}').scroll; if (typeof y === 'number') requestAnimationFrame(() => window.scrollTo(0, y)) } catch { /* */ }
+  }, [cargando, listo])
 
   useEffect(() => {
     fetch('/api/admin/jugadores')
@@ -45,7 +71,7 @@ export default function JugadoresPage() {
     if (soloPendientes && j.tieneSelfie && j.tieneCedulaFrente && j.tieneCedulaReverso) return false
     const t = q.trim().toLowerCase()
     return !t || j.nombre.toLowerCase().includes(t) || (j.cedula || '').includes(t)
-  })
+  }).sort((a, b) => a.equipo.localeCompare(b.equipo, 'es') || (a.numero ?? 9999) - (b.numero ?? 9999) || a.nombre.localeCompare(b.nombre, 'es'))
 
   const marca = (ok: boolean) => (ok ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>)
 
