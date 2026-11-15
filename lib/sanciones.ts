@@ -1,7 +1,7 @@
 // Sanciones por tarjetas (reglas del torneo): amarillas acumuladas, doble amarilla en un partido y roja directa.
 // A diferencia del cálculo rápido de lib/torneo.ts, este reparte los partidos de sanción en las siguientes fechas del equipo
 // y dice cuáles ya se cumplieron y cuáles están pendientes. Puro: lo usan las pantallas y los PDFs.
-export interface PartidoSan { id: string; jornadaNum: number; fecha: string | null; localId: string; visitanteId: string; estado: string; eventos: { teamId: string; playerId: string | null; tipo: string }[]; ciclo?: string /* Art. 50: cambia en cada fase de grupos */ }
+export interface PartidoSan { id: string; jornadaNum: number; fecha: string | null; localId: string; visitanteId: string; estado: string; eventos: { teamId: string; playerId: string | null; tipo: string; extra?: number | null; aparte?: boolean }[]; ciclo?: string /* Art. 50: cambia en cada fase de grupos */ }
 export interface CfgSan { amarillasSuspension: number; partidosDobleAmarilla: number; partidosRojaDirecta: number }
 export interface FilaSancion {
   playerId: string; teamId: string
@@ -19,33 +19,36 @@ export interface FilaSancion {
 }
 
 export function calcularSanciones(partidos: PartidoSan[], cfg: CfgSan): FilaSancion[] {
-  const filas = new Map<string, { playerId: string; teamId: string; y: number; r: number; dobles: number; cards: { m: PartidoSan; t: 'A' | 'D' | 'R' }[] }>()
+  const filas = new Map<string, { playerId: string; teamId: string; y: number; r: number; dobles: number; cards: { m: PartidoSan; t: 'A' | 'D' | 'R'; extra: number; aparte: boolean }[] }>()
   for (const m of partidos) {
     for (const e of m.eventos) {
       if (!e.playerId || !['amarilla', 'doble_amarilla', 'roja'].includes(e.tipo)) continue
       const f = filas.get(e.playerId) || { playerId: e.playerId, teamId: e.teamId, y: 0, r: 0, dobles: 0, cards: [] }
       if (e.tipo === 'roja') f.r++
       else if (e.tipo === 'doble_amarilla') { f.y += 2; f.dobles++ } else f.y++
-      f.cards.push({ m, t: e.tipo === 'roja' ? 'R' : e.tipo === 'doble_amarilla' ? 'D' : 'A' })
+      f.cards.push({ m, t: e.tipo === 'roja' ? 'R' : e.tipo === 'doble_amarilla' ? 'D' : 'A', extra: Math.max(0, e.extra || 0), aparte: !!e.aparte })
       filas.set(e.playerId, f)
     }
   }
   const fechasDe = new Map<string, PartidoSan[]>()
-  for (const m of partidos) for (const t of [m.localId, m.visitanteId]) fechasDe.set(t, [...(fechasDe.get(t) || []), m])
+  // Un partido suspendido no sirve para cumplir sanciones (sus tarjetas sí cuentan)
+  for (const m of partidos) if (m.estado !== 'suspendido') for (const t of [m.localId, m.visitanteId]) fechasDe.set(t, [...(fechasDe.get(t) || []), m])
   fechasDe.forEach((l) => l.sort((a, b) => a.jornadaNum - b.jornadaNum || (a.fecha || '').localeCompare(b.fecha || '')))
 
   // Ciclo actual: el del próximo partido por jugar (o el del último jugado)
   const orden = [...partidos].sort((a, b) => a.jornadaNum - b.jornadaNum || (a.fecha || '').localeCompare(b.fecha || ''))
-  const cicloActual = (orden.find((p) => p.estado !== 'finalizado') || orden[orden.length - 1])?.ciclo
+  const cicloActual = (orden.find((p) => p.estado !== 'finalizado' && p.estado !== 'suspendido') || orden[orden.length - 1])?.ciclo
   return Array.from(filas.values()).map((r) => {
     const events: { jornada: number; n: number; am?: boolean; ciclo?: string }[] = []
     const motivos = new Set<string>()
     const porPartido = new Map<string, { m: PartidoSan; n: number }>()
-    for (const { m, t } of r.cards) {
-      if (t === 'R') { events.push({ jornada: m.jornadaNum, n: cfg.partidosRojaDirecta }); motivos.add('Roja directa'); continue }
-      const x = porPartido.get(m.id) || { m, n: 0 }
+    for (const { m, t, extra, aparte } of r.cards) {
+      if (t === 'R') { events.push({ jornada: m.jornadaNum, n: cfg.partidosRojaDirecta + extra }); motivos.add(extra ? `Roja directa + ${extra} fecha(s) adicionales` : 'Roja directa'); continue }
+      if (t === 'D' && extra) { events.push({ jornada: m.jornadaNum, n: extra }); motivos.add(`${extra} fecha(s) adicionales`) }
+      const k = aparte ? `${m.id}:suspendido` : m.id
+      const x = porPartido.get(k) || { m, n: 0 }
       x.n += t === 'D' ? 2 : 1
-      porPartido.set(m.id, x)
+      porPartido.set(k, x)
     }
     let sueltas = 0, cicloAm: string | undefined = undefined, hay = false
     Array.from(porPartido.values()).sort((a, b) => a.m.jornadaNum - b.m.jornadaNum).forEach(({ m, n }) => {

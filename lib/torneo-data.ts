@@ -30,7 +30,13 @@ export async function cargarTorneo(torneoId: string) {
   const jugador = new Map(players.map((p) => [p.id, p]))
 
   const eventosPorPartido = new Map<string, EventoCalc[]>()
-  for (const e of eventos) eventosPorPartido.set(e.partidoId, [...(eventosPorPartido.get(e.partidoId) || []), { teamId: e.teamId, playerId: e.playerId, tipo: e.tipo, minuto: e.minuto }])
+  // Goles de un partido suspendido (o resuelto con fallo de mesa) no cuentan para goleadores ni estadísticas; sus tarjetas sí
+  const sinGoles = new Set(partidosDB.filter((p) => p.estado === 'suspendido' || p.resueltoMesa).map((p) => p.id))
+  const GOLES = ['gol', 'gol_penal', 'autogol', 'tanda_gol', 'tanda_fallo']
+  for (const e of eventos) {
+    if (sinGoles.has(e.partidoId) && GOLES.includes(e.tipo)) continue
+    eventosPorPartido.set(e.partidoId, [...(eventosPorPartido.get(e.partidoId) || []), { teamId: e.teamId, playerId: e.playerId, tipo: e.tipo, minuto: e.minuto, extra: e.sancionExtra, ...(e.periodo === -1 ? { aparte: true } : {}) }])
+  }
   // Ciclo de amarillas (Art. 50): cada fase por grupos empieza uno nuevo; una eliminatoria sigue el de la fase anterior
   const ciclo = new Map<string, string>()
   let actual = ''

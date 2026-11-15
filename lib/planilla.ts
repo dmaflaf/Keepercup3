@@ -17,7 +17,7 @@ export type Op = { id: string; en: number } & (
   | { t: 'borrar'; cid: string }
 )
 
-export interface EventoP { cid: string; tipo: string; teamId: string; playerId: string | null; minuto: number | null; periodo: number | null }
+export interface EventoP { cid: string; tipo: string; teamId: string; playerId: string | null; minuto: number | null; periodo: number | null; eid?: string; extra?: number | null; extraMotivo?: string | null }
 export interface JugadorP { id: string; nombre: string; numero: number | null; posicion: string | null; teamId: string; suspendido: number }
 export interface PartidoP {
   id: string; jornada: string; fecha: string | null; hora: string | null; escenario: string | null
@@ -26,6 +26,7 @@ export interface PartidoP {
   penalesLocal: number | null; penalesVisitante: number | null
   periodo: Periodo; relojBase: number; relojDesde: number | null
   dur: number; titulares: number; cambiosMax: number
+  suspendidoMotivo?: string | null; suspendidoMinuto?: number | null
 }
 export interface SnapshotP { partido: PartidoP; jugadores: JugadorP[]; eventos: EventoP[] }
 
@@ -77,7 +78,8 @@ export function tanda(s: SnapshotP) {
   return { local: c(s.partido.localId, 'tanda_gol'), visitante: c(s.partido.visitanteId, 'tanda_gol'), falloL: c(s.partido.localId, 'tanda_fallo'), falloV: c(s.partido.visitanteId, 'tanda_fallo') }
 }
 /** Amarillas que lleva el jugador en ESTE partido (para sugerir la doble amarilla). */
-export const amarillasEnPartido = (eventos: EventoP[], playerId: string) => eventos.filter((e) => e.playerId === playerId && e.tipo === 'amarilla').length
+// Las tarjetas del intento suspendido (periodo -1) no cuentan para la doble amarilla del partido nuevo
+export const amarillasEnPartido = (eventos: EventoP[], playerId: string) => eventos.filter((e) => e.playerId === playerId && e.tipo === 'amarilla' && e.periodo !== -1).length
 
 // ---------- Aplicar una operación (optimista, en el dispositivo) ----------
 export function aplicarOp(s: SnapshotP, op: Op): SnapshotP {

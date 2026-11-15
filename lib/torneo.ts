@@ -9,7 +9,7 @@ export interface CfgTorneo {
   partidosRojaDirecta: number
 }
 
-export interface EventoCalc { teamId: string; playerId: string | null; tipo: string; minuto?: number | null }
+export interface EventoCalc { teamId: string; playerId: string | null; tipo: string; minuto?: number | null; extra?: number | null /* partidos de sanción adicionales (roja/doble) */; aparte?: boolean /* tarjeta del intento suspendido de un partido que se repitió */ }
 export interface PartidoCalc {
   id: string
   grupoId: string | null
@@ -156,7 +156,8 @@ export interface EstadoSancion {
 
 /** Sanciones por jugador. Un partido finalizado en que el jugador cumple suspensión consume 1 partido pendiente. */
 export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancion[] {
-  const fin = partidos.filter(finalizado).sort((a, b) => a.jornadaNum - b.jornadaNum || (a.fecha || '').localeCompare(b.fecha || '') || a.id.localeCompare(b.id))
+  // Las tarjetas de un partido SUSPENDIDO cuentan (sanciones y multas), pero ese partido no sirve para cumplir una suspensión
+  const fin = partidos.filter((p) => finalizado(p) || p.estado === 'suspendido').sort((a, b) => a.jornadaNum - b.jornadaNum || (a.fecha || '').localeCompare(b.fecha || '') || a.id.localeCompare(b.id))
   const jugadores = new Map<string, EstadoSancion>()
   const cicloDe = new Map<string, string | undefined>() // ciclo en que se contaron las amarillas de cada jugador
   // Partidos de suspensión pendientes, en orden. «am» = por amarillas acumuladas: si no se cumple dentro de su fase, se anula
@@ -180,6 +181,7 @@ export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancio
     // 1) cumplimiento: quien tenía suspensión pendiente de su equipo descansa este partido (antes de contar lo ocurrido en él)
     for (const s of jugadores.values()) {
       if (s.teamId !== p.localId && s.teamId !== p.visitanteId) continue
+      if (!finalizado(p)) continue
       anular(s, p.ciclo)
       const q = cola.get(s.playerId) as { n: number }[]
       if (q.length && !p.eventos.some((e) => e.playerId === s.playerId)) { q[0].n--; if (!q[0].n) q.shift(); s.cumplidos++ }
@@ -201,18 +203,20 @@ export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancio
       } else if (e.tipo === 'doble_amarilla') {
         const s = get(e)
         s.totalAmarillas += 2; s.rojas++
-        if (cfg.partidosDobleAmarilla > 0) cola.get(s.playerId)!.push({ n: cfg.partidosDobleAmarilla, am: false })
-        s.motivos.push(`Doble amarilla = ${cfg.partidosDobleAmarilla} partido(s)`)
+        const n = cfg.partidosDobleAmarilla + Math.max(0, e.extra || 0)
+        if (n > 0) cola.get(s.playerId)!.push({ n, am: false })
+        s.motivos.push(`Doble amarilla = ${cfg.partidosDobleAmarilla} partido(s)${e.extra ? ` + ${e.extra} de sanción adicional` : ''}`)
       } else if (e.tipo === 'roja') {
         const s = get(e)
         s.rojas++
-        if (cfg.partidosRojaDirecta > 0) cola.get(s.playerId)!.push({ n: cfg.partidosRojaDirecta, am: false })
-        s.motivos.push(`Roja directa = ${cfg.partidosRojaDirecta} partido(s)`)
+        const n = cfg.partidosRojaDirecta + Math.max(0, e.extra || 0)
+        if (n > 0) cola.get(s.playerId)!.push({ n, am: false })
+        s.motivos.push(`Roja directa = ${cfg.partidosRojaDirecta} partido(s)${e.extra ? ` + ${e.extra} de sanción adicional` : ''}`)
       }
     }
   }
   // Ciclo actual: el del próximo partido por jugar (o el del último jugado). Lo de amarillas de un ciclo anterior queda anulado.
-  const pendiente = partidos.filter((p) => !finalizado(p)).sort((a, b) => a.jornadaNum - b.jornadaNum)[0]
+  const pendiente = partidos.filter((p) => !finalizado(p) && p.estado !== 'suspendido').sort((a, b) => a.jornadaNum - b.jornadaNum)[0]
   const actual = pendiente ? pendiente.ciclo : fin[fin.length - 1]?.ciclo
   for (const s of jugadores.values()) {
     if (cicloDe.has(s.playerId) && cicloDe.get(s.playerId) !== actual) s.amarillas = 0

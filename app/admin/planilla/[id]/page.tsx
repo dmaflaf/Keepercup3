@@ -31,6 +31,9 @@ export default function Planilla() {
   const [editMin, setEditMin] = useState<string | null>(null)
   const [hoja, setHoja] = useState<{ teamId: string; playerId: string; paso: 'accion' | 'cambio' | 'varios'; minuto: number } | null>(null)
   const [banca, setBanca] = useState<Record<string, boolean>>({})
+  // Suspensión del partido y sanción adicional (con la contraseña del administrador)
+  const [sp, setSp] = useState<{ modo: 'suspender' | 'mesa' | 'reanudar' | 'repetir' | 'sancion'; motivo: string; password: string; gl: string; gv: string; partidos: string; eventoId?: string; titulo?: string } | null>(null)
+  const [spOcupado, setSpOcupado] = useState(false)
   const sincronizando = useRef(false)
   const clave = `planilla:${id}`
 
@@ -94,7 +97,8 @@ export default function Planilla() {
 
   const p = snap.partido
   const esAdmin = rol === 'admin'
-  const cerrado = p.estado === 'finalizado'
+  const suspendido = p.estado === 'suspendido'
+  const cerrado = p.estado === 'finalizado' || suspendido
   const relojP = { periodo: p.periodo, base: p.relojBase, desde: p.relojDesde }
   const seg = segundos(relojP, ahora)
   const corre = p.relojDesde !== null
@@ -102,7 +106,7 @@ export default function Planilla() {
   const minNow = p.periodo === 'previo' ? 0 : minutoActual(relojP, ahora)
   const perNum = periodoNumero(p.periodo) || 2
   const tiempoAnadido = (p.periodo === 't1' && seg > p.dur * 60) || (p.periodo === 't2' && seg > 2 * p.dur * 60)
-  const etiquetaPeriodo = cerrado ? 'FINALIZADO' : { previo: 'ANTES DE JUGAR', t1: '1.er TIEMPO', descanso: 'DESCANSO', t2: '2.º TIEMPO', fin: 'FIN DE TIEMPOS', penales: 'PENALES' }[p.periodo]
+  const etiquetaPeriodo = suspendido ? '⛔ SUSPENDIDO' : cerrado ? 'FINALIZADO' : { previo: 'ANTES DE JUGAR', t1: '1.er TIEMPO', descanso: 'DESCANSO', t2: '2.º TIEMPO', fin: 'FIN DE TIEMPOS', penales: 'PENALES' }[p.periodo]
   const jug = new Map(snap.jugadores.map((j) => [j.id, j]))
   const tnd = tanda(snap)
   const golesReg = (teamId: string) => snap.eventos.filter((e) => (e.tipo === 'gol' || e.tipo === 'gol_penal') && e.teamId === teamId).length + snap.eventos.filter((e) => e.tipo === 'autogol' && e.teamId !== teamId).length
@@ -245,8 +249,23 @@ export default function Planilla() {
             </div>
           )}
           {faltanGoles > 0 && esAdmin && <p className="text-center text-sm text-yellow-300 mt-3">⚠ Faltan {faltanGoles} gol(es) por asignar a un jugador: sin eso no salen en el QR ni en goleadores.</p>}
-          {cerrado && esAdmin && <div className="text-center mt-3"><button className={verde} onClick={() => { setFe({ teamId: p.localId, playerId: '', tipo: 'gol', minuto: '' }); setEditando(true) }}>✏️ Editar partido (goleadores y tarjetas)</button></div>}
-          {cerrado && esAdmin && <div className="text-center mt-3"><button className={btn} onClick={() => confirm('¿Reabrir la planilla?') && reloj('reabrir')}>Reabrir planilla</button></div>}
+          {suspendido && (
+            <div className="mt-3 rounded-xl border border-red-500 bg-red-900/40 p-3 text-sm">
+              <p className="font-bold text-red-200">⛔ Partido suspendido{p.suspendidoMinuto != null ? ` en el minuto ${p.suspendidoMinuto}` : ''}</p>
+              {p.suspendidoMotivo && <p className="text-slate-200 mt-1">{p.suspendidoMotivo}</p>}
+              <p className="text-slate-300 mt-1">No suma puntos ni goles. Las tarjetas sí cuentan para sanciones y multas.</p>
+            </div>
+          )}
+          {cerrado && esAdmin && <div className="text-center mt-3"><button className={verde} onClick={() => { setFe({ teamId: p.localId, playerId: '', tipo: suspendido ? 'roja' : 'gol', minuto: '' }); setEditando(true) }}>✏️ Editar partido ({suspendido ? 'tarjetas y sanciones' : 'goleadores y tarjetas'})</button></div>}
+          {esAdmin && suspendido && (
+            <div className="flex flex-wrap justify-center gap-2 mt-3">
+              <button className={verde} onClick={() => setSp({ modo: 'mesa', motivo: '', password: '', gl: '', gv: '', partidos: '' })}>⚖️ Fallo de mesa</button>
+              <button className={btn} onClick={() => setSp({ modo: 'reanudar', motivo: '', password: '', gl: '', gv: '', partidos: '' })}>▶ Reanudar partido</button>
+              <button className={btn} onClick={() => setSp({ modo: 'repetir', motivo: '', password: '', gl: '', gv: '', partidos: '' })}>🔁 Jugar de nuevo</button>
+            </div>
+          )}
+          {p.estado === 'finalizado' && esAdmin && <div className="text-center mt-3"><button className={btn} onClick={() => confirm('¿Reabrir la planilla?') && reloj('reabrir')}>Reabrir planilla</button></div>}
+          {esAdmin && !suspendido && p.periodo !== 'previo' && <div className="text-center mt-3"><button className="px-4 py-2 rounded-xl text-sm font-semibold border border-red-500 text-red-300 hover:bg-red-900/40" onClick={() => setSp({ modo: 'suspender', motivo: '', password: '', gl: '', gv: '', partidos: '' })}>⛔ Suspender partido</button></div>}
         </div>
 
         {msg && <div className="bg-red-900/50 border border-red-500 rounded-xl p-3 mt-3 text-sm" onClick={() => setMsg('')}>{msg} <span className="text-slate-300">(toca para cerrar)</span></div>}
@@ -291,6 +310,53 @@ export default function Planilla() {
         </div>
       </div>
 
+      {sp && (() => {
+        const T: Record<string, string> = { suspender: '⛔ Suspender partido', mesa: '⚖️ Fallo de mesa', reanudar: '▶ Reanudar partido', repetir: '🔁 Jugar de nuevo', sancion: '⚖️ Sanción adicional' }
+        const AYUDA: Record<string, string> = {
+          suspender: 'El partido queda SUSPENDIDO con el marcador y el minuto actuales. No suma puntos ni goles hasta que se resuelva. Las tarjetas sí cuentan para sanciones y multas.',
+          mesa: 'Resultado decidido por la organización (ej. 3-0). Suma a la tabla con este marcador; los goles del partido suspendido no cuentan para goleadores.',
+          reanudar: `Vuelve a la planilla para jugar los minutos que faltan, desde el minuto ${p.suspendidoMinuto ?? '?'}, con el marcador y los eventos que tenía. El reloj queda en pausa: pulsa «Reanudar» cuando sigan jugando.`,
+          repetir: 'Se juega de nuevo desde 0-0: se borran goles, cambios y alineación y queda sin horario para reprogramarlo. Las tarjetas del partido suspendido se mantienen (siguen contando).',
+          sancion: 'Partidos de sanción además de los que da la tarjeta (roja directa = 2, doble amarilla = 1), según el reglamento. Ej. intento de agresión al árbitro: 4 a 6 fechas. Pon 0 para quitarla.',
+        }
+        const listo = !!sp.password && (sp.modo === 'suspender' ? !!sp.motivo.trim() : sp.modo === 'mesa' ? sp.gl !== '' && sp.gv !== '' : sp.modo === 'sancion' ? sp.partidos !== '' && (sp.partidos === '0' || !!sp.motivo.trim()) : true)
+        const ir = async () => {
+          setSpOcupado(true)
+          const r = await fetch('/api/admin/partido-suspension', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: sp.modo, partidoId: p.id, eventoId: sp.eventoId, password: sp.password, motivo: sp.motivo, nota: sp.motivo, golesLocal: Number(sp.gl), golesVisitante: Number(sp.gv), partidos: Number(sp.partidos) }) }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Sin conexión: inténtalo de nuevo.' }))
+          setSpOcupado(false)
+          if (!r.ok) { alert(r.message || 'No se pudo'); return }
+          setSp(null); setCola([]); await traer()
+          const s2 = await fetch(`/api/torneo/planilla?partidoId=${id}`, { cache: 'no-store' }).then((x) => x.json()).catch(() => null)
+          if (s2?.ok) setSnap(s2.snapshot)
+        }
+        const campo = 'w-full rounded-lg bg-slate-900 border border-slate-600 p-3 text-base'
+        return (
+          <div className="fixed inset-0 bg-black/70 z-[60] flex items-end md:items-center justify-center" onClick={() => !spOcupado && setSp(null)}>
+            <div className="bg-slate-800 border border-slate-600 rounded-t-3xl md:rounded-3xl p-5 w-full max-w-lg max-h-[92vh] overflow-auto space-y-3" onClick={(e) => e.stopPropagation()}>
+              <p className="text-xl font-bold">{T[sp.modo]}</p>
+              <p className="text-sm text-slate-300">{sp.titulo || `${p.local} ${m.golesLocal} - ${m.golesVisitante} ${p.visitante}`}</p>
+              <p className="text-sm text-slate-400">{AYUDA[sp.modo]}</p>
+              {sp.modo === 'mesa' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-sm">{p.local}<input type="number" inputMode="numeric" min={0} className={campo + ' text-center text-2xl font-bold mt-1'} value={sp.gl} onChange={(e) => setSp({ ...sp, gl: e.target.value })} /></label>
+                  <label className="text-sm">{p.visitante}<input type="number" inputMode="numeric" min={0} className={campo + ' text-center text-2xl font-bold mt-1'} value={sp.gv} onChange={(e) => setSp({ ...sp, gv: e.target.value })} /></label>
+                </div>
+              )}
+              {sp.modo === 'sancion' && <label className="block text-sm">Fechas de sanción adicional<input type="number" inputMode="numeric" min={0} max={30} className={campo + ' mt-1 text-center text-2xl font-bold'} value={sp.partidos} onChange={(e) => setSp({ ...sp, partidos: e.target.value })} /></label>}
+              {(sp.modo === 'suspender' || sp.modo === 'mesa' || sp.modo === 'sancion') && (
+                <label className="block text-sm">{sp.modo === 'suspender' ? 'Motivo de la suspensión' : sp.modo === 'mesa' ? 'Resolución (opcional)' : 'Motivo (artículo del reglamento)'}
+                  <textarea className={campo + ' mt-1 h-20'} placeholder={sp.modo === 'suspender' ? 'Ej. intento de agresión al cuerpo arbitral' : sp.modo === 'mesa' ? 'Ej. resolución de la comisión disciplinaria' : 'Ej. intento de agresión al árbitro'} value={sp.motivo} onChange={(e) => setSp({ ...sp, motivo: e.target.value })} /></label>
+              )}
+              <label className="block text-sm">Tu contraseña de administrador<input type="password" autoComplete="current-password" className={campo + ' mt-1'} value={sp.password} onChange={(e) => setSp({ ...sp, password: e.target.value })} /></label>
+              <div className="grid grid-cols-2 gap-2">
+                <button className={btn} disabled={spOcupado} onClick={() => setSp(null)}>Cancelar</button>
+                <button className={sp.modo === 'suspender' || sp.modo === 'repetir' ? rojo : verde} disabled={!listo || spOcupado} onClick={ir}>{spOcupado ? 'Guardando…' : 'Confirmar'}</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {editando && (() => {
         const nombreEq = (id: string) => (id === p.localId ? p.local : p.visitante)
         const plantel = snap.jugadores.filter((j) => j.teamId === fe.teamId)
@@ -330,8 +396,12 @@ export default function Planilla() {
                   const j = e.playerId ? jug.get(e.playerId) : null
                   return (
                     <div key={e.cid} className="flex justify-between items-center gap-2 text-sm py-2 border-t border-slate-700">
-                      <span><b className="text-yellow-300">{etiquetaMinuto(e.minuto, e.periodo, p.dur)}</b> {NOMBRE[e.tipo]} · <b>{j?.numero ?? ''}</b> {j?.nombre}</span>
-                      <button className="text-red-400 px-2" onClick={() => confirm('¿Borrar este evento?') && op({ t: 'borrar', cid: e.cid })}>Borrar</button>
+                      <span><b className="text-yellow-300">{e.periodo === -1 ? 'susp.' : etiquetaMinuto(e.minuto, e.periodo, p.dur)}</b> {NOMBRE[e.tipo]} · <b>{j?.numero ?? ''}</b> {j?.nombre}
+                        {!!e.extra && <span className="block text-xs text-red-300">⚖️ + {e.extra} fecha(s) de sanción adicional{e.extraMotivo ? ` · ${e.extraMotivo}` : ''}</span>}</span>
+                      <span className="flex gap-1 shrink-0">
+                        {(e.tipo === 'roja' || e.tipo === 'doble_amarilla') && e.eid && <button className="text-orange-300 px-2 text-xs" onClick={() => setSp({ modo: 'sancion', motivo: e.extraMotivo || '', password: '', gl: '', gv: '', partidos: e.extra ? String(e.extra) : '', eventoId: e.eid, titulo: `${NOMBRE[e.tipo]} · ${j?.numero ?? ''} ${j?.nombre ?? ''}` })}>⚖️ Sanción</button>}
+                        <button className="text-red-400 px-2" onClick={() => confirm('¿Borrar este evento?') && op({ t: 'borrar', cid: e.cid })}>Borrar</button>
+                      </span>
                     </div>
                   )
                 })}

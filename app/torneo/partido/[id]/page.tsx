@@ -8,7 +8,7 @@ interface Ev extends Jug { tipo: string; teamId: string; minuto: number | null }
 interface Ali { titulares: (Jug & { sale: boolean })[]; ingresos: (Jug & { minuto: number | null })[] }
 interface Det {
   ok: boolean; message?: string
-  partido: { torneo: string; jornada: string; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; localId: string; visitanteId: string; golesLocal: number | null; golesVisitante: number | null }
+  partido: { torneo: string; jornada: string; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; localId: string; visitanteId: string; golesLocal: number | null; golesVisitante: number | null; suspendidoMotivo?: string | null; suspendidoMinuto?: number | null; resueltoMesa?: boolean }
   eventos: Ev[]; cambios: Ev[]; alineaciones: { local: Ali; visitante: Ali }
 }
 const ICONO: Record<string, string> = { gol: '⚽', gol_penal: '⚽ (penal)', autogol: '⚽ (autogol)', amarilla: '🟨', doble_amarilla: '🟨🟨', roja: '🟥' }
@@ -36,6 +36,8 @@ export default function PartidoPublico() {
                 <b style={{ fontSize: 38, color: '#D9A93A', minWidth: 100 }}>{d.partido.golesLocal ?? '-'} - {d.partido.golesVisitante ?? '-'}</b>
                 <a href={`/torneo/club/${d.partido.visitanteId}`} style={{ flex: 1, textAlign: 'left', fontWeight: 800, fontSize: 18, color: 'inherit', textDecoration: 'none' }}>{d.partido.visitante}</a>
               </div>
+              {d.partido.estado === 'suspendido' && <p style={{ color: '#fca5a5', fontWeight: 800, margin: '8px 0 0' }}>⛔ Partido suspendido{d.partido.suspendidoMinuto != null ? ` en el minuto ${d.partido.suspendidoMinuto}` : ''}{d.partido.suspendidoMotivo ? ` · ${d.partido.suspendidoMotivo}` : ''}</p>}
+              {d.partido.resueltoMesa && <p style={{ color: '#fbbf24', fontWeight: 700, margin: '8px 0 0' }}>⚖️ Resultado por fallo de mesa{d.partido.suspendidoMotivo ? ` (partido suspendido: ${d.partido.suspendidoMotivo})` : ''}</p>}
               <p style={{ color: '#93A4B8', fontSize: 13, margin: '8px 0 0' }}>{fecha(d.partido.fecha)}{d.partido.hora ? ' · ' + d.partido.hora : ''}{d.partido.escenario ? ' · ' + d.partido.escenario : ''}</p>
             </div>
 

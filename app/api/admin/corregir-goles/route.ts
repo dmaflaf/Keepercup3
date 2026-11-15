@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
     if (ya >= c.goles) { filas.push(`<li>${titulo}: el gol de #${c.numero} ${esc(j.firstName)} ${esc(j.lastName)} ya estaba agregado.</li>`); continue }
     for (let k = ya; k < c.goles; k++) {
       const nuevo = { partidoId: p.id, teamId: club, playerId: j.id, tipo: 'gol', minuto: null, periodo: null, clienteId: `${cid}:${k}` }
-      ev.push({ ...nuevo, id: `nuevo-${cid}-${k}`, createdAt: new Date() })
+      ev.push({ ...nuevo, id: `nuevo-${cid}-${k}`, createdAt: new Date(), sancionExtra: null, sancionMotivo: null })
       ops.push(() => prisma.evento.create({ data: nuevo }))
       if (!previo.partidos.some((x) => x.id === p.id)) previo.partidos.push({ id: p.id, estado: p.estado, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, marcadorManual: p.marcadorManual })
       if (!c.resultado) {

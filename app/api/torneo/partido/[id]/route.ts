@@ -30,7 +30,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
   return NextResponse.json({
     ok: true,
-    partido: { torneo: torneo.nombre, jornada: p.jornada, fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, local: nom(p.localId), visitante: nom(p.visitanteId), localId: p.localId, visitanteId: p.visitanteId, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante },
+    partido: { torneo: torneo.nombre, jornada: p.jornada, fecha: p.fecha, hora: p.hora, escenario: p.escenario, estado: p.estado, local: nom(p.localId), visitante: nom(p.visitanteId), localId: p.localId, visitanteId: p.visitanteId, golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, suspendidoMotivo: p.estado === 'suspendido' || p.resueltoMesa ? p.suspendidoMotivo : null, suspendidoMinuto: p.suspendidoMinuto, resueltoMesa: p.resueltoMesa },
     eventos: real.filter((e) => ['gol', 'gol_penal', 'autogol', 'amarilla', 'doble_amarilla', 'roja'].includes(e.tipo)),
     cambios: real.filter((e) => e.tipo === 'entra' || e.tipo === 'sale'),
     alineaciones: { local: alineacion(p.localId), visitante: alineacion(p.visitanteId) },

@@ -392,6 +392,11 @@ model Partido {
   relojBaseSeg     Int      @default(0) // segundos acumulados hasta el último arranque o pausa
   relojDesde       DateTime? // si el reloj corre: desde cuándo
   duracionReal     Int? // minutos totales jugados (para los minutos de cada jugador)
+  // Suspensión del partido (ej. intento de agresión al árbitro): no suma puntos ni goles hasta que se resuelva
+  suspendidoMotivo String?   @db.Text
+  suspendidoMinuto Int?
+  suspendidoEn     DateTime?
+  resueltoMesa     Boolean   @default(false) // se resolvió con fallo de mesa: el marcador manda y sus goles no cuentan
   createdAt        DateTime @default(now())
 
   @@index([torneoId])
@@ -409,6 +414,9 @@ model Evento {
   minuto    Int?
   periodo   Int?     // 0 alineación, 1 primer tiempo, 2 segundo, 3 penales
   clienteId String?  // identificador de la planilla (evita duplicados al reenviar sin conexión)
+  // Roja o doble amarilla: partidos de sanción adicionales según el reglamento (ej. intento de agresión 4 a 6 fechas)
+  sancionExtra  Int?
+  sancionMotivo String?
   createdAt DateTime @default(now())
 
   @@index([partidoId])

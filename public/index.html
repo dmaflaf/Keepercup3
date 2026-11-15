@@ -577,7 +577,7 @@
     if (!d || !d.ok || !d.torneo) { document.getElementById('hubRes').innerHTML = '<p class="vacio">El torneo se publicará muy pronto.</p>'; return; }
     const ps = d.partidos || [];
     // En vivo
-    const vivos = ps.filter((p) => p.estado !== 'finalizado' && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo));
+    const vivos = ps.filter((p) => p.estado !== 'finalizado' && p.estado !== 'suspendido' && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo));
     document.getElementById('hubVivo').innerHTML = vivos.map((p) => `<a class="vivo" href="/torneo/vivo/${p.id}"><span class="pill"><i class="dot"></i>EN VIVO</span><span class="m">${esc(p.local)}<b>${p.golesLocal ?? 0} - ${p.golesVisitante ?? 0}</b>${esc(p.visitante)}</span><span>Seguir en directo ›</span></a>`).join('');
     // Resultados: hoy o última fecha jugada
     const fin = ps.filter((p) => p.estado === 'finalizado');

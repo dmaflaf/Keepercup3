@@ -26,9 +26,10 @@ export async function cargarSnapshot(partidoId: string): Promise<SnapshotP | nul
       penalesLocal: p.penalesLocal, penalesVisitante: p.penalesVisitante,
       periodo: p.periodo as Periodo, relojBase: p.relojBaseSeg, relojDesde: p.relojDesde ? p.relojDesde.getTime() : null,
       dur: torneo?.minutosTiempo ?? 45, titulares: torneo?.titulares ?? 11, cambiosMax: torneo?.cambiosMax ?? 29,
+      suspendidoMotivo: p.suspendidoMotivo, suspendidoMinuto: p.suspendidoMinuto,
     },
     jugadores: jug.map((j) => ({ id: j.id, nombre: `${j.firstName} ${j.lastName}`, numero: j.number, posicion: j.position, teamId: j.teamId, suspendido: susp.get(j.id) || 0 })),
-    eventos: eventos.map((e) => ({ cid: e.clienteId || e.id, tipo: e.tipo, teamId: e.teamId, playerId: e.playerId, minuto: e.minuto, periodo: e.periodo })),
+    eventos: eventos.map((e) => ({ cid: e.clienteId || e.id, tipo: e.tipo, teamId: e.teamId, playerId: e.playerId, minuto: e.minuto, periodo: e.periodo, eid: e.id, extra: e.sancionExtra, extraMotivo: e.sancionMotivo })),
   }
 }
 
@@ -62,8 +63,10 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
   const dur = torneo?.minutosTiempo ?? 45
   const ahora = Date.now()
   const en = Math.min(op.en, ahora)
-  const cerrado = p.estado === 'finalizado'
-  if (cerrado && !(op.t === 'reloj' && op.a === 'reabrir') && !esAdmin) return 'El partido ya está finalizado'
+  const cerrado = p.estado === 'finalizado' || p.estado === 'suspendido'
+  if (cerrado && !(op.t === 'reloj' && op.a === 'reabrir') && !esAdmin) return p.estado === 'suspendido' ? 'El partido está SUSPENDIDO' : 'El partido ya está finalizado'
+  // Un partido suspendido no se maneja con el reloj: se resuelve con Fallo de mesa, Reanudar o Jugar de nuevo
+  if (p.estado === 'suspendido' && op.t === 'reloj') return 'El partido está SUSPENDIDO: usa «Reanudar partido», «Fallo de mesa» o «Jugar de nuevo».'
   const equipoValido = (id: string) => id === p.localId || id === p.visitanteId
 
   const suspendido = async (playerId: string) => {

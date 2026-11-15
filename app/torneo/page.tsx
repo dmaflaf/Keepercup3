@@ -26,7 +26,7 @@ export default function TorneoPublico() {
   }, [])
   useEffect(() => { cargar(); const t = setInterval(() => cargar(d?.torneo?.id), 10000); return () => clearInterval(t) }, [d?.torneo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const enVivo = (d?.partidos || []).filter((p) => p.estado !== 'finalizado' && p.periodo && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo))
+  const enVivo = (d?.partidos || []).filter((p) => p.estado !== 'finalizado' && p.estado !== 'suspendido' && p.periodo && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo))
   // Últimos resultados: los jugados hoy; si hoy no hay, todos los de la última fecha jugada
   const finalizados = (d?.partidos || []).filter((p) => p.estado === 'finalizado')
   const hoyEc = new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10)
@@ -128,7 +128,9 @@ export default function TorneoPublico() {
                         <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid #1f3150', fontSize: 14 }}>
                           <a href={`/torneo/club/${p.localId}`} style={{ flex: 1, textAlign: 'right', fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{p.local}</a>
                           <span style={{ minWidth: 70, textAlign: 'center', fontWeight: 900, color: p.estado === 'finalizado' ? '#D9A93A' : '#93A4B8', fontSize: p.estado === 'finalizado' ? 18 : 13 }}>
-                            {p.estado !== 'finalizado' && p.periodo && p.periodo !== 'previo' && p.periodo !== 'fin'
+                            {p.estado === 'suspendido'
+                              ? <a href={`/torneo/partido/${p.id}`} style={{ color: '#fff', background: '#7f1d1d', borderRadius: 6, padding: '4px 8px', textDecoration: 'none', fontSize: 12 }}>⛔ SUSP. {p.golesLocal ?? 0}-{p.golesVisitante ?? 0}</a>
+                              : p.estado !== 'finalizado' && p.periodo && p.periodo !== 'previo' && p.periodo !== 'fin'
                               ? <a href={`/torneo/vivo/${p.id}`} style={{ color: '#fff', background: '#bf1b2c', borderRadius: 6, padding: '4px 8px', textDecoration: 'none', fontSize: 13 }}>🔴 EN VIVO {p.golesLocal ?? 0}-{p.golesVisitante ?? 0}</a>
                               : p.estado === 'finalizado' ? `${p.golesLocal} - ${p.golesVisitante}` : p.hora || 'vs'}
                           </span>

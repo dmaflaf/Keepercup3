@@ -68,4 +68,13 @@ eq(sanciones(mix, cfg)[0].suspendidoProximo, 2, 'jugó en F1 sin cumplir las ama
 const c3 = [C(P('8','A','B',0,0,8,[a('amarilla')]),'f2'), C(P('9','A','C',0,0,9,[a('amarilla')]),'f2'), C(P('10','A','D',0,0,10,[a('amarilla')]),'f2')]
 eq(sanciones(c3, cfg)[0].suspendidoProximo, 1, '3 amarillas en F2 = 1 fecha')
 eq(sanciones([...c3.slice(0, 2), C(P('11','A','D',0,0,11,[a('amarilla')]),'f2')], cfg)[0].suspendidoProximo, 1, 'cuartos siguen el ciclo de su fase')
+// Partido SUSPENDIDO: sus tarjetas cuentan, pero no sirve para cumplir; sanción adicional en la roja
+const rx = { teamId: 'A', playerId: 'p5', tipo: 'roja', extra: 4 }
+const su = [P('7','A','B',0,1,7,[rx],'suspendido'), C(P('8','A','C',0,0,8),'f2'), C(P('9','A','D',0,0,9,[],'programado'),'f2')]
+const s5 = sanciones(su, cfg).find((x) => x.playerId === 'p5')!
+eq([s5.suspendidoProximo, s5.cumplidos], [5, 1], 'roja (2) + 4 adicionales en partido suspendido: cumple 1, quedan 5')
+const su2 = [P('7','A','B',0,0,7,[],'suspendido'), P('6','A','C',0,0,6,[{ teamId: 'A', playerId: 'p4', tipo: 'roja' }])]
+eq(sanciones(su2, cfg)[0].suspendidoProximo, 2, 'un partido suspendido no cuenta como cumplido')
+const sd = sanciones([P('1','A','B',0,0,1,[{ teamId: 'A', playerId: 'p3', tipo: 'doble_amarilla', extra: 2 }])], cfg)[0]
+eq(sd.suspendidoProximo, 3, 'doble amarilla (1) + 2 adicionales')
 console.log(`OK ${ok}  FALLAS ${mal}`)
