@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     select: {
       id: true, firstName: true, lastName: true, cedula: true, number: true, position: true,
       birthDate: true, email: true, phone: true, estado: true, selfieUrl: true,
-      cedulaFrontUrl: true, cedulaBackUrl: true,
+      cedulaFrontUrl: true, cedulaBackUrl: true, qrToken: true,
       team: { select: { name: true } },
       images: { select: { kind: true } },
     },
@@ -36,6 +36,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       numero: j.number,
       posicion: j.position,
       estado: j.estado,
+      qr: j.qrToken,
       fechaNacimiento: j.birthDate,
       cedula: esAdmin ? j.cedula : null,
       correo: esAdmin ? j.email : null,

@@ -15,6 +15,7 @@ interface Ficha {
   correo: string | null
   telefono: string | null
   fotos: { selfie: boolean; cedula_front: boolean; cedula_back: boolean }
+  qr: string | null
 }
 
 export default function FichaPage({ params }: { params: { id: string } }) {
@@ -95,7 +96,12 @@ export default function FichaPage({ params }: { params: { id: string } }) {
         {ficha && (
           <>
             <h1 className="text-3xl font-bold mt-3">{ficha.nombre}</h1>
-            <p className="text-slate-400 mb-6">{ficha.equipo}</p>
+            <p className="text-slate-400 mb-3">{ficha.equipo}</p>
+            <div className="mb-6">
+              {ficha.qr
+                ? <a href={`/j/${ficha.qr}`} target="_blank" rel="noopener" className="inline-block px-4 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-400 text-black font-semibold text-sm">📊 Ver estadísticas y ficha del QR ↗</a>
+                : <span className="text-sm text-slate-400">Aún no tiene QR: se crea al habilitarlo en Carnets.</span>}
+            </div>
 
             <div className="grid md:grid-cols-3 gap-6">
               <div>{ficha.fotos.selfie ? foto('selfie', 'Foto carnet') : <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 text-slate-400">Foto carnet pendiente<br />{botonSubir('selfie', false)}</div>}</div>
