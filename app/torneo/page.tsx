@@ -16,6 +16,7 @@ export default function TorneoPublico() {
   const [d, setD] = useState<Datos | null>(null)
   const [tab, setTab] = useState<(typeof TABS)[number]>('Resultados')
   const [error, setError] = useState('')
+  const [faseTabla, setFaseTabla] = useState('') // fase elegida en Tablas (por defecto, la actual)
   const cargar = (id?: string) =>
     fetch('/api/torneo/publico' + (id ? `?torneoId=${id}` : '')).then((r) => r.json()).then((r) => (r.ok ? setD(r) : setError('No disponible'))).catch(() => setError('No disponible'))
   useEffect(() => {
@@ -75,8 +76,23 @@ export default function TorneoPublico() {
               ))}
             </div>
 
+            {tab === 'Tablas' && (() => {
+              // Un botón por fase; por defecto la más reciente con partidos (la que se está jugando)
+              const conTabla = d.fases.filter((f) => f.grupos.some((g) => g.tabla.length))
+              if (conTabla.length < 2) return null
+              const actual = [...conTabla].reverse().find((f) => d.partidos.some((p) => p.faseId === f.id)) || conTabla[conTabla.length - 1]
+              const sel = conTabla.find((f) => f.id === faseTabla) || actual
+              return (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                  {conTabla.map((f) => (
+                    <button key={f.id} onClick={() => setFaseTabla(f.id)} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid ' + (sel.id === f.id ? '#D9A93A' : '#2a3b55'), background: sel.id === f.id ? '#D9A93A' : '#0F223D', color: sel.id === f.id ? '#1a1206' : '#F3F6F8', fontWeight: 800, cursor: 'pointer' }}>{f.nombre}</button>
+                  ))}
+                </div>
+              )
+            })()}
+
             {(tab === 'Tablas' || tab === 'Goleadores') && (
-              <button onClick={() => compartir(d, tab)} style={{ margin: '0 0 14px', padding: '9px 14px', borderRadius: 8, border: '1px solid #2a3b55', background: '#0F223D', color: '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>📤 Descargar como imagen para compartir</button>
+              <button onClick={() => compartir(d, tab, tab === 'Tablas' ? faseVisible(d, faseTabla)?.id : undefined)} style={{ margin: '0 0 14px', padding: '9px 14px', borderRadius: 8, border: '1px solid #2a3b55', background: '#0F223D', color: '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>📤 Descargar como imagen para compartir</button>
             )}
 
             {tab === 'Resultados' && (() => {
@@ -98,7 +114,7 @@ export default function TorneoPublico() {
               ))
             })()}
 
-            {tab === 'Tablas' && d.fases.map((f) => f.grupos.filter((g) => g.tabla.length).map((g) => (
+            {tab === 'Tablas' && d.fases.filter((f) => !faseVisible(d, faseTabla) || f.id === faseVisible(d, faseTabla)!.id).map((f) => f.grupos.filter((g) => g.tabla.length).map((g) => (
               <div key={g.id} style={card}>
                 <h3 style={h3}>{f.nombre} · {g.nombre}</h3>
                 <div style={{ overflowX: 'auto' }}>
@@ -221,11 +237,18 @@ export default function TorneoPublico() {
 const fila: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid #1f3150', fontSize: 14 }
 
 /** Dibuja la tabla (o los goleadores) en una imagen vertical y la descarga o la comparte. */
-function compartir(d: Datos, tab: string) {
+/** Fase que se muestra en Tablas: la elegida, o la más reciente con partidos. undefined = todas (hay una sola). */
+function faseVisible(d: Datos, elegida: string) {
+  const conTabla = d.fases.filter((f) => f.grupos.some((g) => g.tabla.length))
+  if (conTabla.length < 2) return undefined
+  return conTabla.find((f) => f.id === elegida) || [...conTabla].reverse().find((f) => d.partidos.some((p) => p.faseId === f.id)) || conTabla[conTabla.length - 1]
+}
+
+function compartir(d: Datos, tab: string, faseId?: string) {
   const filas: string[][] = []
   let titulo = tab === 'Tablas' ? 'TABLA DE POSICIONES' : 'GOLEADORES'
   if (tab === 'Tablas') {
-    for (const f of d.fases) for (const g of f.grupos.filter((x) => x.tabla.length)) {
+    for (const f of d.fases.filter((x) => !faseId || x.id === faseId)) for (const g of f.grupos.filter((x) => x.tabla.length)) {
       filas.push([`${f.nombre} · ${g.nombre}`, '', 'PJ', 'DG', 'PTS'])
       g.tabla.forEach((r) => filas.push([String(r.pos), r.equipo, String(r.pj), String(r.dg), String(r.pts)]))
     }
