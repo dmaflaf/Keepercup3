@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import { randomBytes } from 'crypto'
 import { procesar } from './importar'
+import type { Retenido } from '@/lib/inscripciones'
 
 type Fila = Record<string, unknown>
 const token = () => randomBytes(16).toString('base64url')
@@ -40,10 +41,17 @@ export function resumir(r: ReturnType<typeof procesar>) {
 export async function escribirImportacion(
   prisma: PrismaClient,
   r: ReturnType<typeof procesar>,
-  jugadoresDB: Awaited<ReturnType<typeof prepararImportacion>>['jugadoresDB']
+  jugadoresDB: Awaited<ReturnType<typeof prepararImportacion>>['jugadoresDB'],
+  /** Con inscripciones cerradas: qué club puede crear jugadores o cambiar números/clubes. Lo demás queda RETENIDO. */
+  permitir?: (equipo: string) => boolean
 ) {
   const fallosEquipo: string[] = []
+  const retenidos: Retenido[] = []
+  const aceptados: string[] = [] // cédulas que entraron con autorización (salen de «Por aprobar»)
+  const ahora = new Date().toISOString()
+  const equiposExistentes = permitir ? new Set((await prisma.team.findMany({ select: { name: true } })).map((t) => t.name)) : null
   for (const e of r.equipos) {
+    if (equiposExistentes && !equiposExistentes.has(e.name) && !permitir!(e.name)) continue // con inscripciones cerradas no se crean clubes
     const datos: Record<string, string> = {
       city: e.city,
       directorName: e.directorName,
@@ -101,6 +109,17 @@ export async function escribirImportacion(
       if (Object.keys(fotos).length) actualizaciones.push({ id: previo.id, nombre: `${j.firstName} ${j.lastName}`, numeroNuevo: null, numeroPrevio: previo.number, data: { ...fotos } })
       continue
     }
+    if (permitir && !permitir(j.equipo)) {
+      // Inscripciones cerradas: solo se aceptan fotos; jugador nuevo o cambio de número/club → retenido para el administrador
+      const nombre = `${j.firstName} ${j.lastName}`.trim()
+      if (!previo) { retenidos.push({ cedula: j.cedula, tipo: 'nuevo', equipo: j.equipo, teamId, nombre, numero: j.number, recibido: ahora, datos: { ...base, ...fotos, cedula: j.cedula, number: j.number, teamId } }); continue }
+      const cambiaNumero = j.number !== null && j.number !== previo.number
+      const cambiaClub = previo.team?.name !== j.equipo
+      if (cambiaNumero || cambiaClub) retenidos.push({ cedula: j.cedula, tipo: 'cambio', equipo: j.equipo, teamId, nombre, numero: j.number, numeroPrevio: previo.number, equipoPrevio: previo.team?.name ?? null, recibido: ahora, datos: { ...(cambiaNumero ? { number: j.number } : {}), ...(cambiaClub ? { teamId } : {}) } })
+      if (Object.keys(fotos).length) actualizaciones.push({ id: previo.id, nombre, numeroNuevo: null, numeroPrevio: previo.number, data: { ...fotos } })
+      continue
+    }
+    if (permitir) aceptados.push(j.cedula)
     if (previo) {
       actualizaciones.push({
         id: previo.id,
@@ -171,5 +190,7 @@ export async function escribirImportacion(
     jugadoresFallidos,
     numerosOmitidos,
     idsTocados,
+    retenidos,
+    aceptados,
   }
 }

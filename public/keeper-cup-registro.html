@@ -297,6 +297,40 @@
     .step-tab.active{ border-left-color: var(--gold); border-bottom-color:transparent; }
   }
 </style>
+<script>
+/* Inscripciones cerradas: el formulario solo se abre con un código de autorización vigente (?codigo=...) que da el organizador. */
+(function(){
+  var cod = (new URLSearchParams(location.search).get('codigo') || '').trim();
+  document.documentElement.style.visibility = 'hidden';
+  function cerrar(msg){
+    document.documentElement.style.visibility = '';
+    document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#071a33;color:#f3f6f8;font-family:system-ui,sans-serif;text-align:center">'
+      + '<div style="max-width:460px"><div style="font-size:54px">🔒</div><h1 style="font-size:26px;margin:10px 0">Inscripciones cerradas</h1>'
+      + '<p style="color:#9fb0c6;line-height:1.5">' + msg + '</p>'
+      + '<form style="margin-top:18px;display:flex;gap:8px;justify-content:center" onsubmit="event.preventDefault();location.search=\'?codigo=\'+encodeURIComponent(this.c.value.trim())">'
+      + '<input name="c" placeholder="Código de autorización" style="padding:10px;border-radius:8px;border:1px solid #2a3b55;background:#0f223d;color:#fff;text-transform:uppercase">'
+      + '<button style="padding:10px 14px;border-radius:8px;border:0;background:#d9a93a;font-weight:700">Entrar</button></form>'
+      + '<p style="margin-top:22px"><a href="/" style="color:#d9a93a">Volver a Keeper Cup 3</a></p></div></div>';
+  }
+  fetch('/api/inscripciones/estado' + (cod ? '?codigo=' + encodeURIComponent(cod) : ''), { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(e){
+      if (e.abiertas || e.autorizado) {
+        document.documentElement.style.visibility = '';
+        if (e.autorizado) {
+          var b = document.createElement('div');
+          b.textContent = 'Autorizado por la organización para ' + e.autorizado.equipo + ' hasta el ' + new Date(e.autorizado.hasta).toLocaleString('es-EC');
+          b.style.cssText = 'position:sticky;top:0;z-index:99;background:#14532d;color:#fff;padding:8px 12px;text-align:center;font:600 14px system-ui';
+          if (document.body) document.body.prepend(b); else document.addEventListener('DOMContentLoaded', function(){ document.body.prepend(b); });
+        }
+        return;
+      }
+      var go = function(){ cerrar(cod ? 'Ese código no es válido o ya venció. Pide uno nuevo al organizador.' : 'El plazo de inscripción terminó. Si la organización te autorizó, escribe el código que te dieron.'); };
+      if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+    })
+    .catch(function(){ var go = function(){ cerrar('No se pudo verificar el estado de las inscripciones. Inténtalo de nuevo.'); }; if (document.body) go(); else document.addEventListener('DOMContentLoaded', go); });
+})();
+</script>
 </head>
 <body>
 

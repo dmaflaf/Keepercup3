@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'crypto'
 import { PrismaClient } from '@prisma/client'
 import { prepararImportacion, escribirImportacion, resumir } from '@/lib/importar-db'
 import { copiarFotos } from '@/lib/fotos'
+import { leerEstado, permitido, retener } from '@/lib/inscripciones'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -31,7 +32,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { r, jugadoresDB } = await prepararImportacion(prisma, equipos, jugadores)
-    const { idsTocados, ...resultado } = await escribirImportacion(prisma, r, jugadoresDB)
+    // Inscripciones cerradas: jugadores nuevos y cambios de número o club quedan retenidos hasta que el administrador los apruebe
+    const estado = await leerEstado()
+    const { idsTocados, retenidos, aceptados, ...resultado } = await escribirImportacion(prisma, r, jugadoresDB, (equipo) => permitido(estado, equipo))
+    await retener(retenidos, aceptados)
 
     let fotos: { copiadas: number; fallos: number; restantes: number } | null = null
     if (idsTocados.length) {
@@ -46,7 +50,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       resumen: resumir(r),
-      resultado,
+      resultado: { ...resultado, retenidos: retenidos.length },
       incidencias: r.incidencias.filter((i) => i.nivel === 'error'),
       rechazadas: r.filasConError,
       fotos,
