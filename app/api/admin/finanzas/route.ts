@@ -32,7 +32,9 @@ export async function POST(req: NextRequest) {
 
   if (b.accion === 'cargo') {
     const monto = dinero(b.monto)
-    if (!(monto > 0) || monto > 100000) return falla('Escribe un monto mayor a 0')
+    // Un cargo de $0 sirve para exonerar (ej. garantía): reemplaza el valor por defecto; pide el motivo en «Detalle»
+    if (String(b.monto ?? '').trim() === '' || !(monto >= 0) || monto > 100000) return falla('Escribe el monto (0 para exonerar)')
+    if (monto === 0 && !texto(b.detalle)) return falla('Para un cargo de $0 (exoneración) escribe el motivo en «Detalle».')
     if (!(CONCEPTOS as readonly string[]).includes(b.concepto)) return falla('Concepto inválido')
     const ids: string[] = b.todos ? (await prisma.team.findMany({ select: { id: true } })).map((t) => t.id) : [String(b.teamId)]
     const validos = await prisma.team.findMany({ where: { id: { in: ids } }, select: { id: true } })

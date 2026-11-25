@@ -95,10 +95,12 @@ export async function GET(req: NextRequest) {
       else R.linea('Sin tarjetas registradas.', 10, GRIS_)
       if (dinero) {
         const f = fin.filas.find((x) => x.teamId === id)
+        // Exoneración (cargo de $0 con motivo, ej. «NO PAGA GARANTIA · Valor a devolución 0»): se muestra en la cuenta
+        const exonerado = (k: string) => fin.cargos.find((c) => c.teamId === id && c.concepto === k && !c.anulado && c.monto === 0)?.detalle || ''
         if (f) {
           R.titulo('Cuenta del club')
           R.tabla([{ t: 'Concepto', w: 200 }, { t: 'Cargado', w: 100, al: 'r' }, { t: 'Pagado', w: 100, al: 'r' }, { t: 'Saldo', w: 115, al: 'r' }],
-            [...Object.keys(ETIQUETA).filter((k) => f.porConcepto[k].cargado || f.porConcepto[k].pagado).map((k) => { const c = f.porConcepto[k]; const sd = Math.round((c.cargado - c.pagado) * 100) / 100; return [k === 'multas' ? `Multas (${club.y} amarillas × ${usd(m.torneo.precioAmarilla)} + ${club.r} rojas × ${usd(m.torneo.precioRoja)})` : ETIQUETA[k], usd(c.cargado), usd(c.pagado), { t: usd(sd), color: sd > 0 ? ('rojo' as const) : ('verde' as const) }] }),
+            [...Object.keys(ETIQUETA).filter((k) => f.porConcepto[k].cargado || f.porConcepto[k].pagado || exonerado(k)).map((k) => { const c = f.porConcepto[k]; const sd = Math.round((c.cargado - c.pagado) * 100) / 100; return [k === 'multas' ? `Multas (${club.y} amarillas × ${usd(m.torneo.precioAmarilla)} + ${club.r} rojas × ${usd(m.torneo.precioRoja)})` : exonerado(k) && !c.cargado ? `${ETIQUETA[k]} (${exonerado(k)})` : ETIQUETA[k], usd(c.cargado), usd(c.pagado), { t: usd(sd), color: sd > 0 ? ('rojo' as const) : ('verde' as const) }] }),
               [{ t: 'TOTAL', negrita: true }, { t: usd(f.cargado), negrita: true }, { t: usd(f.pagado), negrita: true }, { t: usd(f.saldo), negrita: true, color: f.saldo > 0 ? ('rojo' as const) : ('verde' as const) }]], { size: 9 })
           const pagos = fin.pagos.filter((p) => p.teamId === id && !p.anulado)
           if (pagos.length) {
