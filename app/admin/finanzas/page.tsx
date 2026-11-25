@@ -22,6 +22,7 @@ export default function Finanzas() {
   const [d, setD] = useState<Datos | null>(null)
   const [msg, setMsg] = useState('Cargando…')
   const [filtro, setFiltro] = useState('')
+  const [sel, setSel] = useState<{ teamId: string; concepto: string | null } | null>(null) // celda tocada: muestra solo sus pagos y cargos
   const [cg, setCg] = useState({ teamId: '', todos: false, concepto: 'inscripcion', detalle: '', monto: '' })
   const [pg, setPg] = useState({ teamId: '', concepto: 'inscripcion', monto: '', comprobante: '', fechaPago: hoy(), nota: '' })
 
@@ -38,6 +39,9 @@ export default function Finanzas() {
     setMsg(r.ok ? ok : r.message || 'Error'); if (r.ok) await cargar(tid); return r
   }
   const filas = (d?.filas || []).filter((f) => !filtro || f.club.toLowerCase().includes(filtro.toLowerCase()))
+  const coincide = (x: { teamId: string; concepto: string }) => !sel || (x.teamId === sel.teamId && (!sel.concepto || x.concepto === sel.concepto))
+  const pagosVis = (d?.pagos || []).filter(coincide)
+  const cargosVis = (d?.cargos || []).filter(coincide)
   const tot = (d?.filas || []).reduce((a, f) => ({ c: a.c + f.cargado, p: a.p + f.pagado }), { c: 0, p: 0 })
 
   const csv = () => {
@@ -99,8 +103,8 @@ export default function Finanzas() {
                 <thead className="text-slate-400"><tr><th className="text-left p-2">Club</th>{CONC.map(([k, n]) => <th key={k} className="p-2">{n}</th>)}<th className="p-2">Total</th><th className="p-2">Pagado</th><th className="p-2">Saldo</th></tr></thead>
                 <tbody>{filas.map((f) => (
                   <tr key={f.teamId} className="border-t border-slate-700 text-center">
-                    <td className="text-left p-2 font-semibold">{f.club}</td>
-                    {CONC.map(([k]) => { const c = f.porConcepto[k]; return <td key={k} className="p-2 text-xs">{c.cargado || c.pagado ? <>{usd(c.cargado)}<br /><span className="text-green-400">{usd(c.pagado)}</span></> : <span className="text-slate-600">–</span>}</td> })}
+                    <td className="text-left p-2 font-semibold"><button className="hover:text-yellow-300 hover:underline text-left" title="Ver sus pagos y cargos" onClick={() => { setSel({ teamId: f.teamId, concepto: null }); setTimeout(() => document.getElementById('movimientos')?.scrollIntoView({ behavior: 'smooth' }), 50) }}>{f.club}</button></td>
+                    {CONC.map(([k]) => { const c = f.porConcepto[k]; return <td key={k} className="p-2 text-xs">{c.cargado || c.pagado ? <button className="rounded px-1 hover:bg-slate-600" title="Ver y anular estos pagos o cargos" onClick={() => { setSel({ teamId: f.teamId, concepto: k }); setTimeout(() => document.getElementById('movimientos')?.scrollIntoView({ behavior: 'smooth' }), 50) }}>{usd(c.cargado)}<br /><span className="text-green-400">{usd(c.pagado)}</span></button> : <span className="text-slate-600">–</span>}</td> })}
                     <td className="p-2">{usd(f.cargado)}</td><td className="p-2 text-green-400">{usd(f.pagado)}</td><td className={`p-2 font-bold ${f.saldo > 0 ? 'text-yellow-300' : 'text-green-400'}`}>{usd(f.saldo)}</td>
                   </tr>))}</tbody>
               </table>
@@ -108,11 +112,13 @@ export default function Finanzas() {
             <p className="text-xs text-slate-400 -mt-4 mb-2">Por defecto, todos los clubes tienen cargados <b>{usd(d.porDefecto?.inscripcion ?? 0)} de inscripción</b> y <b>{usd(d.porDefecto?.garantia ?? 0)} de garantía</b>, y <b>{usd(d.porDefecto?.carnet ?? 0)} por cada jugador habilitado</b> en carnets (se actualiza solo al habilitar jugadores). Si registras un cargo de ese concepto a un club, reemplaza el valor por defecto de ese club (por ejemplo, para un descuento).</p>
             <p className="text-xs text-slate-400 mb-6">En cada concepto: arriba lo cargado, abajo (verde) lo pagado. Las multas por tarjetas se calculan solas desde las tarjetas; sus pagos también se registran aquí con «Multas».</p>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <p className="text-xs text-slate-400 mb-2">Toca un valor de la tabla (o el nombre del club) para ver solo esos pagos y cargos y poder anularlos.</p>
+            {sel && <div className="mb-3 p-3 rounded-lg bg-yellow-900/30 border border-yellow-600 text-sm flex flex-wrap items-center gap-2">Mostrando solo: <b>{filas.find((f) => f.teamId === sel.teamId)?.club}{sel.concepto ? ` · ${NOMBRE[sel.concepto] || sel.concepto}` : ''}</b><button className="ml-auto underline" onClick={() => setSel(null)}>Ver todos</button></div>}
+            <div id="movimientos" className="grid md:grid-cols-2 gap-4">
               <section className="bg-slate-800 border border-slate-700 rounded-xl p-4">
                 <h3 className="font-bold mb-2">Pagos registrados</h3>
-                {d.pagos.length === 0 && <p className="text-slate-400 text-sm">Todavía no hay pagos.</p>}
-                {d.pagos.map((p) => (
+                {pagosVis.length === 0 && <p className="text-slate-400 text-sm">{sel ? 'No hay pagos de esto.' : 'Todavía no hay pagos.'}</p>}
+                {pagosVis.map((p) => (
                   <div key={p.id} className={`flex items-center gap-2 text-sm py-2 border-t border-slate-700 ${p.anulado ? 'opacity-40 line-through' : ''}`}>
                     <span className="flex-1"><b>{p.club}</b> · {NOMBRE[p.concepto] || p.concepto}<br /><span className="text-slate-400 text-xs">{p.fechaPago || 'sin fecha'} · comp. {p.comprobante || 's/n'}{p.nota ? ' · ' + p.nota : ''}</span></span>
                     <b className="text-green-400">{usd(p.monto)}</b>
@@ -122,8 +128,8 @@ export default function Finanzas() {
               </section>
               <section className="bg-slate-800 border border-slate-700 rounded-xl p-4">
                 <h3 className="font-bold mb-2">Cargos registrados</h3>
-                {d.cargos.length === 0 && <p className="text-slate-400 text-sm">Todavía no hay cargos.</p>}
-                {d.cargos.map((c) => (
+                {cargosVis.length === 0 && <p className="text-slate-400 text-sm">{sel ? 'No hay cargos registrados de esto (puede ser un valor por defecto: inscripción, garantía o carnets).' : 'Todavía no hay cargos.'}</p>}
+                {cargosVis.map((c) => (
                   <div key={c.id} className={`flex items-center gap-2 text-sm py-2 border-t border-slate-700 ${c.anulado ? 'opacity-40 line-through' : ''}`}>
                     <span className="flex-1"><b>{c.club}</b> · {NOMBRE[c.concepto] || c.concepto}{c.detalle ? <span className="text-slate-400 text-xs"> · {c.detalle}</span> : null}</span>
                     <b>{usd(c.monto)}</b>
