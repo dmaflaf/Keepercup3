@@ -17,6 +17,9 @@ export default function TorneoPublico() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Resultados')
   const [error, setError] = useState('')
   const [faseTabla, setFaseTabla] = useState('') // fase elegida en Tablas (por defecto, la actual)
+  // Fase y fecha elegidas en Resultados y en Fixture (vacío = la que corresponde ahora)
+  const [selR, setSelR] = useState<{ fase: string; fecha: number | null }>({ fase: '', fecha: null })
+  const [selF, setSelF] = useState<{ fase: string; fecha: number | null }>({ fase: '', fecha: null })
   const cargar = (id?: string) =>
     fetch('/api/torneo/publico' + (id ? `?torneoId=${id}` : '')).then((r) => r.json()).then((r) => (r.ok ? setD(r) : setError('No disponible'))).catch(() => setError('No disponible'))
   useEffect(() => {
@@ -85,7 +88,7 @@ export default function TorneoPublico() {
               return (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                   {conTabla.map((f) => (
-                    <button key={f.id} onClick={() => setFaseTabla(f.id)} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid ' + (sel.id === f.id ? '#D9A93A' : '#2a3b55'), background: sel.id === f.id ? '#D9A93A' : '#0F223D', color: sel.id === f.id ? '#1a1206' : '#F3F6F8', fontWeight: 800, cursor: 'pointer' }}>{f.nombre}</button>
+                    <button key={f.id} onClick={() => setFaseTabla(f.id)} style={boton(sel.id === f.id)}>{f.nombre}</button>
                   ))}
                 </div>
               )
@@ -98,11 +101,15 @@ export default function TorneoPublico() {
             {tab === 'Resultados' && (() => {
               const jugados = d.partidos.filter((p) => p.estado === 'finalizado')
               if (!jugados.length) return <div style={card}><p style={{ color: '#93A4B8', margin: 0 }}>Todavía no hay partidos jugados.</p></div>
-              const fechas = Array.from(new Set(jugados.map((p) => p.jornada))).sort((a, b) => (jugados.find((p) => p.jornada === b)?.jornadaNum ?? 0) - (jugados.find((p) => p.jornada === a)?.jornadaNum ?? 0))
-              return fechas.map((j) => (
-                <div key={j} style={card}>
-                  <h3 style={h3}>{j} <span style={{ color: '#93A4B8', fontWeight: 400, fontSize: 13 }}>· {jugados.filter((p) => p.jornada === j).length} partidos jugados</span></h3>
-                  {jugados.filter((p) => p.jornada === j).sort((a, b) => `${a.fecha || ''}${a.hora || ''}`.localeCompare(`${b.fecha || ''}${b.hora || ''}`)).map((p) => (
+              // Por defecto: la última fecha jugada
+              const ultimo = [...jugados].sort((x, y) => x.jornadaNum - y.jornadaNum).pop()!
+              const { fase, fecha: n, nav } = elegir(d, jugados, selR, setSelR, ultimo.faseId, (ps) => Math.max(...ps.map((p) => p.jornadaNum)))
+              const ps = jugados.filter((p) => p.faseId === fase && p.jornadaNum === n).sort((x, y) => `${x.fecha || ''}${x.hora || ''}`.localeCompare(`${y.fecha || ''}${y.hora || ''}`))
+              return (<>
+                {nav}
+                <div style={card}>
+                  <h3 style={h3}>{ps[0]?.jornada} <span style={{ color: '#93A4B8', fontWeight: 400, fontSize: 13 }}>· {ps.length} partidos jugados</span></h3>
+                  {ps.map((p) => (
                     <a key={p.id} href={`/torneo/partido/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 0', borderTop: '1px solid #1f3150', fontSize: 14, color: '#F3F6F8', textDecoration: 'none' }}>
                       <span style={{ flex: 1, textAlign: 'right', fontWeight: 600 }}>{p.local}</span>
                       <b style={{ minWidth: 64, textAlign: 'center', color: '#D9A93A', fontSize: 18 }}>{p.golesLocal} - {p.golesVisitante}</b>
@@ -111,7 +118,7 @@ export default function TorneoPublico() {
                     </a>
                   ))}
                 </div>
-              ))
+              </>)
             })()}
 
             {tab === 'Tablas' && d.fases.filter((f) => !faseVisible(d, faseTabla) || f.id === faseVisible(d, faseTabla)!.id).map((f) => f.grupos.filter((g) => g.tabla.length).map((g) => (
@@ -130,17 +137,21 @@ export default function TorneoPublico() {
               </div>
             )))}
 
-            {tab === 'Fixture' && d.fases.map((f) => {
-              const ps = d.partidos.filter((p) => p.faseId === f.id)
-              if (!ps.length) return null
-              const jornadas = Array.from(new Set(ps.map((p) => p.jornada)))
-              return (
-                <div key={f.id}>
-                  <h2 style={{ fontSize: 22, fontWeight: 900, margin: '18px 0 8px', color: '#D9A93A' }}>{f.nombre}</h2>
-                  {jornadas.map((j) => (
-                    <div key={j} style={card}>
-                      <h3 style={h3}>{j}</h3>
-                      {ps.filter((p) => p.jornada === j).map((p) => (
+            {tab === 'Fixture' && (() => {
+              if (!d.partidos.length) return <div style={card}><p style={{ color: '#93A4B8', margin: 0 }}>Todavía no hay partidos programados.</p></div>
+              // Por defecto: la próxima fecha por jugar (o la última, si ya se jugó todo)
+              const pend = d.partidos.filter((p) => p.estado !== 'finalizado').sort((x, y) => x.jornadaNum - y.jornadaNum)[0]
+              const ref = pend || [...d.partidos].sort((x, y) => x.jornadaNum - y.jornadaNum).pop()!
+              const { fase, fecha: n, nav } = elegir(d, d.partidos, selF, setSelF, ref.faseId, (ps) => {
+                const pe = ps.filter((p) => p.estado !== 'finalizado').map((p) => p.jornadaNum)
+                return pe.length ? Math.min(...pe) : Math.max(...ps.map((p) => p.jornadaNum))
+              })
+              const ps = d.partidos.filter((p) => p.faseId === fase && p.jornadaNum === n).sort((x, y) => `${x.fecha || '9'}${x.hora || ''}`.localeCompare(`${y.fecha || '9'}${y.hora || ''}`))
+              return (<>
+                {nav}
+                <div style={card}>
+                  <h3 style={h3}>{ps[0]?.jornada} <span style={{ color: '#93A4B8', fontWeight: 400, fontSize: 13 }}>· {ps.filter((p) => p.estado === 'finalizado').length} de {ps.length} jugados</span></h3>
+                  {ps.map((p) => (
                         <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid #1f3150', fontSize: 14 }}>
                           <a href={`/torneo/club/${p.localId}`} style={{ flex: 1, textAlign: 'right', fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{p.local}</a>
                           <span style={{ minWidth: 70, textAlign: 'center', fontWeight: 900, color: p.estado === 'finalizado' ? '#D9A93A' : '#93A4B8', fontSize: p.estado === 'finalizado' ? 18 : 13 }}>
@@ -153,12 +164,10 @@ export default function TorneoPublico() {
                           <a href={`/torneo/club/${p.visitanteId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{p.visitante}</a>
                           <span style={{ width: 120, color: '#93A4B8', fontSize: 12, textAlign: 'right' }}>{fecha(p.fecha)}{p.escenario ? ' · ' + p.escenario : ''}{p.estado === 'suspendido' ? ' · suspendido' : ''}{p.jornadaJuego && p.jornadaJuego !== p.jornadaNum && p.estado !== 'finalizado' ? <b style={{ color: '#fb923c' }}> · {p.jornadaJuego > p.jornadaNum ? 'diferido' : 'adelantado'} a la Fecha {p.jornadaJuego}</b> : ''}{p.estado === 'finalizado' && <> · <a href={`/torneo/partido/${p.id}`} style={{ color: '#D9A93A' }}>Detalle</a></>}</span>
                         </div>
-                      ))}
-                    </div>
                   ))}
                 </div>
-              )
-            })}
+              </>)
+            })()}
 
             {tab === 'Goleadores' && (
               <div style={card}>
@@ -237,6 +246,28 @@ export default function TorneoPublico() {
 const fila: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid #1f3150', fontSize: 14 }
 
 /** Dibuja la tabla (o los goleadores) en una imagen vertical y la descarga o la comparte. */
+const boton = (activo: boolean, chico = false): React.CSSProperties => ({ padding: chico ? '7px 12px' : '9px 16px', borderRadius: 8, border: '1px solid ' + (activo ? '#D9A93A' : '#2a3b55'), background: activo ? '#D9A93A' : '#0F223D', color: activo ? '#1a1206' : '#F3F6F8', fontWeight: 800, fontSize: chico ? 13 : 15, cursor: 'pointer' })
+
+/** Botones de fase y de fecha. Devuelve la fase y la fecha elegidas (o las de por defecto) y los botones. */
+function elegir(d: Datos, lista: Partido[], sel: { fase: string; fecha: number | null }, set: (s: { fase: string; fecha: number | null }) => void, faseDefecto: string, fechaDefecto: (ps: Partido[]) => number) {
+  const fases = d.fases.filter((f) => lista.some((p) => p.faseId === f.id))
+  const fase = fases.find((f) => f.id === sel.fase)?.id || faseDefecto
+  const deFase = lista.filter((p) => p.faseId === fase)
+  const fechas = Array.from(new Set(deFase.map((p) => p.jornadaNum))).sort((a, b) => a - b)
+  const n = sel.fecha != null && fechas.includes(sel.fecha) && (sel.fase === fase || !sel.fase) ? sel.fecha : fechaDefecto(deFase)
+  const nav = (
+    <div style={{ marginBottom: 12 }}>
+      {fases.length > 1 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+        {fases.map((f) => <button key={f.id} onClick={() => set({ fase: f.id, fecha: null })} style={boton(f.id === fase)}>{f.nombre}</button>)}
+      </div>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {fechas.map((j) => <button key={j} onClick={() => set({ fase, fecha: j })} style={boton(j === n, true)}>{deFase.find((p) => p.jornadaNum === j)?.jornada || `Fecha ${j}`}</button>)}
+      </div>
+    </div>
+  )
+  return { fase, fecha: n, nav }
+}
+
 /** Fase que se muestra en Tablas: la elegida, o la más reciente con partidos. undefined = todas (hay una sola). */
 function faseVisible(d: Datos, elegida: string) {
   const conTabla = d.fases.filter((f) => f.grupos.some((g) => g.tabla.length))
