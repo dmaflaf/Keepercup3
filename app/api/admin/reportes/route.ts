@@ -38,6 +38,13 @@ export async function GET(req: NextRequest) {
 
   const estadoTxt = (s: (typeof m.sanciones)[number]) => (s.estado === 'SUSPENDIDO' ? `SUSPENDIDO ${s.pendientes.map((f) => 'F' + f).join(', ')}${s.fuera ? ` +${s.fuera} sig. etapa` : ''}` : s.estado === 'Cumplida' ? 'Cumplida' : s.estado === 'Acumula' ? `Acumula ${s.acum}/${m.torneo.amarillasSuspension}` : '—')
   const filaSan = (s: (typeof m.sanciones)[number], conClub: boolean) => [`${s.numero ?? '–'}  ${s.jugador}`, ...(conClub ? [s.club] : []), String(s.y), String(s.r), s.motivo, { t: estadoTxt(s), color: s.estado === 'SUSPENDIDO' ? ('rojo' as const) : s.estado === 'Cumplida' ? ('verde' as const) : undefined, negrita: s.estado === 'SUSPENDIDO' }]
+  // Fechas en que se sacó cada tarjeta: «F2, F5» (amarillas), «2A F3» (doble amarilla), «R F7» (roja)
+  const tarjetasDe = new Map<string, { n: number; t: string }[]>()
+  for (const p of d?.calc || []) for (const e of p.eventos) {
+    if (!e.playerId || !['amarilla', 'doble_amarilla', 'roja'].includes(e.tipo)) continue
+    tarjetasDe.set(e.playerId, [...(tarjetasDe.get(e.playerId) || []), { n: p.jornadaNum, t: e.tipo === 'amarilla' ? '' : e.tipo === 'roja' ? 'R ' : '2A ' }])
+  }
+  const fechasTarjetas = (playerId: string) => (tarjetasDe.get(playerId) || []).sort((a, b) => a.n - b.n).map((x) => `${x.t}F${x.n}`).join(', ') || '—'
   const ordenSan = (a: (typeof m.sanciones)[number], b: (typeof m.sanciones)[number]) => (b.estado === 'SUSPENDIDO' ? 1 : 0) - (a.estado === 'SUSPENDIDO' ? 1 : 0) || b.total - a.total || b.r - a.r || b.y - a.y || a.jugador.localeCompare(b.jugador)
 
   if (tipo === 'resultados') {
@@ -91,7 +98,11 @@ export async function GET(req: NextRequest) {
         d.partidos.filter((p) => p.localId === id || p.visitanteId === id).map((p) => { const ok = p.estado === 'finalizado' && p.golesLocal !== null; return [String(p.jornadaNum), `${p.local} vs ${p.visitante}`, { t: ok ? `${p.golesLocal} - ${p.golesVisitante}` : '—', negrita: ok }, { t: p.fecha ? `${fechaLarga(p.fecha)} ${p.hora || ''}${p.escenario ? ' · ' + p.escenario : ''}` : 'por programar', color: 'gris' as const }] }), { size: 9 })
       const sanc = m.sanciones.filter((s) => s.teamId === id).sort(ordenSan)
       R.titulo('Tarjetas y sanciones')
-      if (sanc.length) R.tabla([{ t: 'Jugador', w: 165 }, { t: 'Am.', w: 30, al: 'c' }, { t: 'Roj.', w: 30, al: 'c' }, { t: 'Motivo', w: 120 }, { t: 'Estado', w: 170 }], sanc.map((s) => filaSan(s, false)), { size: 9 })
+      if (sanc.length) {
+        R.tabla([{ t: 'Jugador', w: 150 }, { t: 'Am.', w: 28, al: 'c' }, { t: 'Roj.', w: 28, al: 'c' }, { t: 'Fechas de las tarjetas', w: 110 }, { t: 'Motivo', w: 85 }, { t: 'Estado', w: 114 }],
+          sanc.map((s) => { const f = filaSan(s, false); return [f[0], f[1], f[2], fechasTarjetas(s.playerId), f[3], f[4]] }), { size: 9 })
+        R.linea('Fechas: F = fecha del torneo en que se sacó la tarjeta (amarilla); R = roja directa; 2A = doble amarilla.', 8, GRIS_)
+      }
       else R.linea('Sin tarjetas registradas.', 10, GRIS_)
       if (dinero) {
         const f = fin.filas.find((x) => x.teamId === id)
