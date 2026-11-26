@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { cargarTorneo } from '@/lib/torneo-data'
 import { estadisticasPorteros } from '@/lib/ficha'
+import { goleadores } from '@/lib/torneo'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +40,19 @@ export async function GET(req: NextRequest) {
     const filas = d.fases.flatMap((f) => f.grupos.flatMap((g) => g.tabla))
     const ataque = [...filas].sort((a, b) => b.gf - a.gf).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gf, pj: r.pj }))
     const defensa = [...filas].filter((r) => r.pj > 0).sort((a, b) => a.gc / a.pj - b.gc / b.pj || a.gc - b.gc).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gc, pj: r.pj }))
+    // Goleadores por sección: todo el torneo, cada fase sin copas (Fase 1) y cada copa (Oro / Plata, con sus eliminatorias)
+    const faseDe = new Map(partidos.map((p) => [p.id, p.faseId]))
+    const grupoNom = new Map(d.fases.flatMap((f) => f.grupos.map((g) => [g.id, g.nombre] as [string, string])))
+    const faseNom = new Map(d.fases.map((f) => [f.id, f.nombre]))
+    const copaDe = (t: string) => (/\boro\b/i.test(t) ? 'Copa Oro' : /\bplata\b/i.test(t) ? 'Copa Plata' : null)
+    const seccionDe = (c: (typeof calc)[number]) => copaDe((c.grupoId && grupoNom.get(c.grupoId)) || '') || copaDe(faseNom.get(faseDe.get(c.id) || '') || '') || `fase:${faseDe.get(c.id)}`
+    const conNombre = (l: ReturnType<typeof goleadores>) => l.map((g) => ({ ...g, jugador: info.get(g.playerId)?.nombre || '?', numero: info.get(g.playerId)?.numero ?? null, equipo: d.nombreEquipo.get(g.teamId) || '?' }))
+    const claves = Array.from(new Set(calc.map(seccionDe)))
+    const orden = (k: string) => (k.startsWith('fase:') ? d.fases.findIndex((f) => `fase:${f.id}` === k) : k === 'Copa Oro' ? 100 : 101)
+    const goleadoresPor = [
+      { id: 'todo', nombre: 'Todo el torneo', goleadores: resto.goleadores },
+      ...claves.sort((a, b) => orden(a) - orden(b)).map((k) => ({ id: k, nombre: k.startsWith('fase:') ? faseNom.get(k.slice(5)) || 'Fase' : k, goleadores: conNombre(goleadores(calc.filter((c) => seccionDe(c) === k))) })).filter((x) => x.goleadores.length),
+    ]
     const estadisticas = { porteros: porteros.slice(0, 10), masPartidos, ataque, defensa }
     return NextResponse.json(
       {
@@ -48,6 +62,7 @@ export async function GET(req: NextRequest) {
         torneo: { id: torneo.id, nombre: torneo.nombre, amarillasSuspension: cfg.amarillasSuspension },
         partidos: partidos.map(({ observaciones, veedor, _i, ...p }) => { void observaciones; void veedor; void _i; return p }),
         fairplay,
+        goleadoresPor,
         ...resto,
       },
       { headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' } }

@@ -8,7 +8,8 @@ interface Fase { id: string; nombre: string; tipo: string; grupos: Grupo[] }
 interface Partido { id: string; localId: string; visitanteId: string; jornadaJuego?: number | null; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
 interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number }
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean }
-interface Datos { ok: boolean; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
+interface SecGol { id: string; nombre: string; goleadores: Gol[] }
+interface Datos { ok: boolean; goleadoresPor?: SecGol[]; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
 
 const TABS = ['Resultados', 'Fixture', 'Tablas', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
 
@@ -17,6 +18,8 @@ export default function TorneoPublico() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Resultados')
   const [error, setError] = useState('')
   const [faseTabla, setFaseTabla] = useState('') // fase elegida en Tablas (por defecto, la actual)
+  const [copaTabla, setCopaTabla] = useState('Copa Oro') // en una fase con copas: Copa Oro o Copa Plata
+  const [secGol, setSecGol] = useState('todo') // sección de goleadores
   // Fase y fecha elegidas en Resultados y en Fixture (vacío = la que corresponde ahora)
   const [selR, setSelR] = useState<{ fase: string; fecha: number | null }>({ fase: '', fecha: null })
   const [selF, setSelF] = useState<{ fase: string; fecha: number | null }>({ fase: '', fecha: null })
@@ -30,6 +33,7 @@ export default function TorneoPublico() {
   }, [])
   useEffect(() => { cargar(); const t = setInterval(() => cargar(d?.torneo?.id), 10000); return () => clearInterval(t) }, [d?.torneo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const botonCompartir = d ? <div><button onClick={() => compartir(d, tab, tab === 'Tablas' ? faseVisible(d, faseTabla)?.id : undefined, tab === 'Tablas' ? copaTabla : secGol)} style={{ margin: '0 0 14px', padding: '9px 14px', borderRadius: 8, border: '1px solid #2a3b55', background: '#0F223D', color: '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>📤 Descargar como imagen para compartir</button></div> : null
   const enVivo = (d?.partidos || []).filter((p) => p.estado !== 'finalizado' && p.estado !== 'suspendido' && p.periodo && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo))
   // Últimos resultados: los jugados hoy; si hoy no hay, todos los de la última fecha jugada
   const finalizados = (d?.partidos || []).filter((p) => p.estado === 'finalizado')
@@ -94,9 +98,6 @@ export default function TorneoPublico() {
               )
             })()}
 
-            {(tab === 'Tablas' || tab === 'Goleadores') && (
-              <button onClick={() => compartir(d, tab, tab === 'Tablas' ? faseVisible(d, faseTabla)?.id : undefined)} style={{ margin: '0 0 14px', padding: '9px 14px', borderRadius: 8, border: '1px solid #2a3b55', background: '#0F223D', color: '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>📤 Descargar como imagen para compartir</button>
-            )}
 
             {tab === 'Resultados' && (() => {
               const jugados = d.partidos.filter((p) => p.estado === 'finalizado')
@@ -121,7 +122,13 @@ export default function TorneoPublico() {
               </>)
             })()}
 
-            {tab === 'Tablas' && d.fases.filter((f) => !faseVisible(d, faseTabla) || f.id === faseVisible(d, faseTabla)!.id).map((f) => f.grupos.filter((g) => g.tabla.length).map((g) => (
+            {tab === 'Tablas' && (() => {
+              const f = faseVisible(d, faseTabla) || d.fases.find((x) => x.grupos.some((g) => g.tabla.length))
+              if (!f || !tieneCopas(f)) return null
+              return <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>{['Copa Oro', 'Copa Plata'].filter((c) => f.grupos.some((g) => copaDe(g.nombre) === c)).map((c) => <button key={c} onClick={() => setCopaTabla(c)} style={boton(copaTabla === c, true)}>{c === 'Copa Oro' ? '🥇 ' : '🥈 '}{c}</button>)}</div>
+            })()}
+            {tab === 'Tablas' && botonCompartir}
+            {tab === 'Tablas' && d.fases.filter((f) => !faseVisible(d, faseTabla) || f.id === faseVisible(d, faseTabla)!.id).map((f) => f.grupos.filter((g) => g.tabla.length && (!tieneCopas(f) || copaDe(g.nombre) === copaTabla)).map((g) => (
               <div key={g.id} style={card}>
                 <h3 style={h3}>{f.nombre} · {g.nombre}</h3>
                 <div style={{ overflowX: 'auto' }}>
@@ -169,17 +176,29 @@ export default function TorneoPublico() {
               </>)
             })()}
 
-            {tab === 'Goleadores' && (
-              <div style={card}>
-                <h3 style={h3}>Tabla de goleadores</h3>
-                {d.goleadores.length === 0 && <p style={{ color: '#93A4B8' }}>Todavía no hay goles registrados.</p>}
-                {d.goleadores.slice(0, 50).map((g, i) => (
-                  <div key={g.playerId} style={{ display: 'flex', gap: 12, padding: '9px 0', borderTop: '1px solid #1f3150', fontSize: 14, alignItems: 'center' }}>
-                    <b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><span style={{ flex: 1 }}><b>{g.jugador}</b> <span style={{ color: '#93A4B8' }}>· {g.equipo}</span></span><b style={{ color: '#D9A93A', fontSize: 18 }}>{g.goles}</b>
-                  </div>
-                ))}
-              </div>
-            )}
+            {tab === 'Goleadores' && (() => {
+              const secs = d.goleadoresPor?.length ? d.goleadoresPor : [{ id: 'todo', nombre: 'Todo el torneo', goleadores: d.goleadores }]
+              const sec = secs.find((x) => x.id === secGol) || secs[0]
+              return (<>
+                {secs.length > 1 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>{secs.map((x) => <button key={x.id} onClick={() => setSecGol(x.id)} style={boton(x.id === sec.id)}>{x.nombre}</button>)}</div>}
+                {botonCompartir}
+                <div style={card}>
+                  <h3 style={h3}>Goleadores · {sec.nombre}</h3>
+                  {sec.goleadores.length === 0 && <p style={{ color: '#93A4B8' }}>Todavía no hay goles registrados.</p>}
+                  {sec.goleadores.slice(0, 50).map((g, i) => {
+                    const top = i < 3, tam = top ? 52 : 40
+                    return (
+                      <div key={g.playerId} style={{ display: 'flex', gap: 12, padding: top ? '11px 0' : '8px 0', borderTop: '1px solid #1f3150', fontSize: 14, alignItems: 'center' }}>
+                        <b style={{ width: 22, color: top ? '#D9A93A' : '#93A4B8', fontSize: top ? 18 : 14 }}>{i + 1}</b>
+                        <Foto id={g.playerId} nombre={g.jugador} tam={tam} oro={top} />
+                        <span style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: top ? 16 : 14 }}>{g.jugador}</b>{g.numero != null && <span style={{ color: '#93A4B8' }}> #{g.numero}</span>}<br /><span style={{ color: '#93A4B8', fontSize: 13 }}>{g.equipo}</span></span>
+                        <b style={{ color: '#D9A93A', fontSize: top ? 24 : 18 }}>{g.goles}</b>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>)
+            })()}
 
             {tab === 'Estadísticas' && d.estadisticas && (
               <>
@@ -268,6 +287,20 @@ function elegir(d: Datos, lista: Partido[], sel: { fase: string; fecha: number |
   return { fase, fecha: n, nav }
 }
 
+/** «Copa Oro» / «Copa Plata» según el nombre del grupo o de la fase (ej. «Grupo 4 Copa Plata»). */
+const copaDe = (t: string) => (/\boro\b/i.test(t) ? 'Copa Oro' : /\bplata\b/i.test(t) ? 'Copa Plata' : null)
+const tieneCopas = (f: Fase) => f.grupos.some((g) => copaDe(g.nombre))
+
+/** Foto del goleador (miniatura pública); si no tiene foto, sus iniciales. */
+function Foto({ id, nombre, tam, oro }: { id: string; nombre: string; tam: number; oro?: boolean }) {
+  const [error, setError] = useState(false)
+  const ini = nombre.split(' ').filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase()
+  const marco: React.CSSProperties = { width: tam, height: tam, borderRadius: '50%', flexShrink: 0, border: `2px solid ${oro ? '#D9A93A' : '#2a3b55'}`, background: '#16294a', objectFit: 'cover' }
+  if (error) return <span style={{ ...marco, display: 'grid', placeItems: 'center', color: '#93A4B8', fontWeight: 800, fontSize: tam / 3 }}>{ini}</span>
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={`/api/torneo/foto/${id}`} alt={nombre} width={tam} height={tam} loading="lazy" style={marco} onError={() => setError(true)} />
+}
+
 /** Fase que se muestra en Tablas: la elegida, o la más reciente con partidos. undefined = todas (hay una sola). */
 function faseVisible(d: Datos, elegida: string) {
   const conTabla = d.fases.filter((f) => f.grupos.some((g) => g.tabla.length))
@@ -275,15 +308,19 @@ function faseVisible(d: Datos, elegida: string) {
   return conTabla.find((f) => f.id === elegida) || [...conTabla].reverse().find((f) => d.partidos.some((p) => p.faseId === f.id)) || conTabla[conTabla.length - 1]
 }
 
-function compartir(d: Datos, tab: string, faseId?: string) {
+function compartir(d: Datos, tab: string, faseId?: string, sub?: string) {
   const filas: string[][] = []
   let titulo = tab === 'Tablas' ? 'TABLA DE POSICIONES' : 'GOLEADORES'
   if (tab === 'Tablas') {
-    for (const f of d.fases.filter((x) => !faseId || x.id === faseId)) for (const g of f.grupos.filter((x) => x.tabla.length)) {
+    for (const f of d.fases.filter((x) => !faseId || x.id === faseId)) for (const g of f.grupos.filter((x) => x.tabla.length && (!tieneCopas(f) || copaDe(x.nombre) === sub))) {
       filas.push([`${f.nombre} · ${g.nombre}`, '', 'PJ', 'DG', 'PTS'])
       g.tabla.forEach((r) => filas.push([String(r.pos), r.equipo, String(r.pj), String(r.dg), String(r.pts)]))
     }
-  } else d.goleadores.slice(0, 25).forEach((g, i) => filas.push([String(i + 1), `${g.jugador} (${g.equipo})`, '', '', String(g.goles)]))
+  } else {
+    const sec = d.goleadoresPor?.find((x) => x.id === sub)
+    if (sec && sec.id !== 'todo') titulo = `GOLEADORES · ${sec.nombre.toUpperCase()}`
+    ;(sec?.goleadores || d.goleadores).slice(0, 25).forEach((g, i) => filas.push([String(i + 1), `${g.jugador} (${g.equipo})`, '', '', String(g.goles)]))
+  }
   const W = 1080, H = Math.min(4000, 260 + filas.length * 54 + 80)
   const c = document.createElement('canvas'); c.width = W; c.height = H
   const x = c.getContext('2d'); if (!x) return
