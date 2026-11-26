@@ -35,7 +35,7 @@ export async function planFaseFinal(torneoId: string, copa: string): Promise<Pla
   for (const c of llave.cruces) {
     const r = RONDA[c.id]
     if (c.partidoId) { plan.hechos.push(`${c.id}: ${c.local?.nombre} vs ${c.visitante?.nombre}`); continue }
-    if (!c.local || !c.visitante) { plan.esperando.push(`${c.id} (${r.nombre}): falta ${!c.local ? c.origenLocal : c.origenVisitante}`); continue }
+    if (!c.local || !c.visitante) { plan.esperando.push(`${c.id} (${r.nombre}): falta ${!c.local ? c.origenLocal : c.origenVisitante}${c.id.startsWith('C') ? ' (su grupo todavía no termina)' : ''}`); continue }
     if (c.local.provisional || c.visitante.provisional) { plan.esperando.push(`${c.id} (${r.nombre}): ${c.local.nombre} vs ${c.visitante.nombre} todavía es provisional (su grupo no ha terminado)`); continue }
     plan.crear.push({ id: c.id, ronda: r.nombre, jornadaNum: base + r.paso, localId: c.local.teamId, visitanteId: c.visitante.teamId, local: c.local.nombre, visitante: c.visitante.nombre })
   }

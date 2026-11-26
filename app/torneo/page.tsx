@@ -397,7 +397,7 @@ function Llaves({ llaves }: { llaves: LlaveCopa[] }) {
       </div>
       <h3 style={h3}>🏆 Fase Final · {l.copa}</h3>
       <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>
-        {provisional ? <>Clasificados <i>provisionales</i> (en cursiva) según la tabla actual de la Fase 2: cambian hasta que termine cada grupo ({l.gruposTerminados} de 4 grupos terminados). </> : 'Clasificados definidos. '}
+        {l.gruposTerminados < 4 ? <>Cada club aparece en su llave apenas termina su grupo de la Fase 2 ({l.gruposTerminados} de 4 grupos terminados). </> : provisional ? '' : 'Clasificados definidos. '}
         Cruces según el Art. 41: 1.º de un grupo contra el 2.º del grupo cruzado (1–3 y 2–4).
       </p>
       {l.campeon && <div style={{ textAlign: 'center', margin: '6px 0 4px', fontSize: compacto ? 16 : 18, fontWeight: 900, color: acento }}>🏆 Campeón {l.copa}: {l.campeon.nombre}</div>}

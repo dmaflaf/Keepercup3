@@ -34,8 +34,10 @@ export function construirLlaves(fases: FaseIn[], partidos: PartidoIn[], nombreEq
     if (grupos.length !== 4) continue // el esquema del reglamento es para 4 grupos
     const terminado = grupos.map((g) => { const ps = partidos.filter((p) => p.grupoId === g.id); return ps.length > 0 && ps.every((p) => p.estado === 'finalizado') })
     const pos = (gi: number, k: number): EqLlave | null => {
+      // Mientras el grupo no termine, la llave muestra solo la posición («1.º Grupo 1»); al cerrarse su último partido, el club real
+      if (!terminado[gi]) return null
       const f = grupos[gi].tabla[k - 1]
-      return f ? { teamId: f.teamId, nombre: f.equipo, provisional: !terminado[gi] } : null
+      return f ? { teamId: f.teamId, nombre: f.equipo, provisional: false } : null
     }
     const cruce = (id: Cruce['id'], a: EqLlave | null, b: EqLlave | null, oa: string, ob: string): Cruce => {
       const base: Cruce = { id, local: a, visitante: b, origenLocal: oa, origenVisitante: ob, gl: null, gv: null, pl: null, pv: null, ganador: null, partidoId: null, fecha: null, hora: null, escenario: null, estado: null }
