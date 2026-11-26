@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import {
   aplicarOp, amarillasEnPartido, cambiosHechos, enCancha, etiquetaMinuto, faltasDe, jugaron, marcadorDe, minutoActual, mmss,
-  Op, periodoNumero, segundos, SnapshotP, tanda, AccionReloj,
+  Op, periodoNumero, segundos, SnapshotP, tanda, AccionReloj, MIN_EXTRA,
 } from '@/lib/planilla'
 
 type OpSinMeta = Op extends infer O ? (O extends unknown ? Omit<O, 'id' | 'en'> : never) : never
@@ -105,8 +105,10 @@ export default function Planilla() {
   const m = marcadorDe(snap)
   const minNow = p.periodo === 'previo' ? 0 : minutoActual(relojP, ahora)
   const perNum = periodoNumero(p.periodo) || 2
-  const tiempoAnadido = (p.periodo === 't1' && seg > p.dur * 60) || (p.periodo === 't2' && seg > 2 * p.dur * 60)
-  const etiquetaPeriodo = suspendido ? '⛔ SUSPENDIDO' : cerrado ? 'FINALIZADO' : { previo: 'ANTES DE JUGAR', t1: '1.er TIEMPO', descanso: 'DESCANSO', t2: '2.º TIEMPO', fin: 'FIN DE TIEMPOS', penales: 'PENALES' }[p.periodo]
+  const tiempoAnadido = (p.periodo === 't1' && seg > p.dur * 60) || (p.periodo === 't2' && seg > 2 * p.dur * 60) || (p.periodo === 'et1' && seg > (2 * p.dur + MIN_EXTRA) * 60) || (p.periodo === 'et2' && seg > (2 * p.dur + 2 * MIN_EXTRA) * 60)
+  const empatado = m.golesLocal === m.golesVisitante
+  const jugoExtra = p.relojBase >= (2 * p.dur + MIN_EXTRA) * 60 // ya se jugó el tiempo extra
+  const etiquetaPeriodo = suspendido ? '⛔ SUSPENDIDO' : cerrado ? 'FINALIZADO' : { previo: 'ANTES DE JUGAR', t1: '1.er TIEMPO', descanso: 'DESCANSO', t2: '2.º TIEMPO', fin: jugoExtra ? 'FIN DEL TIEMPO EXTRA' : 'FIN DE TIEMPOS', et1: '1.er TIEMPO EXTRA', et2: '2.º TIEMPO EXTRA', penales: 'PENALES' }[p.periodo]
   const jug = new Map(snap.jugadores.map((j) => [j.id, j]))
   const tnd = tanda(snap)
   const golesReg = (teamId: string) => snap.eventos.filter((e) => (e.tipo === 'gol' || e.tipo === 'gol_penal') && e.teamId === teamId).length + snap.eventos.filter((e) => e.tipo === 'autogol' && e.teamId !== teamId).length
@@ -230,7 +232,7 @@ export default function Planilla() {
           </div>
           <div className="text-center mt-3">
             <p className="text-5xl md:text-7xl font-black tabular-nums tracking-wider">{mmss(seg)}</p>
-            <p className="text-sm text-slate-300 mt-1">{etiquetaPeriodo}{!corre && (p.periodo === 't1' || p.periodo === 't2') && ' · ⏸ PAUSADO'}
+            <p className="text-sm text-slate-300 mt-1">{etiquetaPeriodo}{!corre && ['t1', 't2', 'et1', 'et2'].includes(p.periodo) && ' · ⏸ PAUSADO'}
               {tiempoAnadido && <b className="text-red-400"> · tiempo añadido {etiquetaMinuto(minNow, perNum, p.dur)}</b>}</p>
           </div>
           {!cerrado && (
@@ -239,11 +241,15 @@ export default function Planilla() {
                 const faltan = [p.localId, p.visitanteId].some((t) => snap.eventos.filter((e) => e.teamId === t && e.tipo === 'titular').length !== p.titulares)
                 if (!faltan || confirm(`No están los ${p.titulares} titulares de cada equipo. ¿Iniciar de todas formas?`)) reloj('iniciar')
               }}>▶ Iniciar partido</button>}
-              {(p.periodo === 't1' || p.periodo === 't2') && (corre ? <button className={btn} onClick={() => reloj('pausar')}>⏸ Pausar reloj</button> : <button className={verde} onClick={() => reloj('reanudar')}>▶ Reanudar</button>)}
+              {['t1', 't2', 'et1', 'et2'].includes(p.periodo) && (corre ? <button className={btn} onClick={() => reloj('pausar')}>⏸ Pausar reloj</button> : <button className={verde} onClick={() => reloj('reanudar')}>▶ Reanudar</button>)}
               {p.periodo === 't1' && <button className={btn} onClick={() => confirm('¿Terminó el primer tiempo?') && reloj('descanso')}>Fin del 1.er tiempo</button>}
               {p.periodo === 'descanso' && <button className={verde} onClick={() => reloj('t2')}>▶ Iniciar 2.º tiempo</button>}
               {p.periodo === 't2' && <button className={btn} onClick={() => confirm('¿Terminó el segundo tiempo?') && reloj('fin')}>Fin del 2.º tiempo</button>}
-              {p.periodo === 'fin' && <button className={btn} onClick={() => reloj('penales')}>Ir a penales</button>}
+              {p.periodo === 'fin' && p.esFinal && empatado && !jugoExtra && <button className={verde} onClick={() => confirm(`Final empatada: ¿iniciar el tiempo extra (2 × ${MIN_EXTRA} minutos)?`) && reloj('et1')}>⏱ Iniciar tiempo extra</button>}
+              {p.periodo === 'et1' && <button className={btn} onClick={() => confirm('¿Terminó el 1.er tiempo extra? Se inicia el 2.º tiempo extra.') && reloj('et2')}>▶ 2.º tiempo extra</button>}
+              {p.periodo === 'et2' && <button className={btn} onClick={() => confirm('¿Terminó el tiempo extra?') && reloj('fin')}>Fin del tiempo extra</button>}
+              {p.periodo === 'fin' && (!p.esFinal || jugoExtra || !empatado) && <button className={btn} onClick={() => reloj('penales')}>Ir a penales</button>}
+              {p.periodo === 'fin' && p.eliminatoria && empatado && <p className="basis-full text-center text-sm text-yellow-300">Empate en la Fase Final: {p.esFinal && !jugoExtra ? 'primero el tiempo extra; si sigue igual, penales.' : 'se define por penales.'}</p>}
               {(p.periodo === 'fin' || p.periodo === 'penales') && <button className={rojo} onClick={() => confirm('¿Finalizar el partido y cerrar la planilla?') && reloj('finalizar')}>Finalizar partido</button>}
             </div>
           )}

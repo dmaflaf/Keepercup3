@@ -18,6 +18,7 @@ export async function cargarSnapshot(partidoId: string): Promise<SnapshotP | nul
   ])
   const nombre = new Map(equipos.map((t) => [t.id, t.name]))
   const susp = d ? suspendidosEn(d, p.id) : new Map<string, number>()
+  const fase = await prisma.fase.findUnique({ where: { id: p.faseId }, select: { tipo: true } })
   return {
     partido: {
       id: p.id, jornada: p.jornada, fecha: p.fecha, hora: p.hora, escenario: p.escenario,
@@ -27,6 +28,7 @@ export async function cargarSnapshot(partidoId: string): Promise<SnapshotP | nul
       periodo: p.periodo as Periodo, relojBase: p.relojBaseSeg, relojDesde: p.relojDesde ? p.relojDesde.getTime() : null,
       dur: torneo?.minutosTiempo ?? 45, titulares: torneo?.titulares ?? 11, cambiosMax: torneo?.cambiosMax ?? 29,
       suspendidoMotivo: p.suspendidoMotivo, suspendidoMinuto: p.suspendidoMinuto,
+      eliminatoria: fase?.tipo === 'eliminatoria', esFinal: fase?.tipo === 'eliminatoria' && /^\s*final\s*$/i.test(p.jornada),
     },
     jugadores: jug.map((j) => ({ id: j.id, nombre: `${j.firstName} ${j.lastName}`, numero: j.number, posicion: j.position, teamId: j.teamId, suspendido: susp.get(j.id) || 0 })),
     eventos: eventos.map((e) => ({ cid: e.clienteId || e.id, tipo: e.tipo, teamId: e.teamId, playerId: e.playerId, minuto: e.minuto, periodo: e.periodo, eid: e.id, extra: e.sancionExtra, extraMotivo: e.sancionMotivo })),
@@ -103,6 +105,13 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
         const tl = ev.filter((e) => e.teamId === p.localId && (e.tipo === 'tanda_gol' || e.tipo === 'tanda_fallo'))
         const tv = ev.filter((e) => e.teamId === p.visitanteId && (e.tipo === 'tanda_gol' || e.tipo === 'tanda_fallo'))
         if (tl.length || tv.length) { data.penalesLocal = tl.filter((e) => e.tipo === 'tanda_gol').length; data.penalesVisitante = tv.filter((e) => e.tipo === 'tanda_gol').length }
+        // Fase Final: no se puede cerrar empatado sin un ganador por penales (Art. 41)
+        const fase = await prisma.fase.findUnique({ where: { id: p.faseId }, select: { tipo: true } })
+        if (fase?.tipo === 'eliminatoria') {
+          const gl = (data.golesLocal ?? p.golesLocal) as number | null, gv = (data.golesVisitante ?? p.golesVisitante) as number | null
+          const pl = (data.penalesLocal ?? p.penalesLocal) as number | null, pv = (data.penalesVisitante ?? p.penalesVisitante) as number | null
+          if (gl !== null && gl === gv && (pl === null || pv === null || pl === pv)) return /^\s*final\s*$/i.test(p.jornada) && r.base < (2 * dur + 15) * 60 ? 'La final está empatada: juega el tiempo extra y, si sigue igual, los penales.' : 'Partido de eliminatoria empatado: defínelo por penales antes de finalizar.'
+        }
       }
       await prisma.partido.update({ where: { id: p.id }, data })
       return

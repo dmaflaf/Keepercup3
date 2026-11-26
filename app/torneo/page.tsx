@@ -34,7 +34,7 @@ export default function TorneoPublico() {
   useEffect(() => { cargar(); const t = setInterval(() => cargar(d?.torneo?.id), 10000); return () => clearInterval(t) }, [d?.torneo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const botonCompartir = d ? <div><button onClick={() => compartir(d, tab, tab === 'Tablas' ? faseVisible(d, faseTabla)?.id : undefined, tab === 'Tablas' ? copaTabla : secGol)} style={{ margin: '0 0 14px', padding: '9px 14px', borderRadius: 8, border: '1px solid #2a3b55', background: '#0F223D', color: '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>📤 Descargar como imagen para compartir</button></div> : null
-  const enVivo = (d?.partidos || []).filter((p) => p.estado !== 'finalizado' && p.estado !== 'suspendido' && p.periodo && ['t1', 'descanso', 't2', 'fin', 'penales'].includes(p.periodo))
+  const enVivo = (d?.partidos || []).filter((p) => p.estado !== 'finalizado' && p.estado !== 'suspendido' && p.periodo && ['t1', 'descanso', 't2', 'fin', 'et1', 'et2', 'penales'].includes(p.periodo))
   // Últimos resultados: los jugados hoy; si hoy no hay, todos los de la última fecha jugada
   const finalizados = (d?.partidos || []).filter((p) => p.estado === 'finalizado')
   const hoyEc = new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10)

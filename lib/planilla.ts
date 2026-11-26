@@ -2,12 +2,14 @@
 // Todo lo de aquí es puro: lo usan el servidor (para guardar) y el iPad/celular (para mostrar al instante).
 import { marcadorDesdeEventos } from '@/lib/torneo'
 
-export type Periodo = 'previo' | 't1' | 'descanso' | 't2' | 'fin' | 'penales'
+export type Periodo = 'previo' | 't1' | 'descanso' | 't2' | 'fin' | 'et1' | 'et2' | 'penales'
+/** Tiempo extra de la final (Art. 41): 2 tiempos de 15 minutos. */
+export const MIN_EXTRA = 15
 export const TIPOS_JUEGO = ['gol', 'gol_penal', 'autogol', 'amarilla', 'doble_amarilla', 'roja', 'falta', 'tanda_gol', 'tanda_fallo'] as const
 export const TIPOS_PLANILLA = ['titular', 'entra', 'sale', ...TIPOS_JUEGO]
 
 export interface Reloj { periodo: Periodo; base: number; desde: number | null } // base en segundos; desde = epoch ms si corre
-export type AccionReloj = 'iniciar' | 'pausar' | 'reanudar' | 'descanso' | 't2' | 'fin' | 'penales' | 'finalizar' | 'reabrir'
+export type AccionReloj = 'iniciar' | 'pausar' | 'reanudar' | 'descanso' | 't2' | 'fin' | 'et1' | 'et2' | 'penales' | 'finalizar' | 'reabrir'
 
 export type Op = { id: string; en: number } & (
   | { t: 'titular'; teamId: string; playerId: string; on: boolean }
@@ -26,6 +28,7 @@ export interface PartidoP {
   penalesLocal: number | null; penalesVisitante: number | null
   periodo: Periodo; relojBase: number; relojDesde: number | null
   dur: number; titulares: number; cambiosMax: number
+  eliminatoria?: boolean; esFinal?: boolean // Fase Final: el empate se define por penales (final: tiempo extra y penales)
   suspendidoMotivo?: string | null; suspendidoMinuto?: number | null
 }
 export interface SnapshotP { partido: PartidoP; jugadores: JugadorP[]; eventos: EventoP[] }
@@ -38,10 +41,12 @@ export function transicion(r: Reloj, a: AccionReloj, en: number, dur: number): R
   switch (a) {
     case 'iniciar': return r.periodo === 'previo' ? { periodo: 't1', base: 0, desde: en } : r
     case 'pausar': return detener(r, en)
-    case 'reanudar': return !r.desde && (r.periodo === 't1' || r.periodo === 't2') ? { ...r, desde: en } : r
+    case 'reanudar': return !r.desde && (r.periodo === 't1' || r.periodo === 't2' || r.periodo === 'et1' || r.periodo === 'et2') ? { ...r, desde: en } : r
     case 'descanso': return { ...detener(r, en), periodo: 'descanso' }
     case 't2': return { periodo: 't2', base: dur * 60, desde: en }
     case 'fin': return { ...detener(r, en), periodo: 'fin' }
+    case 'et1': return { periodo: 'et1', base: 2 * dur * 60, desde: en }
+    case 'et2': return { periodo: 'et2', base: (2 * dur + MIN_EXTRA) * 60, desde: en }
     case 'penales': return { ...detener(r, en), periodo: 'penales' }
     case 'finalizar': return { ...detener(r, en), periodo: 'fin' }
     default: return r
@@ -55,9 +60,11 @@ export function etiquetaMinuto(minuto: number | null, periodo: number | null, du
   if (minuto === null) return ''
   if (periodo === 1 && minuto > dur) return `${dur}+${minuto - dur}'`
   if (periodo === 2 && minuto > 2 * dur) return `${2 * dur}+${minuto - 2 * dur}'`
+  if (periodo === 4 && minuto > 2 * dur + MIN_EXTRA) return `${2 * dur + MIN_EXTRA}+${minuto - 2 * dur - MIN_EXTRA}'`
+  if (periodo === 5 && minuto > 2 * dur + 2 * MIN_EXTRA) return `${2 * dur + 2 * MIN_EXTRA}+${minuto - 2 * dur - 2 * MIN_EXTRA}'`
   return `${minuto}'`
 }
-export const periodoNumero = (p: Periodo) => (p === 't1' ? 1 : p === 't2' ? 2 : p === 'penales' ? 3 : 0)
+export const periodoNumero = (p: Periodo) => (p === 't1' ? 1 : p === 't2' ? 2 : p === 'penales' ? 3 : p === 'et1' ? 4 : p === 'et2' ? 5 : 0)
 
 // ---------- Derivados ----------
 export function enCancha(eventos: EventoP[], teamId: string): Set<string> {

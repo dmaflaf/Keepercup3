@@ -12,7 +12,7 @@ interface Datos {
 }
 const ICONO: Record<string, string> = { gol: '⚽', gol_penal: '⚽ (p)', autogol: '⚽ (a.g.)', amarilla: '🟨', doble_amarilla: '🟨🟨', roja: '🟥', entra: '⬆', sale: '⬇' }
 const TXT: Record<string, string> = { gol: 'Gol', gol_penal: 'Gol de penal', autogol: 'Autogol', amarilla: 'Amarilla', doble_amarilla: 'Doble amarilla', roja: 'Roja', entra: 'Entra', sale: 'Sale' }
-const PERIODO: Record<string, string> = { previo: 'Por comenzar', t1: '1.er tiempo', descanso: 'Descanso', t2: '2.º tiempo', fin: 'Fin del partido', penales: 'Penales' }
+const PERIODO: Record<string, string> = { previo: 'Por comenzar', t1: '1.er tiempo', descanso: 'Descanso', t2: '2.º tiempo', fin: 'Fin del partido', et1: '1.er tiempo extra', et2: '2.º tiempo extra', penales: 'Penales' }
 
 export default function Vivo() {
   const { id } = useParams<{ id: string }>()
@@ -40,9 +40,9 @@ export default function Vivo() {
   const p = d.partido
   const fin = p.estado === 'finalizado'
   const seg = segundos({ periodo: p.periodo, base: p.relojBase, desde: p.relojDesde }, ahora + salto)
-  const enJuego = !fin && (p.periodo === 't1' || p.periodo === 't2')
+  const enJuego = !fin && ['t1', 't2', 'et1', 'et2'].includes(p.periodo)
   const minuto = Math.floor(seg / 60) + 1
-  const anadido = (p.periodo === 't1' && seg > p.dur * 60) || (p.periodo === 't2' && seg > 2 * p.dur * 60)
+  const anadido = (p.periodo === 't1' && seg > p.dur * 60) || (p.periodo === 't2' && seg > 2 * p.dur * 60) || (p.periodo === 'et1' && seg > (2 * p.dur + 15) * 60) || (p.periodo === 'et2' && seg > (2 * p.dur + 30) * 60)
   const eventos = [...d.eventos].filter((e) => e.tipo !== 'falta').reverse()
 
   return (
