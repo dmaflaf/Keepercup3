@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { cargarTorneo } from '@/lib/torneo-data'
 import { estadisticasPorteros } from '@/lib/ficha'
 import { goleadores } from '@/lib/torneo'
+import { calcularSanciones } from '@/lib/sanciones'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,10 +27,15 @@ export async function GET(req: NextRequest) {
     const fairplay = [...fp.values()].sort((a, b) => a.puntos - b.puntos || a.equipo.localeCompare(b.equipo))
     // Porteros, jugadores con más partidos, mejor ataque y mejor defensa
     const info = d.jugadoresInfo
-    const porteros = estadisticasPorteros(d).map((p) => {
+    // Porteros: solo los que jugaron al menos la mitad de los partidos del que más jugó (mínimo 2).
+    // Orden: menos goles recibidos por partido; a igual promedio, más partidos jugados y más vallas invictas.
+    const todosPort = estadisticasPorteros(d).map((p) => {
       const teamId = calc.flatMap((c) => c.eventos).find((e) => e.playerId === p.playerId)?.teamId || ''
       return { jugador: info.get(p.playerId)?.nombre || '?', numero: info.get(p.playerId)?.numero ?? null, equipo: d.nombreEquipo.get(teamId) || '?', partidos: p.partidos, golesRecibidos: p.golesRecibidos, vallas: p.vallas, promedio: Math.round((p.golesRecibidos / p.partidos) * 100) / 100 }
     })
+    const minPorteros = Math.max(2, Math.ceil(Math.max(0, ...todosPort.map((p) => p.partidos)) / 2))
+    const porteros = todosPort.filter((p) => p.partidos >= minPorteros)
+      .sort((a, b) => a.golesRecibidos / a.partidos - b.golesRecibidos / b.partidos || b.partidos - a.partidos || b.vallas - a.vallas)
     const pj = new Map<string, { teamId: string; n: number }>()
     for (const c of calc) {
       if (c.estado !== 'finalizado') continue
@@ -37,9 +43,33 @@ export async function GET(req: NextRequest) {
       for (const e of c.eventos) if (e.playerId && (e.tipo === 'titular' || e.tipo === 'entra') && !vistos.has(e.playerId)) { vistos.add(e.playerId); pj.set(e.playerId, { teamId: e.teamId, n: (pj.get(e.playerId)?.n || 0) + 1 }) }
     }
     const masPartidos = [...pj.entries()].map(([id, v]) => ({ jugador: info.get(id)?.nombre || '?', numero: info.get(id)?.numero ?? null, equipo: d.nombreEquipo.get(v.teamId) || '?', partidos: v.n })).sort((a, b) => b.partidos - a.partidos).slice(0, 20)
-    const filas = d.fases.flatMap((f) => f.grupos.flatMap((g) => g.tabla))
-    const ataque = [...filas].sort((a, b) => b.gf - a.gf).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gf, pj: r.pj }))
-    const defensa = [...filas].filter((r) => r.pj > 0).sort((a, b) => a.gc / a.pj - b.gc / b.pj || a.gc - b.gc).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gc, pj: r.pj }))
+    // Ataque y defensa: cada club UNA vez, con todos sus partidos del torneo (todas las fases).
+    // Solo clubes con al menos la mitad de los partidos del que más jugó; se ordena por promedio por partido.
+    const club = new Map<string, { pj: number; gf: number; gc: number }>()
+    for (const c of calc) {
+      if (c.estado !== 'finalizado' || c.golesLocal == null || c.golesVisitante == null) continue
+      for (const [id, gf, gc] of [[c.localId, c.golesLocal, c.golesVisitante], [c.visitanteId, c.golesVisitante, c.golesLocal]] as [string, number, number][]) {
+        const x = club.get(id) || { pj: 0, gf: 0, gc: 0 }; x.pj++; x.gf += gf; x.gc += gc; club.set(id, x)
+      }
+    }
+    const minClub = Math.max(1, Math.ceil(Math.max(0, ...[...club.values()].map((x) => x.pj)) / 2))
+    const filasClub = [...club.entries()].filter(([, x]) => x.pj >= minClub).map(([teamId, x]) => ({ teamId, equipo: d.nombreEquipo.get(teamId) || '?', pj: x.pj, gf: x.gf, gc: x.gc }))
+    const r2 = (n: number) => Math.round(n * 100) / 100
+    const ataque = [...filasClub].sort((a, b) => b.gf / b.pj - a.gf / a.pj || b.gf - a.gf).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gf, pj: r.pj, promedio: r2(r.gf / r.pj) }))
+    const defensa = [...filasClub].sort((a, b) => a.gc / a.pj - b.gc / b.pj || b.pj - a.pj).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gc, pj: r.pj, promedio: r2(r.gc / r.pj) }))
+    // Sanciones: en qué fechas no juega y cuándo vuelve
+    const fs = calcularSanciones(calc.map((c) => ({ id: c.id, jornadaNum: c.jornadaNum, fecha: c.fecha, localId: c.localId, visitanteId: c.visitanteId, estado: c.estado, eventos: c.eventos, ciclo: c.ciclo })), { amarillasSuspension: cfg.amarillasSuspension, partidosDobleAmarilla: cfg.partidosDobleAmarilla, partidosRojaDirecta: cfg.partidosRojaDirecta })
+    const filaSan = new Map(fs.map((f) => [f.playerId, f]))
+    const vuelta = (s: { playerId: string; teamId: string }) => {
+      const f = filaSan.get(s.playerId)
+      if (!f) return null
+      if (f.estado !== 'SUSPENDIDO') return f.total > 0 ? { noJuega: [] as string[], vuelve: null, siguienteEtapa: false, cumplio: true } : null
+      const nom = (n: number) => partidos.find((p) => p.jornadaNum === n)?.jornada || `Fecha ${n}`
+      const ultima = Math.max(0, ...f.pendientes)
+      const prox = f.fuera ? null : partidos.filter((p) => (p.localId === s.teamId || p.visitanteId === s.teamId) && p.estado !== 'finalizado' && p.jornadaNum > ultima).sort((a, b) => a.jornadaNum - b.jornadaNum)[0]
+      return { noJuega: f.pendientes.map(nom), vuelve: prox ? { jornada: prox.jornada, fecha: prox.fecha, rival: prox.localId === s.teamId ? prox.visitante : prox.local } : null, siguienteEtapa: f.fuera > 0, cumplio: false }
+    }
+    const sancionesOut = resto.sanciones.map((s) => ({ ...s, vuelta: vuelta(s) }))
     // Goleadores por sección: todo el torneo, cada fase sin copas (Fase 1) y cada copa (Oro / Plata, con sus eliminatorias)
     const faseDe = new Map(partidos.map((p) => [p.id, p.faseId]))
     const grupoNom = new Map(d.fases.flatMap((f) => f.grupos.map((g) => [g.id, g.nombre] as [string, string])))
@@ -68,7 +98,7 @@ export async function GET(req: NextRequest) {
         goleadores: global.filter((g) => copaClub.get(g.teamId) === c).sort((a, b) => b.goles - a.goles || (porSec.get(b.playerId)?.get(c) || 0) - (porSec.get(a.playerId)?.get(c) || 0) || a.jugador.localeCompare(b.jugador)),
       })),
     ].filter((x) => x.goleadores.length)
-    const estadisticas = { porteros: porteros.slice(0, 10), masPartidos, ataque, defensa }
+    const estadisticas = { porteros: porteros.slice(0, 10), minPorteros, minClub, masPartidos, ataque, defensa }
     return NextResponse.json(
       {
         ok: true,
@@ -79,6 +109,7 @@ export async function GET(req: NextRequest) {
         fairplay,
         goleadoresPor,
         ...resto,
+        sanciones: sancionesOut,
       },
       { headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' } }
     )

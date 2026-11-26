@@ -7,9 +7,9 @@ interface Grupo { id: string; nombre: string; tabla: Fila[] }
 interface Fase { id: string; nombre: string; tipo: string; grupos: Grupo[] }
 interface Partido { id: string; localId: string; visitanteId: string; jornadaJuego?: number | null; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
 interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number; detalle?: { nombre: string; goles: number }[] }
-interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean }
+interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean; vuelta?: { noJuega: string[]; vuelve: { jornada: string; fecha: string | null; rival: string } | null; siguienteEtapa: boolean; cumplio: boolean } | null }
 interface SecGol { id: string; nombre: string; goleadores: Gol[] }
-interface Datos { ok: boolean; goleadoresPor?: SecGol[]; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
+interface Datos { ok: boolean; goleadoresPor?: SecGol[]; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; minPorteros?: number; minClub?: number; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
 
 const TABS = ['Resultados', 'Fixture', 'Tablas', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
 
@@ -205,20 +205,21 @@ export default function TorneoPublico() {
               <>
                 <div style={card}>
                   <h3 style={h3}>🧤 Mejores porteros</h3>
-                  <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>Menos goles recibidos por partido. Vallas invictas = partidos sin recibir gol. Datos de fechas 1 a 5 estimados.</p>
+                  <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>Menos goles recibidos por partido, entre los que jugaron al menos {d.estadisticas.minPorteros ?? 2} partidos. A igual promedio, gana el que jugó más. Vallas = partidos sin recibir gol. Datos de fechas 1 a 5 estimados.</p>
                   {d.estadisticas.porteros.length === 0 && <p style={{ color: '#93A4B8' }}>Sin datos todavía.</p>}
                   {d.estadisticas.porteros.map((p, i) => (
-                    <div key={i} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><span style={{ flex: 1 }}><b>{p.jugador}</b> <span style={{ color: '#93A4B8' }}>· {p.equipo}</span></span><span style={{ color: '#93A4B8', fontSize: 12 }}>{p.partidos} PJ · {p.golesRecibidos} GC · {p.vallas} vallas</span><b style={{ color: '#D9A93A', minWidth: 40, textAlign: 'right' }}>{p.promedio}</b></div>
+                    <div key={i} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><span style={{ flex: 1 }}><b>{p.jugador}</b> <span style={{ color: '#93A4B8' }}>· {p.equipo}</span></span><span style={{ color: '#93A4B8', fontSize: 12 }}>{p.partidos} PJ · {p.golesRecibidos} GC · {p.vallas} valla{p.vallas === 1 ? '' : 's'}</span><b style={{ color: '#D9A93A', minWidth: 64, textAlign: 'right' }} title="goles recibidos por partido">{p.promedio.toFixed(2)} <span style={{ fontSize: 11, fontWeight: 400, color: '#93A4B8' }}>x PJ</span></b></div>
                   ))}
                 </div>
                 <div style={card}>
                   <h3 style={h3}>🔥 Mejor ataque</h3>
-                  {d.estadisticas.ataque.map((r, i) => <div key={r.teamId} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><a href={`/torneo/club/${r.teamId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.equipo}</a><b style={{ color: '#D9A93A' }}>{r.valor} GF</b></div>)}
+                  <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>Más goles a favor por partido, en todo el torneo.</p>
+                  {d.estadisticas.ataque.map((r, i) => <div key={r.teamId} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><a href={`/torneo/club/${r.teamId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.equipo}</a><span style={{ color: '#93A4B8', fontSize: 12 }}>{r.valor} GF en {r.pj} PJ</span><b style={{ color: '#D9A93A', minWidth: 64, textAlign: 'right' }}>{(r.promedio ?? r.valor / r.pj).toFixed(2)} <span style={{ fontSize: 11, fontWeight: 400, color: '#93A4B8' }}>x PJ</span></b></div>)}
                 </div>
                 <div style={card}>
                   <h3 style={h3}>🛡️ Mejor defensa</h3>
-                  <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>Menos goles recibidos por partido.</p>
-                  {d.estadisticas.defensa.map((r, i) => <div key={r.teamId} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><a href={`/torneo/club/${r.teamId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.equipo}</a><span style={{ color: '#93A4B8', fontSize: 12 }}>{r.pj} PJ</span><b style={{ color: '#D9A93A' }}>{r.valor} GC</b></div>)}
+                  <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>Menos goles recibidos por partido, en todo el torneo (todas las fases). A igual promedio, gana el que jugó más.</p>
+                  {d.estadisticas.defensa.map((r, i) => <div key={r.teamId} style={fila}><b style={{ width: 24, color: '#93A4B8' }}>{i + 1}</b><a href={`/torneo/club/${r.teamId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.equipo}</a><span style={{ color: '#93A4B8', fontSize: 12 }}>{r.valor} GC en {r.pj} PJ</span><b style={{ color: '#D9A93A', minWidth: 64, textAlign: 'right' }}>{(r.promedio ?? r.valor / r.pj).toFixed(2)} <span style={{ fontSize: 11, fontWeight: 400, color: '#93A4B8' }}>x PJ</span></b></div>)}
                 </div>
                 <div style={card}>
                   <h3 style={h3}>👟 Más partidos jugados</h3>
@@ -251,7 +252,14 @@ export default function TorneoPublico() {
                   <div key={s.playerId} style={{ display: 'flex', gap: 10, padding: '9px 0', borderTop: '1px solid #1f3150', fontSize: 14, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span style={{ flex: 1, minWidth: 180 }}><b>{s.jugador}</b> <span style={{ color: '#93A4B8' }}>· {s.equipo}</span></span>
                     <span>🟨 {s.totalAmarillas}</span><span>🟥 {s.rojas}</span>
-                    {s.suspendidoProximo > 0 ? <b style={{ color: '#ff8a7a' }}>Suspendido {s.suspendidoProximo} partido(s)</b> : s.precaucion ? <b style={{ color: '#D9A93A' }}>En precaución</b> : <span style={{ color: '#93A4B8' }}>Habilitado</span>}
+                    {s.suspendidoProximo > 0 ? <b style={{ color: '#ff8a7a' }}>Suspendido {s.suspendidoProximo} partido(s)</b> : s.precaucion ? <b style={{ color: '#D9A93A' }}>En precaución</b> : <span style={{ color: '#93A4B8' }}>Habilitado{s.vuelta?.cumplio ? ' · cumplió su sanción' : ''}</span>}
+                    {s.suspendidoProximo > 0 && s.vuelta && !s.vuelta.cumplio && (
+                      <span style={{ flexBasis: '100%', fontSize: 13, color: '#cfd8e3', paddingLeft: 2 }}>
+                        {s.vuelta.noJuega.length > 0 && <>No juega: <b>{s.vuelta.noJuega.join(', ')}</b></>}
+                        {s.vuelta.siguienteEtapa && <>{s.vuelta.noJuega.length ? ' · ' : ''}Cumple en la <b>siguiente etapa</b></>}
+                        {s.vuelta.vuelve && <> · <span style={{ color: '#7ee2a8' }}>Vuelve: <b>{s.vuelta.vuelve.jornada}</b>{s.vuelta.vuelve.fecha ? ` (${new Date(s.vuelta.vuelve.fecha + 'T12:00:00').toLocaleDateString('es-EC', { weekday: 'short', day: 'numeric', month: 'short' })})` : ''} vs {s.vuelta.vuelve.rival}</span></>}
+                        {!s.vuelta.vuelve && !s.vuelta.siguienteEtapa && s.vuelta.noJuega.length > 0 && <> · <span style={{ color: '#7ee2a8' }}>Vuelve después de la {s.vuelta.noJuega[s.vuelta.noJuega.length - 1]}</span></>}
+                      </span>)}
                   </div>
                 ))}
               </div>
