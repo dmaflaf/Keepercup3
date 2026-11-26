@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Fila { teamId: string; equipo: string; pj: number; pg: number; pe: number; pp: number; gf: number; gc: number; dg: number; pts: number; pos: number }
 interface Grupo { id: string; nombre: string; tabla: Fila[] }
 interface Fase { id: string; nombre: string; tipo: string; grupos: Grupo[] }
-interface Partido { id: string; localId: string; visitanteId: string; jornadaJuego?: number | null; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
+interface Partido { id: string; localId: string; visitanteId: string; jornadaJuego?: number | null; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string; eventos?: { playerId: string | null; teamId: string; tipo: string; jugador: string | null }[] }
 interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number; detalle?: { nombre: string; goles: number }[] }
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean; vuelta?: { noJuega: string[]; vuelve: { jornada: string; fecha: string | null; rival: string } | null; siguienteEtapa: boolean; cumplio: boolean } | null }
 interface SecGol { id: string; nombre: string; goleadores: Gol[] }
@@ -20,6 +20,7 @@ export default function TorneoPublico() {
   const [faseTabla, setFaseTabla] = useState('') // fase elegida en Tablas (por defecto, la actual)
   const [copaTabla, setCopaTabla] = useState('Copa Oro') // en una fase con copas: Copa Oro o Copa Plata
   const [secGol, setSecGol] = useState('todo') // sección de goleadores
+  const [secSan, setSecSan] = useState('todo') // sección de sanciones: todo, una fase de grupos o la Fase Final
   // Fase y fecha elegidas en Resultados y en Fixture (vacío = la que corresponde ahora)
   const [selR, setSelR] = useState<{ fase: string; fecha: number | null }>({ fase: '', fecha: null })
   const [selF, setSelF] = useState<{ fase: string; fecha: number | null }>({ fase: '', fecha: null })
@@ -245,12 +246,41 @@ export default function TorneoPublico() {
               </div>
             )}
 
-            {tab === 'Sanciones' && (
+            {tab === 'Sanciones' && (() => {
+              // Secciones: cada fase de grupos (Fase 1, Fase 2) y la Fase Final (todas las eliminatorias juntas)
+              const secDe = (faseId: string) => { const f = d.fases.find((x) => x.id === faseId); return !f ? '' : f.tipo === 'eliminatoria' ? 'final' : f.id }
+              const secs = [...d.fases.filter((f) => f.tipo !== 'eliminatoria').map((f) => ({ id: f.id, nombre: f.nombre })), ...(d.fases.some((f) => f.tipo === 'eliminatoria') ? [{ id: 'final', nombre: 'Fase Final' }] : [])]
+                .filter((x) => d.partidos.some((p) => secDe(p.faseId) === x.id && (p.eventos || []).some((e) => ['amarilla', 'doble_amarilla', 'roja'].includes(e.tipo))))
+              const sec = secs.some((x) => x.id === secSan) ? secSan : 'todo'
+              const estado = new Map(d.sanciones.map((x) => [x.playerId, x]))
+              const filas = new Map<string, { playerId: string; jugador: string; equipo: string; am: number; dob: number; roj: number }>()
+              if (sec !== 'todo') for (const p of d.partidos) {
+                if (secDe(p.faseId) !== sec) continue
+                for (const e of p.eventos || []) {
+                  if (!e.playerId || !['amarilla', 'doble_amarilla', 'roja'].includes(e.tipo)) continue
+                  const x = filas.get(e.playerId) || { playerId: e.playerId, jugador: e.jugador || estado.get(e.playerId)?.jugador || '?', equipo: e.teamId === p.localId ? p.local : p.visitante, am: 0, dob: 0, roj: 0 }
+                  if (e.tipo === 'amarilla') x.am++; else if (e.tipo === 'doble_amarilla') x.dob++; else x.roj++
+                  filas.set(e.playerId, x)
+                }
+              }
+              const regla = sec === 'final' ? 'Fase Final: las amarillas sueltas no suspenden (sí se cobran). Doble amarilla = 1 partido · roja directa = 2 partidos. Las sanciones pendientes de la Fase 2 por doble amarilla o roja se cumplen aquí.'
+                : sec === 'todo' ? `${d.torneo.amarillasSuspension} amarillas acumuladas en una fase = 1 partido · doble amarilla = 1 · roja directa = 2. Al cambiar de fase las amarillas vuelven a cero.`
+                : `Tarjetas recibidas en ${secs.find((x) => x.id === sec)?.nombre}. ${d.torneo.amarillasSuspension} amarillas en esta fase = 1 partido de suspensión.`
+              const estadoTxt = (pid: string) => { const s = estado.get(pid); return !s ? <span style={{ color: '#93A4B8' }}>Habilitado</span> : s.suspendidoProximo > 0 ? <b style={{ color: '#ff8a7a' }}>Suspendido {s.suspendidoProximo}</b> : s.precaucion ? <b style={{ color: '#D9A93A' }}>En precaución</b> : <span style={{ color: '#93A4B8' }}>Habilitado</span> }
+              return (
               <div style={card}>
                 <h3 style={h3}>Sanciones y tarjetas</h3>
-                <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>{d.torneo.amarillasSuspension} amarillas acumuladas = 1 partido de suspensión.</p>
-                {d.sanciones.length === 0 && <p style={{ color: '#93A4B8' }}>Sin tarjetas registradas.</p>}
-                {d.sanciones.map((s) => (
+                {secs.length > 0 && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '4px 0 10px' }}>
+                  {[{ id: 'todo', nombre: 'Estado actual' }, ...secs].map((x) => <button key={x.id} onClick={() => setSecSan(x.id)} style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid ' + (sec === x.id ? '#D9A93A' : '#2a3b55'), background: sec === x.id ? '#D9A93A' : '#0F223D', color: sec === x.id ? '#211603' : '#F3F6F8', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>{x.nombre}</button>)}
+                </div>}
+                <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>{regla}</p>
+                {sec !== 'todo' && [...filas.values()].sort((a, b) => (b.roj + b.dob) - (a.roj + a.dob) || b.am - a.am || a.jugador.localeCompare(b.jugador)).map((f) => (
+                  <div key={f.playerId} style={{ display: 'flex', gap: 10, padding: '9px 0', borderTop: '1px solid #1f3150', fontSize: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ flex: 1, minWidth: 180 }}><b>{f.jugador}</b> <span style={{ color: '#93A4B8' }}>· {f.equipo}</span></span>
+                    <span>🟨 {f.am}</span>{f.dob > 0 && <span>🟨🟥 {f.dob}</span>}<span>🟥 {f.roj}</span>{estadoTxt(f.playerId)}
+                  </div>))}
+                {sec === 'todo' && d.sanciones.length === 0 && <p style={{ color: '#93A4B8' }}>Sin tarjetas registradas.</p>}
+                {sec === 'todo' && d.sanciones.map((s) => (
                   <div key={s.playerId} style={{ display: 'flex', gap: 10, padding: '9px 0', borderTop: '1px solid #1f3150', fontSize: 14, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span style={{ flex: 1, minWidth: 180 }}><b>{s.jugador}</b> <span style={{ color: '#93A4B8' }}>· {s.equipo}</span></span>
                     <span>🟨 {s.totalAmarillas}</span><span>🟥 {s.rojas}</span>
@@ -265,7 +295,8 @@ export default function TorneoPublico() {
                   </div>
                 ))}
               </div>
-            )}
+              )
+            })()}
           </>
         )}
       </div>
@@ -310,47 +341,57 @@ interface LlaveCopa { copa: string; cruces: Cruce[]; campeon: EqLlave | null; gr
 
 function Llaves({ llaves }: { llaves: LlaveCopa[] }) {
   const [copa, setCopa] = useState(llaves[0]?.copa || '')
-  // En el celular las llaves van por rondas (de arriba a abajo); en pantallas anchas, el esquema completo
-  const [angosto, setAngosto] = useState(false)
-  useEffect(() => { const f = () => setAngosto(window.innerWidth < 760); f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
+  // Ancho disponible: en el celular se usa el mismo esquema, en versión compacta y ajustada a la pantalla
+  const [ancho, setAncho] = useState(900)
+  const caja0 = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const f = () => setAncho((caja0.current?.clientWidth || window.innerWidth) - 34) // menos el relleno de la tarjeta
+    f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f)
+  }, [])
   const l = llaves.find((x) => x.copa === copa) || llaves[0]
   if (!l) return <div style={card}>Las llaves aparecen cuando se arma la Fase 2.</div>
   const c = (id: string) => l.cruces.find((x) => x.id === id) as Cruce
   const oro = l.copa === 'Copa Oro', acento = oro ? '#D9A93A' : '#C9D3DD'
-  // Medidas del dibujo (se desplaza horizontalmente en el celular)
-  const W = 146, H = 62, X = [0, 172, 344, 516, 688], Y = { a: 34, b: 206, s: 120, t: 254 }, ANCHO = X[4] + W, ALTO = 340
-  const caja = (cr: Cruce, x: number | null, y = 0, ancho: number | string = W) => (
-    <div key={cr.id} style={x == null ? { width: ancho } : { position: 'absolute', left: x, top: y, width: ancho }}>
-      <div style={{ fontSize: 10.5, color: '#93A4B8', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        <b style={{ color: acento }}>{cr.id === 'F' ? 'FINAL' : cr.id === 'T' ? '3.er PUESTO' : cr.id}</b>
-        {cr.fecha ? ` · ${new Date(cr.fecha + 'T12:00:00').toLocaleDateString('es-EC', { weekday: 'short', day: 'numeric', month: 'short' })}${cr.hora ? ' ' + cr.hora : ''}` : ''}
+  const compacto = ancho < 700
+  // Medidas: completo (computadora) o compacto (celular, con códigos de 3 letras)
+  const G = compacto
+    ? { W: 70, H: 44, X: [0, 76, 152, 228, 304], Y: { a: 52, b: 196, s: 124, t: 206 }, trofeo: { top: 4, alto: 82 }, alto: 272, et: 9 }
+    : { W: 146, H: 62, X: [0, 172, 344, 516, 688], Y: { a: 78, b: 318, s: 198, t: 340 }, trofeo: { top: 24, alto: 150 }, alto: 436, et: 10.5 }
+  const ANCHO = G.X[4] + G.W
+  const escala = compacto ? Math.min(1.6, ancho / ANCHO) : 1
+  const cab = 4 + G.et * 1.4 // alto del rótulo sobre cada caja
+  const mid = (y: number) => y + cab + G.H / 2
+  const caja = (cr: Cruce, x: number | null, y = 0, w: number | string = G.W, chico = compacto) => (
+    <div key={cr.id + (x == null ? 'l' : 'g')} style={x == null ? { width: w } : { position: 'absolute', left: x, top: y, width: w }}>
+      <div style={{ fontSize: chico ? 8 : 10.5, color: '#93A4B8', marginBottom: chico ? 2 : 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
+        <b style={{ color: acento }}>{cr.id === 'F' ? 'FINAL' : cr.id === 'T' ? (chico ? '3.º' : '3.er PUESTO') : cr.id}</b>
+        {!chico && cr.fecha ? ` · ${new Date(cr.fecha + 'T12:00:00').toLocaleDateString('es-EC', { weekday: 'short', day: 'numeric', month: 'short' })}${cr.hora ? ' ' + cr.hora : ''}` : ''}
       </div>
-      <div style={{ background: '#0B1A30', border: `1px solid ${cr.id === 'F' ? acento : '#2a3b55'}`, borderRadius: 10, overflow: 'hidden', boxShadow: cr.id === 'F' ? `0 0 0 2px ${acento}33` : undefined }}>
+      <div style={{ background: '#0B1A30', border: `1px solid ${cr.id === 'F' ? acento : '#2a3b55'}`, borderRadius: chico ? 6 : 10, overflow: 'hidden', boxShadow: cr.id === 'F' ? `0 0 0 2px ${acento}33` : undefined }}>
         {([['local', cr.local, cr.origenLocal, cr.gl, cr.pl], ['visitante', cr.visitante, cr.origenVisitante, cr.gv, cr.pv]] as const).map(([lado, eq, origen, g, pen], i) => {
           const gano = cr.ganador === lado, perdio = cr.ganador && !gano
           return (
-            <div key={lado} style={{ display: 'flex', alignItems: 'center', gap: 7, height: H / 2, padding: '0 8px', borderTop: i ? '1px solid #1f3150' : undefined, background: gano ? `${acento}1f` : undefined, opacity: perdio ? 0.45 : 1 }}>
-              {eq ? <Escudo id={eq.teamId} nombre={eq.nombre} /> : <span style={{ width: 20, height: 20, borderRadius: 10, border: '1px dashed #3a4d69', flexShrink: 0 }} />}
-              <span style={{ flex: 1, fontSize: 13, fontWeight: gano ? 900 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: eq ? (eq.provisional ? '#A9B7C6' : '#F3F6F8') : '#6F8198', fontStyle: eq?.provisional ? 'italic' : undefined }} title={eq ? eq.nombre : origen}>
-                {eq ? eq.nombre : origen}
+            <div key={lado} style={{ display: 'flex', alignItems: 'center', gap: chico ? 3 : 7, height: (chico ? 44 : 62) / 2, padding: chico ? '0 4px' : '0 8px', borderTop: i ? '1px solid #1f3150' : undefined, background: gano ? `${acento}1f` : undefined, opacity: perdio ? 0.45 : 1 }}>
+              {eq ? <Escudo id={eq.teamId} nombre={eq.nombre} tam={chico ? 13 : 20} /> : <span style={{ width: chico ? 13 : 20, height: chico ? 13 : 20, borderRadius: 10, border: '1px dashed #3a4d69', flexShrink: 0 }} />}
+              <span style={{ flex: 1, minWidth: 0, fontSize: chico ? 10 : 13, fontWeight: gano ? 900 : chico ? 800 : 600, letterSpacing: chico ? 0.3 : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: chico ? 'clip' : 'ellipsis', color: eq ? (eq.provisional ? '#A9B7C6' : '#F3F6F8') : '#6F8198', fontStyle: eq?.provisional ? 'italic' : undefined }} title={eq ? eq.nombre : origen}>
+                {eq ? (chico ? codigo(eq.nombre) : eq.nombre) : chico ? origenCorto(origen) : origen}
               </span>
-              {g != null && <b style={{ fontSize: 14, color: gano ? acento : '#F3F6F8' }}>{g}{pen != null ? <span style={{ fontSize: 10, color: '#93A4B8' }}> ({pen})</span> : null}</b>}
+              {g != null && <b style={{ fontSize: chico ? 10 : 14, color: gano ? acento : '#F3F6F8' }}>{g}{pen != null ? <span style={{ fontSize: chico ? 7.5 : 10, color: '#93A4B8' }}>{chico ? `(${pen})` : ` (${pen})`}</span> : null}</b>}
             </div>)
         })}
       </div>
-      {cr.partidoId && <a href={`/torneo/partido/${cr.partidoId}`} style={{ fontSize: 10.5, color: '#93A4B8' }}>{cr.estado === 'finalizado' ? 'ver partido ›' : cr.escenario || 'ver partido ›'}</a>}
+      {!chico && cr.partidoId && <a href={`/torneo/partido/${cr.partidoId}`} style={{ fontSize: 10.5, color: '#93A4B8' }}>{cr.estado === 'finalizado' ? 'ver partido ›' : cr.escenario || 'ver partido ›'}</a>}
     </div>)
-  // Líneas: de cada par de cuartos a su semi, de cada semi a la final
-  const mid = (y: number) => y + 15 + H / 2
-  const linea = (x1: number, y1: number, y2: number, x2: number, ym: number) => `M${x1},${mid(y1)} H${(x1 + x2) / 2} V${mid(ym)} M${x1},${mid(y2)} H${(x1 + x2) / 2} V${mid(ym)} H${x2}`
-  const provisional = l.cruces.some((x) => x.local?.provisional || x.visitante?.provisional)
   const ronda = (t: string, ids: string[]) => (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.5, color: '#93A4B8', margin: '4px 0 6px' }}>{t}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: ids.length > 1 ? '1fr 1fr' : '1fr', gap: 10 }}>{ids.map((id) => caja(c(id), null, 0, '100%'))}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: ids.length > 1 ? '1fr 1fr' : '1fr', gap: 10 }}>{ids.map((id) => caja(c(id), null, 0, '100%', false))}</div>
     </div>)
+  const provisional = l.cruces.some((x) => x.local?.provisional || x.visitante?.provisional)
+  const { W, X, Y } = G
+  const xm = (a: number, b: number) => (a + b) / 2
   return (
-    <div style={card}>
+    <div style={card} ref={caja0}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
         {llaves.map((x) => <button key={x.copa} onClick={() => setCopa(x.copa)} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid ' + (x.copa === l.copa ? '#D9A93A' : '#2a3b55'), background: x.copa === l.copa ? '#D9A93A' : '#0F223D', color: x.copa === l.copa ? '#211603' : '#F3F6F8', fontWeight: 800, cursor: 'pointer' }}>{x.copa === 'Copa Oro' ? '🥇' : '🥈'} {x.copa}</button>)}
       </div>
@@ -359,39 +400,73 @@ function Llaves({ llaves }: { llaves: LlaveCopa[] }) {
         {provisional ? <>Clasificados <i>provisionales</i> (en cursiva) según la tabla actual de la Fase 2: cambian hasta que termine cada grupo ({l.gruposTerminados} de 4 grupos terminados). </> : 'Clasificados definidos. '}
         Cruces según el Art. 41: 1.º de un grupo contra el 2.º del grupo cruzado (1–3 y 2–4).
       </p>
-      {l.campeon && <div style={{ textAlign: 'center', margin: '6px 0 12px', fontSize: 18, fontWeight: 900, color: acento }}>🏆 Campeón {l.copa}: {l.campeon.nombre}</div>}
-      {angosto ? <>
+      {l.campeon && <div style={{ textAlign: 'center', margin: '6px 0 4px', fontSize: compacto ? 16 : 18, fontWeight: 900, color: acento }}>🏆 Campeón {l.copa}: {l.campeon.nombre}</div>}
+      <div style={{ overflow: 'hidden', paddingBottom: 4 }}>
+        <div style={{ width: ANCHO * escala, height: G.alto * escala, margin: '0 auto' }}>
+          <div style={{ position: 'relative', width: ANCHO, height: G.alto, transform: `scale(${escala})`, transformOrigin: '0 0' }}>
+            {!compacto && ([['CUARTOS', X[0]], ['SEMIFINAL', X[1]], ['SEMIFINAL', X[3]], ['CUARTOS', X[4]]] as const).map(([t, x], i) => <div key={i} style={{ position: 'absolute', left: x, top: 0, width: W, textAlign: 'center', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, color: '#93A4B8' }}>{t}</div>)}
+            {compacto && ([['4tos', X[0]], ['Semi', X[1]], ['Semi', X[3]], ['4tos', X[4]]] as const).map(([t, x], i) => <div key={i} style={{ position: 'absolute', left: x, top: 0, width: W, textAlign: 'center', fontSize: 9, fontWeight: 900, color: '#93A4B8' }}>{t}</div>)}
+            <div style={{ position: 'absolute', left: X[2], top: G.trofeo.top, width: W, height: G.trofeo.alto, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Trofeo copa={l.copa} alto={G.trofeo.alto - (compacto ? 12 : 22)} />
+              <div style={{ fontSize: compacto ? 7.5 : 11, fontWeight: 900, letterSpacing: compacto ? 0.5 : 2, color: acento, marginTop: 2, whiteSpace: 'nowrap' }}>{oro ? 'KEEPER CUP' : 'POSTURALLI CUP'}</div>
+            </div>
+            <svg width={ANCHO} height={G.alto} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} fill="none" stroke="#3a4d69" strokeWidth={compacto ? 1.5 : 2}>
+              <path d={`M${X[0] + W},${mid(Y.a)} H${xm(X[0] + W, X[1])} V${mid(Y.b)} H${X[0] + W} M${xm(X[0] + W, X[1])},${mid(Y.s)} H${X[1]}`} />
+              <path d={`M${X[1] + W},${mid(Y.s)} H${X[2]}`} />
+              <path d={`M${X[4]},${mid(Y.a)} H${xm(X[3] + W, X[4])} V${mid(Y.b)} H${X[4]} M${xm(X[3] + W, X[4])},${mid(Y.s)} H${X[3] + W}`} />
+              <path d={`M${X[3]},${mid(Y.s)} H${X[2] + W}`} />
+            </svg>
+            {caja(c('C1'), X[0], Y.a)}{caja(c('C2'), X[0], Y.b)}
+            {caja(c('S1'), X[1], Y.s)}
+            {caja(c('F'), X[2], Y.s)}
+            {caja(c('T'), X[2], Y.t)}
+            {caja(c('S2'), X[3], Y.s)}
+            {caja(c('C3'), X[4], Y.a)}{caja(c('C4'), X[4], Y.b)}
+          </div>
+        </div>
+      </div>
+      {compacto && <>
+        <div style={{ borderTop: '1px solid #1f3150', margin: '8px 0 10px' }} />
         {ronda('CUARTOS DE FINAL', ['C1', 'C2', 'C3', 'C4'])}
         {ronda('SEMIFINALES', ['S1', 'S2'])}
-        {ronda('FINAL', ['F'])}
-        {ronda('TERCER PUESTO', ['T'])}
-      </> : <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 6 }}>
-        <div style={{ position: 'relative', width: ANCHO, height: ALTO, margin: '0 auto' }}>
-          {([['CUARTOS', X[0]], ['SEMIFINAL', X[1]], ['FINAL', X[2]], ['SEMIFINAL', X[3]], ['CUARTOS', X[4]]] as const).map(([t, x], i) => <div key={i} style={{ position: 'absolute', left: x, top: 0, width: W, textAlign: 'center', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, color: '#93A4B8' }}>{t}</div>)}
-          <svg width={ANCHO} height={ALTO} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} fill="none" stroke="#3a4d69" strokeWidth={2}>
-            <path d={linea(X[0] + W, Y.a, Y.b, X[1], Y.s)} />
-            <path d={`M${X[1] + W},${mid(Y.s)} H${X[2]}`} />
-            <path d={`M${X[4]},${mid(Y.a)} H${(X[3] + W + X[4]) / 2} V${mid(Y.s)} M${X[4]},${mid(Y.b)} H${(X[3] + W + X[4]) / 2} V${mid(Y.s)} H${X[3] + W}`} />
-            <path d={`M${X[3]},${mid(Y.s)} H${X[2] + W}`} />
-          </svg>
-          {caja(c('C1'), X[0], Y.a)}{caja(c('C2'), X[0], Y.b)}
-          {caja(c('S1'), X[1], Y.s)}
-          {caja(c('F'), X[2], Y.s)}
-          {caja(c('T'), X[2], Y.t)}
-          {caja(c('S2'), X[3], Y.s)}
-          {caja(c('C3'), X[4], Y.a)}{caja(c('C4'), X[4], Y.b)}
-        </div>
-      </div>}
-      <p style={{ color: '#6F8198', fontSize: 11.5, margin: '6px 0 0' }}>C = cuartos · S = semifinal · Ganador C1 = el que gane ese cruce. La final empatada se define con tiempo extra y penales (Art. 41).</p>
+        {ronda('FINAL Y TERCER PUESTO', ['F', 'T'])}
+      </>}
+      <p style={{ color: '#6F8198', fontSize: 11.5, margin: '6px 0 0' }}>C = cuartos · S = semifinal · Ganador C1 = el que gane ese cruce. Cuartos y semis empatados: penales directos. Final empatada: tiempo extra y penales (Art. 41).</p>
     </div>)
 }
 
-function Escudo({ id, nombre }: { id: string; nombre: string }) {
+/** Código corto del club para el esquema en el celular: «Barrio Fino» → BFI, «Randagi» → RAN, «Barcelona Fútbol Club» → BFC */
+function codigo(nombre: string) {
+  const p = nombre.replace(/[.]/g, '').split(/\s+/).filter(Boolean)
+  const sin = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
+  if (p.length === 1) return sin(p[0]).slice(0, 3).toUpperCase()
+  if (p.length === 2) return sin(p[0][0] + p[1].slice(0, 2)).toUpperCase()
+  return sin(p.slice(0, 3).map((x) => x[0]).join('')).toUpperCase()
+}
+const origenCorto = (o: string) => o.replace('Ganador ', 'G.').replace('Perdedor ', 'P.').replace(/1\.º Grupo (\d)/, '1.$1').replace(/2\.º Grupo (\d)/, '2.$1')
+
+function Trofeo({ copa, alto }: { copa: string; alto: number }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  if (copa === 'Copa Oro') return <img src="/copa-oro.jpg" alt="Keeper Cup" style={{ height: alto, width: 'auto', borderRadius: 8, WebkitMaskImage: 'radial-gradient(ellipse at center, #000 55%, transparent 75%)', maskImage: 'radial-gradient(ellipse at center, #000 55%, transparent 75%)' }} />
+  // Posturalli Cup: trofeo plateado (se reemplaza por su logo cuando lo tengamos)
+  return (
+    <svg viewBox="0 0 64 80" style={{ height: alto, width: 'auto' }} aria-label="Posturalli Cup">
+      <defs><linearGradient id="plata" x1="0" x2="1"><stop offset="0" stopColor="#8e99a6" /><stop offset=".45" stopColor="#f2f5f8" /><stop offset="1" stopColor="#7d8794" /></linearGradient></defs>
+      <path d="M18 6h28v14c0 10-6 18-14 18S18 30 18 20z" fill="url(#plata)" />
+      <path d="M18 10H8c0 10 5 16 12 17M46 10h10c0 10-5 16-12 17" fill="none" stroke="url(#plata)" strokeWidth="4" />
+      <rect x="29" y="38" width="6" height="14" fill="url(#plata)" />
+      <path d="M20 52h24l3 10H17z" fill="url(#plata)" />
+      <rect x="14" y="62" width="36" height="10" rx="2" fill="#5b6672" />
+      <path d="M32 12l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4-3.9-3.8 5.4-.8z" fill="#ffffff" opacity=".85" />
+    </svg>)
+}
+
+function Escudo({ id, nombre, tam = 20 }: { id: string; nombre: string; tam?: number }) {
   const [mal, setMal] = useState(false)
   const ini = nombre.split(' ').filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase()
-  if (mal) return <span style={{ width: 20, height: 20, borderRadius: 10, background: '#1f3150', color: '#C9D3DD', fontSize: 8.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{ini}</span>
+  if (mal) return <span style={{ width: tam, height: tam, borderRadius: tam, background: '#1f3150', color: '#C9D3DD', fontSize: tam * 0.42, fontWeight: 900, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{ini}</span>
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={`/api/torneo/escudo/${id}`} alt="" width={20} height={20} loading="lazy" onError={() => setMal(true)} style={{ width: 20, height: 20, objectFit: 'contain', flexShrink: 0 }} />
+  return <img src={`/api/torneo/escudo/${id}`} alt="" width={tam} height={tam} loading="lazy" onError={() => setMal(true)} style={{ width: tam, height: tam, objectFit: 'contain', flexShrink: 0 }} />
 }
 
 function Foto({ id, nombre, tam, oro }: { id: string; nombre: string; tam: number; oro?: boolean }) {
