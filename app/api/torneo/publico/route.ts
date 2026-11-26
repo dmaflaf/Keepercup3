@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     const ataque = [...filasClub].sort((a, b) => b.gf / b.pj - a.gf / a.pj || b.gf - a.gf).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gf, pj: r.pj, promedio: r2(r.gf / r.pj) }))
     const defensa = [...filasClub].sort((a, b) => a.gc / a.pj - b.gc / b.pj || b.pj - a.pj).slice(0, 10).map((r) => ({ equipo: r.equipo, teamId: r.teamId, valor: r.gc, pj: r.pj, promedio: r2(r.gc / r.pj) }))
     // Sanciones: en qué fechas no juega y cuándo vuelve
-    const fs = calcularSanciones(calc.map((c) => ({ id: c.id, jornadaNum: c.jornadaNum, fecha: c.fecha, localId: c.localId, visitanteId: c.visitanteId, estado: c.estado, eventos: c.eventos, ciclo: c.ciclo })), { amarillasSuspension: cfg.amarillasSuspension, partidosDobleAmarilla: cfg.partidosDobleAmarilla, partidosRojaDirecta: cfg.partidosRojaDirecta })
+    const fs = calcularSanciones(calc.map((c) => ({ id: c.id, jornadaNum: c.jornadaNum, fecha: c.fecha, localId: c.localId, visitanteId: c.visitanteId, estado: c.estado, eventos: c.eventos, ciclo: c.ciclo, acumula: c.acumula })), { amarillasSuspension: cfg.amarillasSuspension, partidosDobleAmarilla: cfg.partidosDobleAmarilla, partidosRojaDirecta: cfg.partidosRojaDirecta })
     const filaSan = new Map(fs.map((f) => [f.playerId, f]))
     const vuelta = (s: { playerId: string; teamId: string }) => {
       const f = filaSan.get(s.playerId)

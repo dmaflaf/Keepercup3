@@ -118,6 +118,7 @@ export default function AdminDashboard() {
             { icono: '🔁', titulo: 'Traspasos', texto: 'Cambiar a un jugador de club (un solo pase, solo en Fase 1)', ruta: '/admin/traspasos', solo: 'admin' },
             { icono: '🧹', titulo: 'Depuración', texto: 'Qué falta o está mal: cédulas, fotos, duplicados, grupos y fixture', ruta: '/admin/depuracion', solo: 'admin' },
             { icono: '📋', titulo: 'Planilla en vivo', texto: 'Alineaciones, cronómetro, goles, tarjetas y cambios al minuto (iPad/celular)', ruta: '/admin/planilla' },
+            { icono: '🥇', titulo: 'Fase Final (llaves)', texto: 'Crear cuartos, semis, final y 3.er puesto de cada copa según el reglamento', ruta: '/admin/fase-final', solo: 'admin' },
             { icono: '🏆', titulo: 'Torneo', texto: 'Fases, grupos, fixture, resultados, tablas y sanciones', ruta: '/admin/torneo' },
           ]
             .filter((c) => !c.solo || c.solo === usuario?.rol)
