@@ -4,6 +4,7 @@ import { normCedula } from '@/lib/importar'
 import { cargarTorneo } from '@/lib/torneo-data'
 import { cargarMultas } from '@/lib/multas-data'
 import { calcularFinanzas, ETIQUETA } from '@/lib/finanzas-data'
+import { goleadores } from '@/lib/torneo'
 import { crearSesion, demasiadosIntentos, registrarIntento, sesionPortal } from '@/lib/portal'
 
 export const dynamic = 'force-dynamic'
@@ -46,8 +47,40 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     cargado: fila.cargado, pagado: fila.pagado, saldo: fila.saldo,
     pagos: (fin?.pagos || []).filter((p) => p.teamId === club.id && !p.anulado).map((p) => ({ fecha: p.fechaPago, concepto: ETIQUETA[p.concepto] || p.concepto, comprobante: p.comprobante, monto: p.monto })),
   } : null
+  // Mi equipo: tablas de sus grupos, resumen, goleadores, tarjetas por jugador y fair play
+  let equipo = null
+  if (d) {
+    const tablas = d.fases.flatMap((f) => f.grupos.filter((g) => g.equipos.some((e) => e.id === club.id)).map((g) => ({
+      fase: f.nombre, grupo: g.nombre, tipo: f.tipo,
+      filas: g.tabla.map((r) => ({ pos: r.pos, equipo: r.equipo, mio: r.teamId === club.id, pj: r.pj, pg: r.pg, pe: r.pe, pp: r.pp, gf: r.gf, gc: r.gc, dg: r.dg, pts: r.pts })),
+    })))
+    const fin = partidos.filter((p) => p.estado === 'finalizado' && p.golesLocal != null && p.golesVisitante != null)
+    const res = { pj: fin.length, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0 }
+    for (const p of fin) {
+      const gf = (p.localId === club.id ? p.golesLocal : p.golesVisitante) as number, gc = (p.localId === club.id ? p.golesVisitante : p.golesLocal) as number
+      res.gf += gf; res.gc += gc; if (gf > gc) res.pg++; else if (gf < gc) res.pp++; else res.pe++
+    }
+    const golClub = goleadores(d.calc).filter((g) => g.teamId === club.id).map((g) => ({ nombre: d.jugadoresInfo.get(g.playerId)?.nombre || '?', numero: d.jugadoresInfo.get(g.playerId)?.numero ?? null, goles: g.goles, penales: g.penales }))
+    const TARJ: Record<string, string> = { amarilla: 'amarilla', doble_amarilla: 'doble', roja: 'roja' }
+    const tj = new Map<string, { nombre: string; numero: number | null; amarillas: number; dobles: number; rojas: number; detalle: { fecha: string; tipo: string; rival: string }[] }>()
+    const fp = new Map<string, number>()
+    for (const p of d.partidos) for (const e of p.eventos) {
+      if (!TARJ[e.tipo]) continue
+      fp.set(e.teamId, (fp.get(e.teamId) || 0) + (e.tipo === 'amarilla' ? 1 : 3))
+      if (e.teamId !== club.id || !e.playerId) continue
+      const x = tj.get(e.playerId) || { nombre: e.jugador || '?', numero: e.numero, amarillas: 0, dobles: 0, rojas: 0, detalle: [] }
+      if (e.tipo === 'amarilla') x.amarillas++; else if (e.tipo === 'doble_amarilla') x.dobles++; else x.rojas++
+      x.detalle.push({ fecha: p.jornada, tipo: TARJ[e.tipo], rival: p.localId === club.id ? p.visitante : p.local })
+      tj.set(e.playerId, x)
+    }
+    // Fair play: posición entre todos los clubes del torneo (menos puntos = mejor). Los clubes sin tarjetas empatan arriba.
+    const clubesT = new Set(d.partidos.flatMap((p) => [p.localId, p.visitanteId]))
+    const misPts = fp.get(club.id) || 0
+    const fairplay = { puntos: misPts, pos: [...clubesT].filter((id) => (fp.get(id) || 0) < misPts).length + 1, de: clubesT.size }
+    equipo = { tablas, resumen: res, goleadores: golClub, tarjetas: [...tj.values()].sort((a, b) => (b.rojas + b.dobles) - (a.rojas + a.dobles) || b.amarillas - a.amarillas), fairplay }
+  }
   return NextResponse.json({
-    ok: true, club: { nombre: club.name, ciudad: club.city, dt: club.directorName, logo: !!club.logo }, torneo: torneo?.nombre || null,
+    ok: true, equipo, club: { nombre: club.name, ciudad: club.city, dt: club.directorName, logo: !!club.logo }, torneo: torneo?.nombre || null,
     jugadores, proximos, jugados, cuenta,
     solicitudes: solicitudes.map((x) => ({ id: x.id, texto: x.texto, estado: x.estado, respuesta: x.respuesta, fecha: x.createdAt })),
   }, { headers: { 'Cache-Control': 'no-store' } })
@@ -64,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     const okCed = ced.length >= 9 && normCedula(club.directorCedula || '') === ced
     await registrarIntento(ip, !okCed)
     if (!okCed) return falla('La cédula no corresponde al DT registrado de este club.', 401)
-    const s = await crearSesion(club.id)
+    const s = await crearSesion(club.id, params.token)
     const r = NextResponse.json({ ok: true })
     r.cookies.set(s.nombre, s.valor, s.opciones)
     return r

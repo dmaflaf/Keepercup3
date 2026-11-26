@@ -2,7 +2,7 @@
 // La sesión del portal es una cookie propia (12 horas), separada de la del panel de administración.
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
-import { randomBytes } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import { prisma } from '@/lib/db'
 
 const secreto = new TextEncoder().encode((process.env.JWT_SECRET || 'keeper-secret-key-change-in-production') + ':portal-dt')
@@ -15,9 +15,12 @@ export async function clubDelPortal(token: string) {
   return prisma.team.findFirst({ where: { portalToken: token }, select: { id: true, name: true, city: true, directorName: true, directorCedula: true, logo: true } })
 }
 
-export async function crearSesion(teamId: string) {
-  const jwt = await new SignJWT({ teamId }).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('12h').sign(secreto)
-  return { nombre: COOKIE, valor: jwt, opciones: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/', maxAge: 12 * 3600 } }
+// La sesión dura 30 días en ese celular y queda atada al enlace: si el organizador cambia el enlace, hay que volver a entrar
+const DIAS = 30
+const huella = (token: string) => createHash('sha256').update(token).digest('base64url').slice(0, 16)
+export async function crearSesion(teamId: string, token: string) {
+  const jwt = await new SignJWT({ teamId, k: huella(token) }).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime(`${DIAS}d`).sign(secreto)
+  return { nombre: COOKIE, valor: jwt, opciones: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/', maxAge: DIAS * 86400 } }
 }
 
 /** El club del enlace, solo si el DT ya entró con su cédula en este navegador. */
@@ -28,7 +31,7 @@ export async function sesionPortal(token: string) {
     const v = (await cookies()).get(COOKIE)?.value
     if (!v) return { club, ok: false }
     const { payload } = await jwtVerify(v, secreto)
-    return { club, ok: payload.teamId === club.id }
+    return { club, ok: payload.teamId === club.id && payload.k === huella(token) }
   } catch { return { club, ok: false } }
 }
 
