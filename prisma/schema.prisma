@@ -16,6 +16,7 @@ model Team {
   city          String
   logo          String?  @db.Text // Base64 encoded image
   codigoEquipo  String   @unique @default(cuid())
+  numerosGrabados DateTime? // el DT grabó los números de su nómina en el portal (solo el administrador puede reabrir)
   portalToken   String?  // enlace privado del Portal del DT (/dt/<token>), se entra además con la cédula del DT
 
   // Director info

@@ -14,7 +14,7 @@ export default function Clubes() {
   const [edit, setEdit] = useState<{ id: string; nombre: string; ciudad: string; director: string; cedula: string; telefono: string; correo: string; estado: string } | null>(null)
   const [ocupado, setOcupado] = useState(false)
   // Portal del DT: enlaces y pedidos de cambio
-  const [portal, setPortal] = useState<{ solicitudes: { id: string; teamId: string; club: string; texto: string; estado: string; respuesta: string | null; fecha: string }[]; enlaces: Record<string, { token: string | null; dt: string; telefono: string; conCedula: boolean }> } | null>(null)
+  const [portal, setPortal] = useState<{ solicitudes: { id: string; teamId: string; club: string; texto: string; estado: string; respuesta: string | null; fecha: string }[]; enlaces: Record<string, { token: string | null; dt: string; telefono: string; conCedula: boolean }>; numeros: { abierta: boolean; clubes: Record<string, { grabados: string | null; sinNumero: number; jugadores: number }> } } | null>(null)
   const [enlace, setEnlace] = useState<{ club: Club; token: string } | null>(null)
   const [verAtendidas, setVerAtendidas] = useState(false)
   const cargarPortal = useCallback(() => { fetch('/api/admin/portal', { cache: 'no-store' }).then((r) => r.json()).then((r) => r.ok && setPortal(r)).catch(() => null) }, [])
@@ -24,6 +24,11 @@ export default function Clubes() {
     const r = await fetch('/api/admin/portal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'enlace', teamId: c.id, nuevo }) }).then((x) => x.json()).catch(() => null)
     if (!r?.ok) { alert(r?.message || 'No se pudo'); return }
     setEnlace({ club: c, token: r.token }); cargarPortal()
+  }
+  async function accionNumeros(b: Record<string, unknown>, pregunta: string) {
+    if (!window.confirm(pregunta)) return
+    const r = await fetch('/api/admin/portal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then((x) => x.json()).catch(() => null)
+    if (!r?.ok) alert(r?.message || 'No se pudo'); else cargarPortal()
   }
   async function responder(id: string, estado: string) {
     const respuesta = estado === 'pendiente' ? '' : (window.prompt(estado === 'atendida' ? 'Respuesta para el DT (opcional): qué se corrigió' : 'Motivo para el DT (opcional)') ?? '')
@@ -126,6 +131,20 @@ export default function Clubes() {
                 </div>))}
             </div>)
         })()}
+        {portal && (() => {
+          const n = portal.numeros, ids = Object.keys(n.clubes).filter((id) => n.clubes[id].jugadores > 0)
+          const grab = ids.filter((id) => n.clubes[id].grabados), pend = ids.filter((id) => !n.clubes[id].grabados)
+          const nom = (id: string) => clubes.find((c) => c.id === id)?.nombre || '?'
+          return (
+            <div className={`rounded-xl p-4 mb-4 border ${n.abierta ? 'bg-blue-900/20 border-blue-600' : 'bg-slate-800 border-slate-700'}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-bold text-lg">🔢 Números asignados por el DT {n.abierta ? <span className="text-sm text-green-300">· ABIERTA</span> : <span className="text-sm text-slate-400">· cerrada</span>}</h2>
+                <button className={`ml-auto px-3 py-1.5 rounded-lg text-sm font-semibold ${n.abierta ? 'bg-slate-600 hover:bg-slate-500' : 'bg-blue-600 hover:bg-blue-700'}`} onClick={() => accionNumeros({ accion: 'numeros_abrir', abierta: !n.abierta }, n.abierta ? '¿Cerrar la asignación de números? Los DT ya no podrán poner números.' : '¿Abrir la asignación de números? Cada DT podrá poner los números de su nómina desde su portal y grabarlos UNA vez.')}>{n.abierta ? 'Cerrar asignación' : 'Abrir asignación'}</button>
+              </div>
+              <p className="text-sm text-slate-300 mt-1">Con la asignación abierta, cada DT pone los números en su portal y los graba una sola vez. Después solo puede numerar a los jugadores que se inscriban sin número. Para que un DT corrija, ábrele de nuevo con «Reabrir» en su «📲 Portal DT».</p>
+              {(n.abierta || grab.length > 0) && <p className="text-sm mt-2"><b className="text-green-300">{grab.length}</b> club(es) grabaron · <b className="text-yellow-300">{pend.length}</b> pendiente(s){pend.length > 0 && pend.length <= 40 ? `: ${pend.map(nom).sort().join(', ')}` : ''}</p>}
+            </div>)
+        })()}
         {!!clubes.length && (
           <div className="overflow-x-auto bg-slate-800 border border-slate-700 rounded-xl">
             <table className="w-full text-sm">
@@ -195,6 +214,11 @@ export default function Clubes() {
               <h2 className="text-lg font-bold">📲 Portal del DT · {enlace.club.nombre}</h2>
               <p className="text-sm text-slate-300">Envía este enlace al DT. Para entrar le pedirá su cédula (la registrada como DT del club). Solo ve su club y no puede cambiar nada; los cambios los pide desde ahí y te llegan a esta página.</p>
               {portal?.enlaces[enlace.club.id] && !portal.enlaces[enlace.club.id].conCedula && <p className="text-sm bg-red-900/40 border border-red-600 rounded-lg p-2">⚠️ Este club no tiene registrada la cédula del DT: no podrá entrar. Agrégala con «Editar» antes de enviar el enlace.</p>}
+              {portal?.numeros.clubes[enlace.club.id] && (() => { const x = portal.numeros.clubes[enlace.club.id]; return (
+                <div className="text-sm bg-slate-900/60 rounded-lg p-2 flex flex-wrap items-center gap-2">
+                  <span>🔢 Números: {x.grabados ? <>grabados el {new Date(x.grabados).toLocaleString('es-EC', { timeZone: 'America/Guayaquil', dateStyle: 'medium', timeStyle: 'short' })}</> : 'sin grabar'}{x.sinNumero ? ` · ${x.sinNumero} sin número` : ''}</span>
+                  {x.grabados && <button className="ml-auto px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs" onClick={() => accionNumeros({ accion: 'numeros_reabrir', teamId: enlace.club.id }, `¿Reabrir los números de ${enlace.club.nombre}? El DT podrá cambiarlos y grabarlos una vez más.`)}>🔓 Reabrir números</button>}
+                </div>) })()}
               <p className="break-all bg-slate-900 rounded-lg p-3 text-sm text-yellow-300">{url}</p>
               <div className="flex flex-wrap gap-2">
                 <a className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-semibold" target="_blank" rel="noopener" href={`https://wa.me/${wa}?text=${encodeURIComponent(texto)}`}>WhatsApp{wa ? '' : ' (elige el contacto)'}</a>

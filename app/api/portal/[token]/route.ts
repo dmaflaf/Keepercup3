@@ -5,7 +5,7 @@ import { cargarTorneo } from '@/lib/torneo-data'
 import { cargarMultas } from '@/lib/multas-data'
 import { calcularFinanzas, ETIQUETA } from '@/lib/finanzas-data'
 import { goleadores } from '@/lib/torneo'
-import { crearSesion, demasiadosIntentos, registrarIntento, sesionPortal } from '@/lib/portal'
+import { asignacionAbierta, crearSesion, demasiadosIntentos, modoNumeros, registrarIntento, registrarNumeros, sesionPortal } from '@/lib/portal'
 
 export const dynamic = 'force-dynamic'
 const falla = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status, headers: { 'Cache-Control': 'no-store' } })
@@ -17,11 +17,13 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   if (!ok) return NextResponse.json({ ok: false, entrar: true, club: club.name }, { status: 401, headers: { 'Cache-Control': 'no-store' } })
 
   const torneo = await prisma.torneo.findFirst({ orderBy: [{ activo: 'desc' }, { createdAt: 'desc' }] })
-  const [jug, d, m, fin, solicitudes] = await Promise.all([
+  const [jug, d, m, fin, solicitudes, abierta, eq] = await Promise.all([
     prisma.player.findMany({ where: { teamId: club.id }, orderBy: [{ number: 'asc' }, { lastName: 'asc' }], select: { id: true, firstName: true, lastName: true, number: true, position: true, estado: true, cedula: true, qrToken: true, images: { select: { kind: true } } } }),
     torneo ? cargarTorneo(torneo.id) : null, torneo ? cargarMultas(torneo.id) : null, torneo ? calcularFinanzas(torneo.id) : null,
     prisma.solicitudCambio.findMany({ where: { teamId: club.id }, orderBy: { createdAt: 'desc' }, take: 20 }),
+    asignacionAbierta(), prisma.team.findUnique({ where: { id: club.id }, select: { numerosGrabados: true } }),
   ])
+  const numeros = { modo: modoNumeros(abierta, eq?.numerosGrabados ?? null), grabados: eq?.numerosGrabados ?? null }
   const oculta = (c: string | null) => (c && c.length >= 7 ? `${c.slice(0, 4)}•••${c.slice(-3)}` : '')
   const san = (m?.sanciones || []).filter((s) => s.teamId === club.id)
   const precaucion = (acum: number) => !!m && m.torneo.amarillasSuspension > 1 && acum === m.torneo.amarillasSuspension - 1
@@ -80,14 +82,14 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     equipo = { tablas, resumen: res, goleadores: golClub, tarjetas: [...tj.values()].sort((a, b) => (b.rojas + b.dobles) - (a.rojas + a.dobles) || b.amarillas - a.amarillas), fairplay }
   }
   return NextResponse.json({
-    ok: true, equipo, club: { nombre: club.name, ciudad: club.city, dt: club.directorName, logo: !!club.logo }, torneo: torneo?.nombre || null,
+    ok: true, numeros, equipo, club: { nombre: club.name, ciudad: club.city, dt: club.directorName, logo: !!club.logo }, torneo: torneo?.nombre || null,
     jugadores, proximos, jugados, cuenta,
     solicitudes: solicitudes.map((x) => ({ id: x.id, texto: x.texto, estado: x.estado, respuesta: x.respuesta, fecha: x.createdAt })),
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
-  const b = await req.json().catch(() => ({})) as { accion?: string; cedula?: string; texto?: string }
+  const b = await req.json().catch(() => ({})) as { accion?: string; cedula?: string; texto?: string; asignar?: unknown; grabar?: boolean }
   if (b.accion === 'entrar') {
     const { club } = await sesionPortal(params.token)
     if (!club) return falla('Enlace no válido. Pide uno nuevo a la organización.', 404)
@@ -111,6 +113,42 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     if (abiertas >= 10) return falla('Ya tienes 10 pedidos pendientes. Espera a que la organización los revise.', 429)
     await prisma.solicitudCambio.create({ data: { teamId: club.id, texto } })
     return NextResponse.json({ ok: true })
+  }
+  if (b.accion === 'numeros') {
+    // Asignación de números: antes de grabar, todos; después, solo los jugadores que todavía no tienen número
+    const eq = await prisma.team.findUnique({ where: { id: club.id }, select: { numerosGrabados: true } })
+    const modo = modoNumeros(await asignacionAbierta(), eq?.numerosGrabados ?? null)
+    if (modo === 'ninguno') return falla('La asignación de números no está abierta. Pide un cambio a la organización.', 403)
+    const pedido = (b.asignar && typeof b.asignar === 'object' ? b.asignar : {}) as Record<string, unknown>
+    const jug = await prisma.player.findMany({ where: { teamId: club.id }, select: { id: true, number: true, firstName: true, lastName: true } })
+    const final = new Map(jug.map((j) => [j.id, j.number]))
+    const cambios: { id: string; de: number | null; a: number | null; nombre: string }[] = []
+    for (const [id, v] of Object.entries(pedido)) {
+      const j = jug.find((x) => x.id === id)
+      if (!j) return falla('Hay un jugador que no es de tu club.')
+      const n = v === null || v === '' ? null : Number(v)
+      if (n !== null && (!Number.isInteger(n) || n < 1 || n > 99)) return falla(`${j.firstName} ${j.lastName}: el número debe ser del 1 al 99.`)
+      if (n === j.number) continue
+      if (modo === 'sinNumero' && j.number !== null) return falla(`Los números ya están grabados. Para cambiar el de ${j.firstName} ${j.lastName}, pide un cambio a la organización.`, 403)
+      final.set(id, n); cambios.push({ id, de: j.number, a: n, nombre: `${j.firstName} ${j.lastName}`.trim() })
+    }
+    // Sin números repetidos en el club
+    const vistos = new Map<number, string>()
+    for (const j of jug) {
+      const n = final.get(j.id); if (n == null) continue
+      const otro = vistos.get(n)
+      if (otro) return falla(`El número ${n} está repetido: ${otro} y ${j.firstName} ${j.lastName}.`)
+      vistos.set(n, `${j.firstName} ${j.lastName}`.trim())
+    }
+    if (modo === 'todos' && b.grabar !== true) return falla('Confirma para grabar.')
+    // Primero se liberan los números que cambian (permite intercambiar el 8 y el 10 sin choque), luego se asignan
+    await prisma.$transaction([
+      prisma.player.updateMany({ where: { id: { in: cambios.map((c) => c.id) } }, data: { number: null } }),
+      ...cambios.filter((c) => c.a !== null).map((c) => prisma.player.update({ where: { id: c.id }, data: { number: c.a } })),
+      ...(modo === 'todos' ? [prisma.team.update({ where: { id: club.id }, data: { numerosGrabados: new Date() } })] : []),
+    ])
+    await registrarNumeros(cambios.map((c) => ({ teamId: club.id, playerId: c.id, nombre: c.nombre, de: c.de, a: c.a, por: 'DT (portal)' })))
+    return NextResponse.json({ ok: true, cambios: cambios.length })
   }
   if (b.accion === 'salir') { const r = NextResponse.json({ ok: true }); r.cookies.set('portal-dt', '', { path: '/', maxAge: 0 }); return r }
   return falla('Acción desconocida')

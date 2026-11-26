@@ -10,6 +10,7 @@ interface Datos {
   jugados: { id: string; jornada: string; rival: string; gf: number; gc: number }[]
   cuenta: { conceptos: { concepto: string; detalle: string | null; cargado: number; pagado: number }[]; cargado: number; pagado: number; saldo: number; pagos: { fecha: string | null; concepto: string; comprobante: string | null; monto: number }[] } | null
   solicitudes: { id: string; texto: string; estado: string; respuesta: string | null; fecha: string }[]
+  numeros: { modo: 'todos' | 'sinNumero' | 'ninguno'; grabados: string | null }
   equipo: {
     tablas: { fase: string; grupo: string; tipo: string; filas: { pos: number; equipo: string; mio: boolean; pj: number; pg: number; pe: number; pp: number; gf: number; gc: number; dg: number; pts: number }[] }[]
     resumen: { pj: number; pg: number; pe: number; pp: number; gf: number; gc: number }
@@ -74,6 +75,8 @@ export default function PortalDT({ params }: { params: { token: string } }) {
     </div>)
   if (!d) return <div className={fondo + ' p-6 text-center'}><p className="mt-20">Cargando…</p></div>
 
+  const sinNumero = d.jugadores.filter((j) => j.numero == null).length
+  const pideNumeros = d.numeros.modo === 'todos' || (d.numeros.modo === 'sinNumero' && sinNumero > 0)
   const susp = d.jugadores.filter((j) => j.estado === 'suspendido')
   const faltan = d.jugadores.filter((j) => j.faltaFoto || j.faltaCedula)
   const habil = d.jugadores.filter((j) => j.estado === 'habilitado').length
@@ -98,6 +101,11 @@ export default function PortalDT({ params }: { params: { token: string } }) {
         </nav>
 
         {tab === 'inicio' && <>
+        {pideNumeros && (
+          <button onClick={() => setTab('nomina')} className="w-full text-left bg-[#f5c542] text-[#0b1733] rounded-2xl p-4 mb-4">
+            <p className="font-bold">🔢 {d.numeros.modo === 'todos' ? 'Asigna los números de tu nómina' : `${sinNumero} jugador(es) sin número`}</p>
+            <p className="text-sm">{d.numeros.modo === 'todos' ? 'Pon el número de camiseta de cada jugador y grábalos. Solo se puede grabar una vez.' : 'Se inscribieron después de que grabaste. Asígnales su número.'} Toca aquí →</p>
+          </button>)}
         <div className="grid grid-cols-3 gap-2 mb-4 text-center">
           <div className="bg-[#13254a] rounded-xl p-3"><p className="text-2xl font-bold">{d.jugadores.length}</p><p className="text-[11px] text-slate-300">Jugadores</p></div>
           <div className="bg-[#13254a] rounded-xl p-3"><p className="text-2xl font-bold text-green-400">{habil}</p><p className="text-[11px] text-slate-300">Habilitados</p></div>
@@ -116,6 +124,7 @@ export default function PortalDT({ params }: { params: { token: string } }) {
             {prec.map((j) => <p key={j.id} className="text-sm">#{j.numero ?? '–'} {j.nombre} · {j.sancion?.replace(/^En precaución: /, '')}</p>)}
           </div>) })()}
         </>}
+        {tab === 'nomina' && pideNumeros && <Numeros d={d} post={post} listo={cargar} />}
         {tab === 'nomina' && <section className={card}>
           <h2 className={h2}>📋 Mi nómina</h2>
           <div className="flex flex-wrap gap-2 mb-3">
@@ -216,6 +225,52 @@ export default function PortalDT({ params }: { params: { token: string } }) {
       </div>
     </div>
   )
+}
+
+function Numeros({ d, post, listo }: { d: Datos; post: (b: Record<string, unknown>) => Promise<{ ok: boolean; message?: string }>; listo: () => void }) {
+  const todos = d.numeros.modo === 'todos'
+  const lista = todos ? d.jugadores : d.jugadores.filter((j) => j.numero == null)
+  const [v, setV] = useState<Record<string, string>>(() => Object.fromEntries(lista.map((j) => [j.id, j.numero != null ? String(j.numero) : ''])))
+  const [msg, setMsg] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+  // Números que quedarían en el club (los fijos + los que se están escribiendo) para marcar repetidos al instante
+  const fijos = d.jugadores.filter((j) => !(j.id in v) && j.numero != null).map((j) => String(j.numero))
+  const usados = [...fijos, ...Object.values(v).filter(Boolean)]
+  const repetido = (x: string) => !!x && usados.filter((u) => u === x).length > 1
+  const malo = (x: string) => !!x && (!/^\d{1,2}$/.test(x) || Number(x) < 1)
+  const vacios = lista.filter((j) => !v[j.id]).length
+  const hayError = Object.values(v).some((x) => repetido(x) || malo(x))
+  async function grabar() {
+    const asignar = Object.fromEntries(Object.entries(v).filter(([, x]) => x).map(([id, x]) => [id, Number(x)]))
+    if (!Object.keys(asignar).length) { setMsg('Escribe al menos un número.'); return }
+    const txt = todos
+      ? `¿Grabar los números?${vacios ? `\n\nQuedan ${vacios} jugador(es) sin número (podrás ponérselo después, una sola vez).` : ''}\n\nDespués de grabar NO podrás cambiarlos. Solo la organización puede reabrir.`
+      : '¿Grabar estos números? Después no podrás cambiarlos.'
+    if (!window.confirm(txt)) return
+    setOcupado(true)
+    const r = await post({ accion: 'numeros', asignar, grabar: true })
+    setOcupado(false)
+    if (!r.ok) { setMsg(r.message || 'No se pudo grabar'); return }
+    listo()
+  }
+  return (
+    <section className="bg-[#13254a] border-2 border-[#f5c542] rounded-2xl p-4 mb-4">
+      <h2 className={h2}>🔢 {todos ? 'Asignar números' : 'Jugadores sin número'}</h2>
+      <p className="text-sm text-slate-300 mb-3">{todos ? 'Escribe el número de camiseta de cada jugador (del 1 al 99, sin repetir) y toca «Grabar números». Solo se graba una vez: después, cualquier cambio lo pides a la organización.' : 'Estos jugadores se inscribieron después de que grabaste los números. Ponles su número; quedará fijo.'}</p>
+      {lista.map((j) => {
+        const x = v[j.id] || '', err = repetido(x) ? 'Repetido' : malo(x) ? '1 a 99' : ''
+        return (
+          <div key={j.id} className="flex items-center gap-3 py-2 border-t border-[#24407a] first:border-0">
+            <input inputMode="numeric" maxLength={2} aria-label={`Número de ${j.nombre}`} value={x} onChange={(e) => setV({ ...v, [j.id]: e.target.value.replace(/\D/g, '').slice(0, 2) })}
+              className={`w-16 h-12 text-center text-xl font-bold rounded-xl bg-[#0b1733] border-2 outline-none ${err ? 'border-red-500 text-red-300' : x ? 'border-[#f5c542] text-[#f5c542]' : 'border-[#24407a]'}`} placeholder="#" />
+            <div className="flex-1 min-w-0"><p className="font-semibold leading-tight">{j.nombre}</p><p className="text-xs text-slate-400">{j.posicion || ''}</p></div>
+            {err && <span className="text-xs text-red-300">{err}</span>}
+          </div>)
+      })}
+      <div className="mt-3 text-sm text-slate-300">{lista.length - vacios} de {lista.length} con número{vacios ? ` · faltan ${vacios}` : ' ✔'}</div>
+      {msg && <p className="text-sm text-red-300 mt-2">{msg}</p>}
+      <button disabled={ocupado || hayError} onClick={grabar} className="mt-3 w-full py-3 rounded-xl bg-[#f5c542] text-[#0b1733] font-bold disabled:opacity-40">{ocupado ? 'Grabando…' : hayError ? 'Corrige los números en rojo' : 'Grabar números'}</button>
+    </section>)
 }
 
 function MiEquipo({ d }: { d: Datos }) {

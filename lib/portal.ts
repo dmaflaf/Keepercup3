@@ -50,3 +50,28 @@ export async function registrarIntento(ip: string, fallo: boolean) {
   if (fallo) m[ip] = [...(m[ip] || []), ahora]; else delete m[ip]
   await prisma.ajuste.upsert({ where: { key: CLAVE }, create: { key: CLAVE, value: JSON.stringify(m) }, update: { value: JSON.stringify(m) } })
 }
+
+// Asignación de números por el DT (al inicio del torneo). El administrador la abre o la cierra para todos.
+const CLAVE_NUM = 'numeros:portal', CLAVE_LOG = 'numeros:registro'
+export async function asignacionAbierta() {
+  const a = await prisma.ajuste.findUnique({ where: { key: CLAVE_NUM } })
+  try { return !!(a && JSON.parse(a.value).abierta) } catch { return false }
+}
+export async function fijarAsignacion(abierta: boolean) {
+  const v = JSON.stringify({ abierta, desde: new Date().toISOString() })
+  await prisma.ajuste.upsert({ where: { key: CLAVE_NUM }, create: { key: CLAVE_NUM, value: v }, update: { value: v } })
+}
+/** Registro de quién asignó qué número y cuándo (últimos 2000 cambios). */
+export async function registrarNumeros(entradas: { teamId: string; playerId: string; nombre: string; de: number | null; a: number | null; por: string }[]) {
+  if (!entradas.length) return
+  const a = await prisma.ajuste.findUnique({ where: { key: CLAVE_LOG } })
+  let l: unknown[] = []; try { l = a ? JSON.parse(a.value) : [] } catch { l = [] }
+  const fecha = new Date().toISOString()
+  l.push(...entradas.map((e) => ({ ...e, fecha })))
+  const v = JSON.stringify(l.slice(-2000))
+  await prisma.ajuste.upsert({ where: { key: CLAVE_LOG }, create: { key: CLAVE_LOG, value: v }, update: { value: v } })
+}
+/** Qué puede hacer el DT: 'todos' (antes de grabar), 'sinNumero' (ya grabó: solo los que no tienen número) o 'ninguno'. */
+export function modoNumeros(abierta: boolean, grabados: Date | null) {
+  return !abierta ? 'ninguno' : grabados ? 'sinNumero' : 'todos'
+}
