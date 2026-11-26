@@ -22,8 +22,10 @@ export interface PartidoCalc {
   fecha: string | null
   duracion?: number | null // minutos totales jugados (planilla en vivo)
   eventos: EventoCalc[]
-  /** Ciclo de amarillas: cambia al empezar una fase nueva de grupos (Art. 50: el conteo vuelve a cero). */
+  /** Ciclo de amarillas: cambia al empezar una fase nueva (Art. 50: el conteo vuelve a cero). */
   ciclo?: string
+  /** false en la Fase Final: las amarillas sueltas no generan suspensión (sí cuentan para multas y estadísticas). */
+  acumula?: boolean
 }
 
 export interface FilaTabla {
@@ -194,7 +196,9 @@ export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancio
         // Art. 50: al pasar a otra fase las amarillas que no generaron suspensión se anulan (no los totales ni las multas)
         if (cicloDe.has(s.playerId) && cicloDe.get(s.playerId) !== p.ciclo) s.amarillas = 0
         cicloDe.set(s.playerId, p.ciclo)
-        s.amarillas++; s.totalAmarillas++
+        s.totalAmarillas++
+        if (p.acumula === false) continue
+        s.amarillas++
         if (s.amarillas >= cfg.amarillasSuspension) {
           s.amarillas -= cfg.amarillasSuspension
           cola.get(s.playerId)!.push({ n: 1, am: true, ciclo: p.ciclo })
@@ -223,7 +227,8 @@ export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancio
     anular(s, actual)
     s.suspendidoProximo = pendientes(s)
   }
-  for (const s of jugadores.values()) s.precaucion = s.suspendidoProximo === 0 && cfg.amarillasSuspension > 1 && s.amarillas === cfg.amarillasSuspension - 1
+  const acumulaAhora = pendiente ? pendiente.acumula !== false : fin[fin.length - 1]?.acumula !== false
+  for (const s of jugadores.values()) s.precaucion = acumulaAhora && s.suspendidoProximo === 0 && cfg.amarillasSuspension > 1 && s.amarillas === cfg.amarillasSuspension - 1
   return Array.from(jugadores.values())
 }
 

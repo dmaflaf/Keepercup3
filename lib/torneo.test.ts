@@ -1,5 +1,6 @@
 // Pruebas de los cálculos del torneo. Ejecutar: npx tsx lib/torneo.test.ts
 import { tabla, sanciones, goleadores, roundRobin, marcadorDesdeEventos, CfgTorneo, PartidoCalc } from './torneo'
+import { calcularSanciones } from './sanciones'
 const cfg: CfgTorneo = { puntosVictoria: 3, puntosEmpate: 1, puntosDerrota: 0, amarillasSuspension: 3, partidosDobleAmarilla: 1, partidosRojaDirecta: 2 }
 let ok = 0, mal = 0
 const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) === JSON.stringify(b)) ok++; else { mal++; console.log('FALLA', m, JSON.stringify(a), '!=', JSON.stringify(b)) } }
@@ -77,4 +78,27 @@ const su2 = [P('7','A','B',0,0,7,[],'suspendido'), P('6','A','C',0,0,6,[{ teamId
 eq(sanciones(su2, cfg)[0].suspendidoProximo, 2, 'un partido suspendido no cuenta como cumplido')
 const sd = sanciones([P('1','A','B',0,0,1,[{ teamId: 'A', playerId: 'p3', tipo: 'doble_amarilla', extra: 2 }])], cfg)[0]
 eq(sd.suspendidoProximo, 3, 'doble amarilla (1) + 2 adicionales')
+// Fase Final (eliminatoria): ciclo nuevo y las amarillas sueltas no suspenden; doble = 1 y roja = 2 sí; la de 3 amarillas de F2 se anula
+const E = (x: PartidoCalc): PartidoCalc => ({ ...x, ciclo: 'fin', acumula: false })
+const f2a = [C(P('8','A','B',0,0,8,[a('amarilla')]),'f2'), C(P('9','A','C',0,0,9,[a('amarilla')]),'f2')]
+s = sanciones([...f2a, E(P('11','A','D',1,0,11,[a('amarilla')])), E(P('12','A','E',1,0,12,[a('amarilla')])), E(P('13','A','F',0,0,13,[a('amarilla')]))], cfg)[0]
+eq([s.suspendidoProximo, s.precaucion, s.totalAmarillas], [0, false, 5], 'Fase Final: 3 amarillas sueltas no suspenden; totales intactos')
+s = sanciones([...f2a, E(P('11','A','D',0,0,11,[],'programado'))], cfg)[0]; eq(s.precaucion, false, 'al entrar a la Fase Final no hay precaución')
+s = sanciones([...f2a, C(P('10','A','B',0,0,10,[a('amarilla')]),'f2'), E(P('11','A','D',0,0,11,[],'programado'))], cfg)[0]
+eq(s.suspendidoProximo, 0, '3.ª amarilla al final de F2: se anula al pasar a cuartos')
+const rj = { teamId: 'A', playerId: 'p7', tipo: 'roja' }
+s = sanciones([C(P('10','A','B',0,0,10,[rj]),'f2'), E(P('11','A','D',1,0,11)), E(P('12','A','E',0,0,12,[],'programado'))], cfg).find((x) => x.playerId === 'p7')!
+eq([s.suspendidoProximo, s.cumplidos], [1, 1], 'roja en F2 pasa a la Fase Final: cumple cuartos y le falta la semi')
+const dj = { teamId: 'A', playerId: 'p6', tipo: 'doble_amarilla' }
+s = sanciones([E(P('11','A','D',1,0,11,[dj])), E(P('12','A','E',0,0,12,[],'programado'))], cfg).find((x) => x.playerId === 'p6')!
+eq(s.suspendidoProximo, 1, 'doble amarilla en cuartos = 1 partido (semi)')
+// El mismo criterio en el cálculo de multas / portal / reportes
+const PS = (x: PartidoCalc) => ({ id: x.id, jornadaNum: x.jornadaNum, fecha: x.fecha, localId: x.localId, visitanteId: x.visitanteId, estado: x.estado, eventos: x.eventos, ciclo: x.ciclo, acumula: x.acumula })
+const cfgS = { amarillasSuspension: 3, partidosDobleAmarilla: 1, partidosRojaDirecta: 2 }
+let fsn = calcularSanciones([...f2a, E(P('11','A','D',1,0,11,[a('amarilla')])), E(P('12','A','E',1,0,12,[a('amarilla')])), E(P('13','A','F',0,0,13,[a('amarilla')])), E(P('14','A','G',0,0,14,[],'programado'))].map(PS), cfgS)[0]
+eq([fsn.estado, fsn.total, fsn.acum], ['—', 0, 0], 'multas/portal: en la Fase Final las amarillas no suspenden')
+fsn = calcularSanciones([...f2a, C(P('10','A','B',0,0,10,[a('amarilla')]),'f2'), E(P('11','A','D',0,0,11,[],'programado'))].map(PS), cfgS)[0]
+eq([fsn.estado, fsn.anulados], ['—', 1], 'multas/portal: 3.ª amarilla de F2 anulada en cuartos')
+fsn = calcularSanciones([C(P('10','A','B',0,0,10,[rj]),'f2'), E(P('11','A','D',1,0,11)), E(P('12','A','E',0,0,12,[],'programado'))].map(PS), cfgS).find((x) => x.playerId === 'p7')!
+eq([fsn.estado, fsn.cumplidos, fsn.pendientes], ['SUSPENDIDO', 1, [12]], 'multas/portal: roja de F2 se cumple en cuartos y semi')
 console.log(`OK ${ok}  FALLAS ${mal}`)

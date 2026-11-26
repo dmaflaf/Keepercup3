@@ -37,12 +37,13 @@ export async function cargarTorneo(torneoId: string) {
     if (sinGoles.has(e.partidoId) && GOLES.includes(e.tipo)) continue
     eventosPorPartido.set(e.partidoId, [...(eventosPorPartido.get(e.partidoId) || []), { teamId: e.teamId, playerId: e.playerId, tipo: e.tipo, minuto: e.minuto, extra: e.sancionExtra, ...(e.periodo === -1 ? { aparte: true } : {}) }])
   }
-  // Ciclo de amarillas (Art. 50): cada fase por grupos empieza uno nuevo; una eliminatoria sigue el de la fase anterior
+  // Ciclo de amarillas (Art. 50): cada fase empieza uno nuevo (grupos y también la Fase Final).
+  // En la Fase Final (eliminatoria) las amarillas sueltas NO suspenden: solo la doble amarilla y la roja (decisión de la organización).
   const ciclo = new Map<string, string>()
-  let actual = ''
-  for (const f of fases) { if (f.tipo === 'grupos' || !actual) actual = f.id; ciclo.set(f.id, actual) }
+  for (const f of fases) ciclo.set(f.id, f.id)
+  const acumula = new Map(fases.map((f) => [f.id, f.tipo !== 'eliminatoria']))
   const calc: PartidoCalc[] = partidosDB.map((p) => ({
-    ciclo: ciclo.get(p.faseId),
+    ciclo: ciclo.get(p.faseId), acumula: acumula.get(p.faseId) ?? true,
     id: p.id, grupoId: p.grupoId, localId: p.localId, visitanteId: p.visitanteId, estado: p.estado,
     golesLocal: p.golesLocal, golesVisitante: p.golesVisitante, jornadaNum: p.jornadaNum, fecha: p.fecha, duracion: p.duracionReal,
     eventos: eventosPorPartido.get(p.id) || [],
