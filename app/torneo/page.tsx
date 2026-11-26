@@ -6,7 +6,7 @@ interface Fila { teamId: string; equipo: string; pj: number; pg: number; pe: num
 interface Grupo { id: string; nombre: string; tabla: Fila[] }
 interface Fase { id: string; nombre: string; tipo: string; grupos: Grupo[] }
 interface Partido { id: string; localId: string; visitanteId: string; jornadaJuego?: number | null; faseId: string; grupoId: string | null; jornada: string; jornadaNum: number; fecha: string | null; hora: string | null; escenario: string | null; estado: string; local: string; visitante: string; golesLocal: number | null; golesVisitante: number | null; penalesLocal: number | null; penalesVisitante: number | null; periodo?: string }
-interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number }
+interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number; detalle?: { nombre: string; goles: number }[] }
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean }
 interface SecGol { id: string; nombre: string; goleadores: Gol[] }
 interface Datos { ok: boolean; goleadoresPor?: SecGol[]; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
@@ -177,13 +177,14 @@ export default function TorneoPublico() {
             })()}
 
             {tab === 'Goleadores' && (() => {
-              const secs = d.goleadoresPor?.length ? d.goleadoresPor : [{ id: 'todo', nombre: 'Todo el torneo', goleadores: d.goleadores }]
+              const secs = d.goleadoresPor?.length ? d.goleadoresPor : [{ id: 'todo', nombre: 'Goleadores Global', goleadores: d.goleadores }]
               const sec = secs.find((x) => x.id === secGol) || secs[0]
               return (<>
                 {secs.length > 1 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>{secs.map((x) => <button key={x.id} onClick={() => setSecGol(x.id)} style={boton(x.id === sec.id)}>{x.nombre}</button>)}</div>}
                 {botonCompartir}
                 <div style={card}>
-                  <h3 style={h3}>Goleadores · {sec.nombre}</h3>
+                  <h3 style={h3}>{sec.id === 'todo' ? 'Goleadores Global' : `Goleadores · ${sec.nombre}`}</h3>
+                  {sec.id.startsWith('Copa') && <p style={{ color: '#93A4B8', fontSize: 13, margin: '0 0 6px' }}>Jugadores de los clubes de la {sec.nombre}, con todos sus goles del torneo.</p>}
                   {sec.goleadores.length === 0 && <p style={{ color: '#93A4B8' }}>Todavía no hay goles registrados.</p>}
                   {sec.goleadores.slice(0, 50).map((g, i) => {
                     const top = i < 3, tam = top ? 52 : 40
@@ -191,7 +192,7 @@ export default function TorneoPublico() {
                       <div key={g.playerId} style={{ display: 'flex', gap: 12, padding: top ? '11px 0' : '8px 0', borderTop: '1px solid #1f3150', fontSize: 14, alignItems: 'center' }}>
                         <b style={{ width: 22, color: top ? '#D9A93A' : '#93A4B8', fontSize: top ? 18 : 14 }}>{i + 1}</b>
                         <Foto id={g.playerId} nombre={g.jugador} tam={tam} oro={top} />
-                        <span style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: top ? 16 : 14 }}>{g.jugador}</b>{g.numero != null && <span style={{ color: '#93A4B8' }}> #{g.numero}</span>}<br /><span style={{ color: '#93A4B8', fontSize: 13 }}>{g.equipo}</span></span>
+                        <span style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: top ? 16 : 14 }}>{g.jugador}</b>{g.numero != null && <span style={{ color: '#93A4B8' }}> #{g.numero}</span>}<br /><span style={{ color: '#93A4B8', fontSize: 13 }}>{g.equipo}{(() => { const det = [...(g.detalle || [])]; if (sec.id.startsWith('Copa') && !det.some((x) => x.nombre === sec.nombre)) det.push({ nombre: sec.nombre, goles: 0 }); return det.length > 1 || sec.id.startsWith('Copa') ? ` · ${det.map((x) => `${x.nombre}: ${x.goles}`).join(' · ')}` : '' })()}</span></span>
                         <b style={{ color: '#D9A93A', fontSize: top ? 24 : 18 }}>{g.goles}</b>
                       </div>
                     )

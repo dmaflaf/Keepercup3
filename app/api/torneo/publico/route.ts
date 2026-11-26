@@ -48,11 +48,26 @@ export async function GET(req: NextRequest) {
     const seccionDe = (c: (typeof calc)[number]) => copaDe((c.grupoId && grupoNom.get(c.grupoId)) || '') || copaDe(faseNom.get(faseDe.get(c.id) || '') || '') || `fase:${faseDe.get(c.id)}`
     const conNombre = (l: ReturnType<typeof goleadores>) => l.map((g) => ({ ...g, jugador: info.get(g.playerId)?.nombre || '?', numero: info.get(g.playerId)?.numero ?? null, equipo: d.nombreEquipo.get(g.teamId) || '?' }))
     const claves = Array.from(new Set(calc.map(seccionDe)))
+    const nombreSec = (k: string) => (k.startsWith('fase:') ? faseNom.get(k.slice(5)) || 'Fase' : k)
     const orden = (k: string) => (k.startsWith('fase:') ? d.fases.findIndex((f) => `fase:${f.id}` === k) : k === 'Copa Oro' ? 100 : 101)
+    claves.sort((a, b) => orden(a) - orden(b))
+    // Desglose de cada jugador por sección (ej. Fase 1: 10 · Copa Plata: 4)
+    const porSec = new Map<string, Map<string, number>>()
+    for (const c of calc) { const k = seccionDe(c); for (const e of c.eventos) if (e.playerId && (e.tipo === 'gol' || e.tipo === 'gol_penal')) { const m = porSec.get(e.playerId) || new Map<string, number>(); m.set(k, (m.get(k) || 0) + 1); porSec.set(e.playerId, m) } }
+    const detalle = (id: string) => claves.filter((k) => porSec.get(id)?.get(k)).map((k) => ({ nombre: nombreSec(k), goles: porSec.get(id)!.get(k)! }))
+    const global = conNombre(goleadores(calc)).map((g) => ({ ...g, detalle: detalle(g.playerId) }))
+    // Copa de cada club: el grupo donde juega en la fase con copas
+    const copaClub = new Map<string, string>()
+    for (const f of d.fases) for (const g of f.grupos) { const c = copaDe(g.nombre); if (c) for (const e of g.equipos) copaClub.set(e.id, c) }
     const goleadoresPor = [
-      { id: 'todo', nombre: 'Todo el torneo', goleadores: resto.goleadores },
-      ...claves.sort((a, b) => orden(a) - orden(b)).map((k) => ({ id: k, nombre: k.startsWith('fase:') ? faseNom.get(k.slice(5)) || 'Fase' : k, goleadores: conNombre(goleadores(calc.filter((c) => seccionDe(c) === k))) })).filter((x) => x.goleadores.length),
-    ]
+      { id: 'todo', nombre: 'Goleadores Global', goleadores: global },
+      ...claves.filter((k) => k.startsWith('fase:')).map((k) => ({ id: k, nombre: nombreSec(k), goleadores: conNombre(goleadores(calc.filter((c) => seccionDe(c) === k))).map((g) => ({ ...g, detalle: [] as { nombre: string; goles: number }[] })) })),
+      // Copa Oro / Copa Plata: jugadores de los clubes de esa copa, con TODOS sus goles del torneo (los goles siguen al jugador)
+      ...['Copa Oro', 'Copa Plata'].filter((c) => [...copaClub.values()].includes(c)).map((c) => ({
+        id: c, nombre: c,
+        goleadores: global.filter((g) => copaClub.get(g.teamId) === c).sort((a, b) => b.goles - a.goles || (porSec.get(b.playerId)?.get(c) || 0) - (porSec.get(a.playerId)?.get(c) || 0) || a.jugador.localeCompare(b.jugador)),
+      })),
+    ].filter((x) => x.goleadores.length)
     const estadisticas = { porteros: porteros.slice(0, 10), masPartidos, ataque, defensa }
     return NextResponse.json(
       {
