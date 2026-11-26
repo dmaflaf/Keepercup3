@@ -16,6 +16,7 @@ model Team {
   city          String
   logo          String?  @db.Text // Base64 encoded image
   codigoEquipo  String   @unique @default(cuid())
+  portalToken   String?  // enlace privado del Portal del DT (/dt/<token>), se entra además con la cédula del DT
 
   // Director info
   directorName  String
@@ -507,4 +508,18 @@ model Cargo {
 
   @@index([torneoId])
   @@index([teamId])
+}
+
+// Pedidos de cambio que el DT envía desde su portal (el administrador los atiende en Clubes)
+model SolicitudCambio {
+  id         String    @id @default(cuid())
+  teamId     String
+  texto      String    @db.Text
+  estado     String    @default("pendiente") // pendiente | atendida | rechazada
+  respuesta  String?   @db.Text
+  createdAt  DateTime  @default(now())
+  atendidaEn DateTime?
+
+  @@index([teamId])
+  @@index([estado])
 }

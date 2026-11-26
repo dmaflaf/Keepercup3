@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { exigirAdmin } from '@/lib/sorteo'
+import { normCedula } from '@/lib/importar'
 
 export const dynamic = 'force-dynamic'
 const falla = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status })
@@ -25,9 +26,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!nombre) return falla('El nombre del club no puede quedar vacío')
   const otro = await prisma.team.findFirst({ where: { name: { equals: nombre, mode: 'insensitive' }, NOT: { id: params.id } }, select: { id: true } })
   if (otro) return falla('Ya existe otro club con ese nombre')
+  // Cédula del DT: solo se cambia si viene en la solicitud (vacía = se borra)
+  const ced = typeof b.cedula === 'string' ? normCedula(b.cedula) : undefined
+  if (ced && ced.length < 9) return falla('La cédula del DT no es válida')
   await prisma.team.update({
     where: { id: params.id },
-    data: { name: nombre, city: txt(b.ciudad) || '-', directorName: txt(b.director) || '-', contactPhone: txt(b.telefono, 30) || null, contactEmail: txt(b.correo, 120) || null, ...(['aprobado', 'pendiente', 'rechazado'].includes(b.estado) ? { estado: b.estado } : {}) },
+    data: { ...(ced !== undefined ? { directorCedula: ced } : {}), name: nombre, city: txt(b.ciudad) || '-', directorName: txt(b.director) || '-', contactPhone: txt(b.telefono, 30) || null, contactEmail: txt(b.correo, 120) || null, ...(['aprobado', 'pendiente', 'rechazado'].includes(b.estado) ? { estado: b.estado } : {}) },
   })
   return NextResponse.json({ ok: true })
 }

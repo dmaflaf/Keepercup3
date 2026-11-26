@@ -11,8 +11,25 @@ export default function Clubes() {
   const [q, setQ] = useState('')
 
   const [version, setVersion] = useState(0) // cambia al subir un escudo para recargar la imagen
-  const [edit, setEdit] = useState<{ id: string; nombre: string; ciudad: string; director: string; telefono: string; correo: string; estado: string } | null>(null)
+  const [edit, setEdit] = useState<{ id: string; nombre: string; ciudad: string; director: string; cedula: string; telefono: string; correo: string; estado: string } | null>(null)
   const [ocupado, setOcupado] = useState(false)
+  // Portal del DT: enlaces y pedidos de cambio
+  const [portal, setPortal] = useState<{ solicitudes: { id: string; teamId: string; club: string; texto: string; estado: string; respuesta: string | null; fecha: string }[]; enlaces: Record<string, { token: string | null; dt: string; telefono: string; conCedula: boolean }> } | null>(null)
+  const [enlace, setEnlace] = useState<{ club: Club; token: string } | null>(null)
+  const [verAtendidas, setVerAtendidas] = useState(false)
+  const cargarPortal = useCallback(() => { fetch('/api/admin/portal', { cache: 'no-store' }).then((r) => r.json()).then((r) => r.ok && setPortal(r)).catch(() => null) }, [])
+  useEffect(() => { cargarPortal() }, [cargarPortal])
+  async function abrirPortal(c: Club, nuevo = false) {
+    if (nuevo && !window.confirm(`¿Cambiar el enlace de ${c.nombre}? El enlace anterior dejará de funcionar y tendrás que enviar el nuevo al DT.`)) return
+    const r = await fetch('/api/admin/portal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'enlace', teamId: c.id, nuevo }) }).then((x) => x.json()).catch(() => null)
+    if (!r?.ok) { alert(r?.message || 'No se pudo'); return }
+    setEnlace({ club: c, token: r.token }); cargarPortal()
+  }
+  async function responder(id: string, estado: string) {
+    const respuesta = estado === 'pendiente' ? '' : (window.prompt(estado === 'atendida' ? 'Respuesta para el DT (opcional): qué se corrigió' : 'Motivo para el DT (opcional)') ?? '')
+    const r = await fetch('/api/admin/portal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'responder', id, estado, respuesta }) }).then((x) => x.json()).catch(() => null)
+    if (!r?.ok) alert(r?.message || 'No se pudo'); else cargarPortal()
+  }
 
   const cargar = useCallback(() => {
     fetch('/api/admin/clubes', { cache: 'no-store' }).then((r) => r.json()).then((r) => { if (r.ok) { setClubes(r.clubes); setMsg('') } else setMsg(r.message || 'No autorizado') }).catch(() => setMsg('Sin conexión'))
@@ -23,7 +40,7 @@ export default function Clubes() {
     const r = await fetch(`/api/admin/clubes/${id}`, { cache: 'no-store' }).then((x) => x.json()).catch(() => null)
     if (!r?.ok) { alert(r?.message || 'No se pudo abrir el club'); return }
     const c = r.club
-    setEdit({ id: c.id, nombre: c.name, ciudad: c.city === '-' ? '' : c.city, director: c.directorName === '-' ? '' : c.directorName, telefono: c.contactPhone || '', correo: c.contactEmail || '', estado: c.estado })
+    setEdit({ id: c.id, nombre: c.name, ciudad: c.city === '-' ? '' : c.city, director: c.directorName === '-' ? '' : c.directorName, cedula: c.directorCedula || '', telefono: c.contactPhone || '', correo: c.contactEmail || '', estado: c.estado })
   }
   async function guardar() {
     if (!edit) return
@@ -31,7 +48,7 @@ export default function Clubes() {
     const r = await fetch(`/api/admin/clubes/${edit.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(edit) }).then((x) => x.json()).catch(() => ({ ok: false, message: 'Error de conexión' }))
     setOcupado(false)
     if (!r.ok) { alert(r.message || 'No se pudo guardar'); return }
-    setEdit(null); setMsg('Club guardado.'); cargar()
+    setEdit(null); setMsg('Club guardado.'); cargar(); cargarPortal()
   }
   async function subirEscudo(id: string, file: File | undefined) {
     if (!file) return
@@ -90,6 +107,25 @@ export default function Clubes() {
           <button className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm" onClick={csv} disabled={!vis.length}>⬇ Descargar listado (Excel/CSV)</button>
         </div>
         {msg && <p className="text-slate-300">{msg}</p>}
+        {portal && portal.solicitudes.length > 0 && (() => {
+          const pend = portal.solicitudes.filter((x) => x.estado === 'pendiente')
+          const lista = verAtendidas ? portal.solicitudes : pend
+          return (
+            <div className={`rounded-xl p-4 mb-4 border ${pend.length ? 'bg-yellow-900/20 border-yellow-600' : 'bg-slate-800 border-slate-700'}`}>
+              <div className="flex flex-wrap items-center gap-2 mb-2"><h2 className="font-bold text-lg">📬 Pedidos de cambio de los DT ({pend.length} pendiente{pend.length === 1 ? '' : 's'})</h2>
+                <label className="ml-auto text-sm flex items-center gap-2"><input type="checkbox" checked={verAtendidas} onChange={(e) => setVerAtendidas(e.target.checked)} /> Ver también los atendidos</label></div>
+              {!lista.length && <p className="text-sm text-slate-400">No hay pedidos pendientes.</p>}
+              {lista.map((x) => (
+                <div key={x.id} className="border-t border-slate-700 py-2 text-sm flex flex-wrap gap-2 items-start">
+                  <div className="flex-1 min-w-[14rem]"><b>{x.club}</b> <span className="text-slate-400 text-xs">· {new Date(x.fecha).toLocaleString('es-EC', { timeZone: 'America/Guayaquil', dateStyle: 'medium', timeStyle: 'short' })}</span>
+                    <p className="whitespace-pre-wrap mt-1">{x.texto}</p>
+                    {x.estado !== 'pendiente' && <p className={`text-xs mt-1 ${x.estado === 'atendida' ? 'text-green-300' : 'text-red-300'}`}>{x.estado === 'atendida' ? '✔ Atendido' : '✖ Rechazado'}{x.respuesta ? `: ${x.respuesta}` : ''}</p>}</div>
+                  {x.estado === 'pendiente'
+                    ? <span className="flex gap-1"><button className="px-2 py-1 bg-green-700 hover:bg-green-600 rounded text-xs" onClick={() => responder(x.id, 'atendida')}>✔ Atendido</button><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs" onClick={() => responder(x.id, 'rechazada')}>Rechazar</button></span>
+                    : <button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs" onClick={() => responder(x.id, 'pendiente')}>Volver a pendiente</button>}
+                </div>))}
+            </div>)
+        })()}
         {!!clubes.length && (
           <div className="overflow-x-auto bg-slate-800 border border-slate-700 rounded-xl">
             <table className="w-full text-sm">
@@ -101,7 +137,7 @@ export default function Clubes() {
                     <td className={`text-center ${c.total === 0 ? 'text-red-400' : c.total < 11 ? 'text-yellow-300' : ''}`}>{c.total}</td>
                     <td className="text-center">{c.habilitados}</td><td className="text-center">{c.conFoto}</td><td className="text-center">{c.conCedulas}</td>
                     <td className="text-center">{c.escudo ? <span className="text-green-400">✔</span> : <span className="text-red-400">✖</span>}</td>
-                    <td className="text-right whitespace-nowrap pr-3"><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs mr-1 disabled:opacity-50" disabled={generando === c.id} onClick={() => verNomina(c)}>{generando === c.id ? 'Generando…' : '📄 Nómina'}</button><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs mr-1" onClick={() => abrirEditor(c.id)}>✏️ Editar</button><button className="px-2 py-1 bg-slate-600 hover:bg-red-700 rounded text-xs" disabled={ocupado} onClick={() => eliminar(c)}>🗑 Eliminar</button></td>
+                    <td className="text-right whitespace-nowrap pr-3"><button className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-black font-semibold rounded text-xs mr-1" title="Enlace del Portal del DT" onClick={() => abrirPortal(c)}>📲 Portal DT{portal?.solicitudes.some((x) => x.teamId === c.id && x.estado === 'pendiente') ? ' •' : ''}</button><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs mr-1 disabled:opacity-50" disabled={generando === c.id} onClick={() => verNomina(c)}>{generando === c.id ? 'Generando…' : '📄 Nómina'}</button><button className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs mr-1" onClick={() => abrirEditor(c.id)}>✏️ Editar</button><button className="px-2 py-1 bg-slate-600 hover:bg-red-700 rounded text-xs" disabled={ocupado} onClick={() => eliminar(c)}>🗑 Eliminar</button></td>
                   </tr>
                 ))}
                 <tr className="border-t-2 border-slate-500 font-bold"><td className="p-3" colSpan={5}>Totales ({vis.length} clubes)</td><td className="text-center">{suma('total')}</td><td className="text-center">{suma('habilitados')}</td><td className="text-center">{suma('conFoto')}</td><td className="text-center">{suma('conCedulas')}</td><td /><td /></tr>
@@ -135,7 +171,7 @@ export default function Clubes() {
                 <button className="px-3 py-2 text-red-400 underline" onClick={() => quitarEscudo(edit.id)}>Quitar</button>
               </div>
             </div>
-            {([['nombre', 'Nombre del club'], ['ciudad', 'Ciudad'], ['director', 'Director técnico / dirigente'], ['telefono', 'Teléfono'], ['correo', 'Correo']] as const).map(([k, t]) => (
+            {([['nombre', 'Nombre del club'], ['ciudad', 'Ciudad'], ['director', 'Director técnico / dirigente'], ['cedula', 'Cédula del DT (para entrar al Portal del DT)'], ['telefono', 'Teléfono'], ['correo', 'Correo']] as const).map(([k, t]) => (
               <label key={k} className="block text-sm mb-3">{t}
                 <input className="w-full mt-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg" value={edit[k]} onChange={(e) => setEdit({ ...edit, [k]: e.target.value })} />
               </label>
@@ -148,6 +184,28 @@ export default function Clubes() {
           </div>
         </div>
       )}
+      {enlace && (() => {
+        const url = `${location.origin}/dt/${enlace.token}`
+        const tel = (portal?.enlaces[enlace.club.id]?.telefono || '').replace(/\D/g, '')
+        const wa = tel.startsWith('09') ? '593' + tel.slice(1) : tel
+        const texto = `Hola ${portal?.enlaces[enlace.club.id]?.dt || 'DT'} 👋 Este es el Portal del DT de ${enlace.club.nombre} en la Keeper Cup: ahí ves tu nómina, quién está habilitado o suspendido, tus próximos partidos y la cuenta del club. Entra con tu cédula: ${url}`
+        return (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 overflow-auto" onClick={() => setEnlace(null)}>
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-5 w-full max-w-lg mt-10 space-y-3" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-bold">📲 Portal del DT · {enlace.club.nombre}</h2>
+              <p className="text-sm text-slate-300">Envía este enlace al DT. Para entrar le pedirá su cédula (la registrada como DT del club). Solo ve su club y no puede cambiar nada; los cambios los pide desde ahí y te llegan a esta página.</p>
+              {portal?.enlaces[enlace.club.id] && !portal.enlaces[enlace.club.id].conCedula && <p className="text-sm bg-red-900/40 border border-red-600 rounded-lg p-2">⚠️ Este club no tiene registrada la cédula del DT: no podrá entrar. Agrégala con «Editar» antes de enviar el enlace.</p>}
+              <p className="break-all bg-slate-900 rounded-lg p-3 text-sm text-yellow-300">{url}</p>
+              <div className="flex flex-wrap gap-2">
+                <a className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-semibold" target="_blank" rel="noopener" href={`https://wa.me/${wa}?text=${encodeURIComponent(texto)}`}>WhatsApp{wa ? '' : ' (elige el contacto)'}</a>
+                <button className="px-3 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm" onClick={() => navigator.clipboard?.writeText(url).catch(() => null)}>Copiar enlace</button>
+                <a className="px-3 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm" href={url} target="_blank" rel="noopener">Abrir</a>
+                <button className="px-3 py-2 bg-slate-700 hover:bg-red-700 rounded-lg text-sm ml-auto" onClick={() => abrirPortal(enlace.club, true)}>Cambiar enlace</button>
+              </div>
+              <button className="text-sm text-slate-400 underline" onClick={() => setEnlace(null)}>Cerrar</button>
+            </div>
+          </div>)
+      })()}
     </div>
   )
 }
