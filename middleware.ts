@@ -12,8 +12,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // Rutas de auth (login, crear admin)
-  if (pathname === '/admin/login' || pathname === '/api/auth/login' || pathname === '/api/auth/create-admin' || pathname === '/api/auth/logout') {
+  if (pathname === '/admin/login' || pathname === '/api/auth/login' || pathname === '/api/auth/logout') {
     return NextResponse.next()
+  }
+
+  // Las acciones del panel (/api/admin, /api/torneo/admin…) no se aceptan si vienen de OTRO sitio web:
+  // evita que alguien te haga abrir un enlace o una página trampa que use tu sesión de administrador
+  if ((pathname.startsWith('/api/admin') || pathname.startsWith('/api/torneo/admin') || pathname.startsWith('/api/torneo/planilla')) && request.headers.get('sec-fetch-site') === 'cross-site') {
+    return NextResponse.json({ ok: false, message: 'Solicitud bloqueada: ábrela desde el panel de keeper.com.ec' }, { status: 403 })
   }
 
   // Rutas protegidas /admin

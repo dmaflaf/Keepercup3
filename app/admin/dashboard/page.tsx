@@ -13,7 +13,9 @@ interface Usuario {
 export default function AdminDashboard() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [loading, setLoading] = useState(true)
+  const [seg, setSeg] = useState<{ avisos: string[]; admins: { email: string; nombre: string; activo: boolean; createdAt: string }[] } | null>(null)
   const router = useRouter()
+  useEffect(() => { fetch('/api/admin/seguridad', { cache: 'no-store' }).then((r) => r.json()).then((r) => r.ok && setSeg(r)).catch(() => null) }, [])
 
   useEffect(() => {
     // Recuperar usuario del localStorage
@@ -68,6 +70,23 @@ export default function AdminDashboard() {
           </div>
         </div>
       </header>
+      {seg && seg.avisos.length > 0 && (
+        <div className="max-w-7xl mx-auto px-6 mt-4">
+          <div className="rounded-xl border border-red-500 bg-red-900/50 p-4 text-white">
+            <p className="font-bold text-lg">⚠️ Seguridad: hay que corregir algo</p>
+            {seg.avisos.map((a) => <p key={a} className="mt-1 text-sm">• {a}</p>)}
+          </div>
+        </div>
+      )}
+      {seg && (
+        <div className="max-w-7xl mx-auto px-6 mt-3">
+          <details className="rounded-xl border border-slate-700 bg-slate-800 p-3 text-sm text-slate-300">
+            <summary className="cursor-pointer">🔐 Administradores del sistema ({seg.admins.length}) — revisa que todos sean tuyos</summary>
+            {seg.admins.map((a) => <p key={a.email} className="mt-1">{a.email} · {a.nombre}{a.activo ? '' : ' · desactivado'} · creado el {new Date(a.createdAt).toLocaleDateString('es-EC')}</p>)}
+            <p className="mt-2 text-xs text-slate-400">Si ves uno que no conoces, desactívalo en «Usuarios y roles».</p>
+          </details>
+        </div>
+      )}
 
       {/* Main */}
       <main className="max-w-7xl mx-auto px-6 py-12">

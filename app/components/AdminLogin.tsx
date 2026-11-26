@@ -29,8 +29,8 @@ export default function AdminLogin() {
         return
       }
 
-      // Guardar token en localStorage para acceso desde cliente
-      localStorage.setItem('auth-token', data.token)
+      // La sesión va solo en la cookie protegida (httpOnly); no se guarda el token en el navegador
+      try { localStorage.removeItem('auth-token') } catch { /* */ }
       localStorage.setItem('user', JSON.stringify(data.usuario))
 
       // Redirigir al panel
