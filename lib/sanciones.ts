@@ -16,6 +16,8 @@ export interface FilaSancion {
   acum: number // amarillas sueltas acumuladas
   motivo: string
   estado: 'SUSPENDIDO' | 'Cumplida' | 'Acumula' | '—'
+  /** Alineación indebida: jugó (o aparece en la planilla) en un partido en que debía cumplir sanción. Ese partido NO cuenta como cumplido. */
+  indebidas: { partidoId: string; jornada: number }[]
 }
 
 export function calcularSanciones(partidos: PartidoSan[], cfg: CfgSan): FilaSancion[] {
@@ -61,25 +63,33 @@ export function calcularSanciones(partidos: PartidoSan[], cfg: CfgSan): FilaSanc
     const tf = fechasDe.get(r.teamId) || []
     let idx = 0, total = 0, cumplidos = 0, fuera = 0, anulados = 0
     const pendientes: number[] = []
+    const indebidas: { partidoId: string; jornada: number }[] = []
+    // ¿El jugador aparece en ese partido (alineación, cambio, gol, tarjeta…)? Entonces no cumplió ahí.
+    const aparece = (p: PartidoSan) => p.eventos.some((e) => e.playerId === r.playerId && !e.aparte)
     for (const ev of events) {
-      let start = tf.findIndex((p) => p.jornadaNum > ev.jornada)
-      if (start < 0) start = tf.length
-      start = Math.max(start, idx)
+      let j = tf.findIndex((p) => p.jornadaNum > ev.jornada)
+      if (j < 0) j = tf.length
+      j = Math.max(j, idx)
       let usados = 0
-      for (let k = 0; k < ev.n; k++) {
-        const p = tf[start + k]
+      while (usados < ev.n) {
+        const p = tf[j]
         // Suspensión por amarillas que llega a la fase siguiente sin cumplirse: se anula (no se cumple allá)
-        if (ev.am && (p ? p.ciclo !== ev.ciclo : cicloActual !== ev.ciclo)) { anulados += ev.n - k; motivos.add('amarillas de la fase anterior anuladas'); break }
+        if (ev.am && (p ? p.ciclo !== ev.ciclo : cicloActual !== ev.ciclo)) { anulados += ev.n - usados; motivos.add('amarillas de la fase anterior anuladas'); break }
+        if (p && p.estado === 'finalizado' && aparece(p)) {
+          if (!indebidas.some((x) => x.partidoId === p.id)) indebidas.push({ partidoId: p.id, jornada: p.jornadaNum })
+          j++; continue
+        }
         total++; usados++
         if (!p) fuera++
         else if (p.estado === 'finalizado') cumplidos++
         else pendientes.push(p.jornadaNum)
+        j++
       }
-      idx = start + usados
+      idx = j
     }
     const acum = hay && cicloAm !== cicloActual ? 0 : sueltas % cfg.amarillasSuspension
     const estado: FilaSancion['estado'] = pendientes.length || fuera ? 'SUSPENDIDO' : total ? 'Cumplida' : acum ? 'Acumula' : '—'
-    return { playerId: r.playerId, teamId: r.teamId, y: r.y, r: r.r, dobles: r.dobles, total, cumplidos, pendientes, fuera, anulados, acum, motivo: Array.from(motivos).join(' + ') || '—', estado }
+    return { playerId: r.playerId, teamId: r.teamId, y: r.y, r: r.r, dobles: r.dobles, total, cumplidos, pendientes, fuera, anulados, acum, motivo: Array.from(motivos).join(' + ') || '—', estado, indebidas }
   })
 }
 

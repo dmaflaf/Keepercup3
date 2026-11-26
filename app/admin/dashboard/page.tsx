@@ -114,6 +114,7 @@ export default function AdminDashboard() {
             { icono: '🏟️', titulo: 'Clubes', texto: 'Listado de clubes registrados y avance de cada nómina', ruta: '/admin/clubes', solo: 'admin' },
             { icono: '➕', titulo: 'Agregar jugador', texto: 'Inscribir un jugador nuevo en un club (cualquier fase)', ruta: '/admin/jugadores/nuevo', solo: 'admin' },
             { icono: '⚽', titulo: 'Auditoría de goleadores', texto: 'Partidos con goles sin jugador asignado y cargarlos con un toque', ruta: '/admin/auditoria-goles', solo: 'admin' },
+            { icono: '🚫', titulo: 'Alineaciones indebidas', texto: 'Sancionados que aparecen en un partido que debían cumplir', ruta: '/admin/alineaciones-indebidas', solo: 'admin' },
             { icono: '🔒', titulo: 'Inscripciones', texto: 'Cerrar formularios, autorizar a un club y aprobar lo que llegue', ruta: '/admin/inscripciones', solo: 'admin' },
             { icono: '🔁', titulo: 'Traspasos', texto: 'Cambiar a un jugador de club (un solo pase, solo en Fase 1)', ruta: '/admin/traspasos', solo: 'admin' },
             { icono: '🧹', titulo: 'Depuración', texto: 'Qué falta o está mal: cédulas, fotos, duplicados, grupos y fixture', ruta: '/admin/depuracion', solo: 'admin' },
