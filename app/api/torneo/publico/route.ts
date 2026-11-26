@@ -4,6 +4,7 @@ import { cargarTorneo } from '@/lib/torneo-data'
 import { estadisticasPorteros } from '@/lib/ficha'
 import { goleadores } from '@/lib/torneo'
 import { calcularSanciones } from '@/lib/sanciones'
+import { construirLlaves } from '@/lib/llaves'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest) {
         goleadores: global.filter((g) => copaClub.get(g.teamId) === c).sort((a, b) => b.goles - a.goles || (porSec.get(b.playerId)?.get(c) || 0) - (porSec.get(a.playerId)?.get(c) || 0) || a.jugador.localeCompare(b.jugador)),
       })),
     ].filter((x) => x.goleadores.length)
+    const llaves = construirLlaves(d.fases, partidos, d.nombreEquipo)
     const estadisticas = { porteros: porteros.slice(0, 10), minPorteros, minClub, masPartidos, ataque, defensa }
     return NextResponse.json(
       {
@@ -108,6 +110,7 @@ export async function GET(req: NextRequest) {
         partidos: partidos.map(({ observaciones, veedor, _i, ...p }) => { void observaciones; void veedor; void _i; return p }),
         fairplay,
         goleadoresPor,
+        llaves,
         ...resto,
         sanciones: sancionesOut,
       },

@@ -9,9 +9,9 @@ interface Partido { id: string; localId: string; visitanteId: string; jornadaJue
 interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number; detalle?: { nombre: string; goles: number }[] }
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean; vuelta?: { noJuega: string[]; vuelve: { jornada: string; fecha: string | null; rival: string } | null; siguienteEtapa: boolean; cumplio: boolean } | null }
 interface SecGol { id: string; nombre: string; goleadores: Gol[] }
-interface Datos { ok: boolean; goleadoresPor?: SecGol[]; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; minPorteros?: number; minClub?: number; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
+interface Datos { ok: boolean; llaves?: LlaveCopa[]; goleadoresPor?: SecGol[]; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; minPorteros?: number; minClub?: number; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
 
-const TABS = ['Resultados', 'Fixture', 'Tablas', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
+const TABS = ['Resultados', 'Fixture', 'Tablas', 'Llaves', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
 
 export default function TorneoPublico() {
   const [d, setD] = useState<Datos | null>(null)
@@ -78,7 +78,7 @@ export default function TorneoPublico() {
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, margin: '14px 0 6px', flexWrap: 'wrap' }}>
-              {TABS.map((t) => (
+              {TABS.filter((t) => t !== 'Llaves' || (d.llaves || []).length > 0).map((t) => (
                 <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid ' + (tab === t ? '#D9A93A' : '#2a3b55'), background: tab === t ? '#D9A93A' : '#0F223D', color: tab === t ? '#211603' : '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>{t}</button>
               ))}
             </div>
@@ -201,6 +201,8 @@ export default function TorneoPublico() {
               </>)
             })()}
 
+            {tab === 'Llaves' && <Llaves llaves={d.llaves || []} />}
+
             {tab === 'Estadísticas' && d.estadisticas && (
               <>
                 <div style={card}>
@@ -301,6 +303,97 @@ const copaDe = (t: string) => (/\boro\b/i.test(t) ? 'Copa Oro' : /\bplata\b/i.te
 const tieneCopas = (f: Fase) => f.grupos.some((g) => copaDe(g.nombre))
 
 /** Foto del goleador (miniatura pública); si no tiene foto, sus iniciales. */
+// ── Llaves de la Fase Final (Art. 41): cuartos a los lados, semis, final al centro y tercer puesto ──
+interface EqLlave { teamId: string; nombre: string; provisional: boolean }
+interface Cruce { id: string; local: EqLlave | null; visitante: EqLlave | null; origenLocal: string; origenVisitante: string; gl: number | null; gv: number | null; pl: number | null; pv: number | null; ganador: 'local' | 'visitante' | null; partidoId: string | null; fecha: string | null; hora: string | null; escenario: string | null; estado: string | null }
+interface LlaveCopa { copa: string; cruces: Cruce[]; campeon: EqLlave | null; gruposTerminados: number }
+
+function Llaves({ llaves }: { llaves: LlaveCopa[] }) {
+  const [copa, setCopa] = useState(llaves[0]?.copa || '')
+  // En el celular las llaves van por rondas (de arriba a abajo); en pantallas anchas, el esquema completo
+  const [angosto, setAngosto] = useState(false)
+  useEffect(() => { const f = () => setAngosto(window.innerWidth < 760); f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
+  const l = llaves.find((x) => x.copa === copa) || llaves[0]
+  if (!l) return <div style={card}>Las llaves aparecen cuando se arma la Fase 2.</div>
+  const c = (id: string) => l.cruces.find((x) => x.id === id) as Cruce
+  const oro = l.copa === 'Copa Oro', acento = oro ? '#D9A93A' : '#C9D3DD'
+  // Medidas del dibujo (se desplaza horizontalmente en el celular)
+  const W = 146, H = 62, X = [0, 172, 344, 516, 688], Y = { a: 34, b: 206, s: 120, t: 254 }, ANCHO = X[4] + W, ALTO = 340
+  const caja = (cr: Cruce, x: number | null, y = 0, ancho: number | string = W) => (
+    <div key={cr.id} style={x == null ? { width: ancho } : { position: 'absolute', left: x, top: y, width: ancho }}>
+      <div style={{ fontSize: 10.5, color: '#93A4B8', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <b style={{ color: acento }}>{cr.id === 'F' ? 'FINAL' : cr.id === 'T' ? '3.er PUESTO' : cr.id}</b>
+        {cr.fecha ? ` · ${new Date(cr.fecha + 'T12:00:00').toLocaleDateString('es-EC', { weekday: 'short', day: 'numeric', month: 'short' })}${cr.hora ? ' ' + cr.hora : ''}` : ''}
+      </div>
+      <div style={{ background: '#0B1A30', border: `1px solid ${cr.id === 'F' ? acento : '#2a3b55'}`, borderRadius: 10, overflow: 'hidden', boxShadow: cr.id === 'F' ? `0 0 0 2px ${acento}33` : undefined }}>
+        {([['local', cr.local, cr.origenLocal, cr.gl, cr.pl], ['visitante', cr.visitante, cr.origenVisitante, cr.gv, cr.pv]] as const).map(([lado, eq, origen, g, pen], i) => {
+          const gano = cr.ganador === lado, perdio = cr.ganador && !gano
+          return (
+            <div key={lado} style={{ display: 'flex', alignItems: 'center', gap: 7, height: H / 2, padding: '0 8px', borderTop: i ? '1px solid #1f3150' : undefined, background: gano ? `${acento}1f` : undefined, opacity: perdio ? 0.45 : 1 }}>
+              {eq ? <Escudo id={eq.teamId} nombre={eq.nombre} /> : <span style={{ width: 20, height: 20, borderRadius: 10, border: '1px dashed #3a4d69', flexShrink: 0 }} />}
+              <span style={{ flex: 1, fontSize: 13, fontWeight: gano ? 900 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: eq ? (eq.provisional ? '#A9B7C6' : '#F3F6F8') : '#6F8198', fontStyle: eq?.provisional ? 'italic' : undefined }} title={eq ? eq.nombre : origen}>
+                {eq ? eq.nombre : origen}
+              </span>
+              {g != null && <b style={{ fontSize: 14, color: gano ? acento : '#F3F6F8' }}>{g}{pen != null ? <span style={{ fontSize: 10, color: '#93A4B8' }}> ({pen})</span> : null}</b>}
+            </div>)
+        })}
+      </div>
+      {cr.partidoId && <a href={`/torneo/partido/${cr.partidoId}`} style={{ fontSize: 10.5, color: '#93A4B8' }}>{cr.estado === 'finalizado' ? 'ver partido ›' : cr.escenario || 'ver partido ›'}</a>}
+    </div>)
+  // Líneas: de cada par de cuartos a su semi, de cada semi a la final
+  const mid = (y: number) => y + 15 + H / 2
+  const linea = (x1: number, y1: number, y2: number, x2: number, ym: number) => `M${x1},${mid(y1)} H${(x1 + x2) / 2} V${mid(ym)} M${x1},${mid(y2)} H${(x1 + x2) / 2} V${mid(ym)} H${x2}`
+  const provisional = l.cruces.some((x) => x.local?.provisional || x.visitante?.provisional)
+  const ronda = (t: string, ids: string[]) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.5, color: '#93A4B8', margin: '4px 0 6px' }}>{t}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: ids.length > 1 ? '1fr 1fr' : '1fr', gap: 10 }}>{ids.map((id) => caja(c(id), null, 0, '100%'))}</div>
+    </div>)
+  return (
+    <div style={card}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+        {llaves.map((x) => <button key={x.copa} onClick={() => setCopa(x.copa)} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid ' + (x.copa === l.copa ? '#D9A93A' : '#2a3b55'), background: x.copa === l.copa ? '#D9A93A' : '#0F223D', color: x.copa === l.copa ? '#211603' : '#F3F6F8', fontWeight: 800, cursor: 'pointer' }}>{x.copa === 'Copa Oro' ? '🥇' : '🥈'} {x.copa}</button>)}
+      </div>
+      <h3 style={h3}>🏆 Fase Final · {l.copa}</h3>
+      <p style={{ color: '#93A4B8', fontSize: 13, marginTop: 0 }}>
+        {provisional ? <>Clasificados <i>provisionales</i> (en cursiva) según la tabla actual de la Fase 2: cambian hasta que termine cada grupo ({l.gruposTerminados} de 4 grupos terminados). </> : 'Clasificados definidos. '}
+        Cruces según el Art. 41: 1.º de un grupo contra el 2.º del grupo cruzado (1–3 y 2–4).
+      </p>
+      {l.campeon && <div style={{ textAlign: 'center', margin: '6px 0 12px', fontSize: 18, fontWeight: 900, color: acento }}>🏆 Campeón {l.copa}: {l.campeon.nombre}</div>}
+      {angosto ? <>
+        {ronda('CUARTOS DE FINAL', ['C1', 'C2', 'C3', 'C4'])}
+        {ronda('SEMIFINALES', ['S1', 'S2'])}
+        {ronda('FINAL', ['F'])}
+        {ronda('TERCER PUESTO', ['T'])}
+      </> : <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 6 }}>
+        <div style={{ position: 'relative', width: ANCHO, height: ALTO, margin: '0 auto' }}>
+          {([['CUARTOS', X[0]], ['SEMIFINAL', X[1]], ['FINAL', X[2]], ['SEMIFINAL', X[3]], ['CUARTOS', X[4]]] as const).map(([t, x], i) => <div key={i} style={{ position: 'absolute', left: x, top: 0, width: W, textAlign: 'center', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, color: '#93A4B8' }}>{t}</div>)}
+          <svg width={ANCHO} height={ALTO} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} fill="none" stroke="#3a4d69" strokeWidth={2}>
+            <path d={linea(X[0] + W, Y.a, Y.b, X[1], Y.s)} />
+            <path d={`M${X[1] + W},${mid(Y.s)} H${X[2]}`} />
+            <path d={`M${X[4]},${mid(Y.a)} H${(X[3] + W + X[4]) / 2} V${mid(Y.s)} M${X[4]},${mid(Y.b)} H${(X[3] + W + X[4]) / 2} V${mid(Y.s)} H${X[3] + W}`} />
+            <path d={`M${X[3]},${mid(Y.s)} H${X[2] + W}`} />
+          </svg>
+          {caja(c('C1'), X[0], Y.a)}{caja(c('C2'), X[0], Y.b)}
+          {caja(c('S1'), X[1], Y.s)}
+          {caja(c('F'), X[2], Y.s)}
+          {caja(c('T'), X[2], Y.t)}
+          {caja(c('S2'), X[3], Y.s)}
+          {caja(c('C3'), X[4], Y.a)}{caja(c('C4'), X[4], Y.b)}
+        </div>
+      </div>}
+      <p style={{ color: '#6F8198', fontSize: 11.5, margin: '6px 0 0' }}>C = cuartos · S = semifinal · Ganador C1 = el que gane ese cruce. La final empatada se define con tiempo extra y penales (Art. 41).</p>
+    </div>)
+}
+
+function Escudo({ id, nombre }: { id: string; nombre: string }) {
+  const [mal, setMal] = useState(false)
+  const ini = nombre.split(' ').filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase()
+  if (mal) return <span style={{ width: 20, height: 20, borderRadius: 10, background: '#1f3150', color: '#C9D3DD', fontSize: 8.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{ini}</span>
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={`/api/torneo/escudo/${id}`} alt="" width={20} height={20} loading="lazy" onError={() => setMal(true)} style={{ width: 20, height: 20, objectFit: 'contain', flexShrink: 0 }} />
+}
+
 function Foto({ id, nombre, tam, oro }: { id: string; nombre: string; tam: number; oro?: boolean }) {
   const [error, setError] = useState(false)
   const ini = nombre.split(' ').filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase()
