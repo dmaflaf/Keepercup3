@@ -1,3 +1,4 @@
+import { bloqueoSuspension } from '@/lib/suspension'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyAuth } from '@/lib/auth'
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
   const j = await prisma.player.findUnique({ where: { id: String(b.playerId) }, select: { teamId: true } })
   // Autogol: lo hace un jugador del rival y cuenta para este club
   if (!j || j.teamId !== (tipo === 'autogol' ? rival : teamId)) return falla(tipo === 'autogol' ? 'El autogol lo marca un jugador del rival.' : 'Ese jugador no es de ese club.')
+  { const no = await bloqueoSuspension(p.torneoId, p.id, String(b.playerId)); if (no) return falla(no) }
   const ev = await prisma.evento.findMany({ where: { partidoId: p.id, tipo: { in: ['gol', 'gol_penal', 'autogol'] } } })
   const ya = ev.filter((e) => (GOL.includes(e.tipo) && e.teamId === teamId) || (e.tipo === 'autogol' && e.teamId === rival)).filter((e) => e.playerId).length
   const marcador = teamId === p.localId ? p.golesLocal : p.golesVisitante

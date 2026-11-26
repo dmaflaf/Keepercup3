@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { cargarTorneo } from '@/lib/torneo-data'
-import { marcadorDesdeEventos, sanciones } from '@/lib/torneo'
+import { marcadorDesdeEventos } from '@/lib/torneo'
+import { bloqueoSuspension, suspendidosEn } from '@/lib/suspension'
 import { enCancha, jugaron, cambiosHechos, Op, Periodo, SnapshotP, TIPOS_JUEGO, transicion } from '@/lib/planilla'
 
 export interface ResultadoOp { id: string; ok: boolean; message?: string }
@@ -16,8 +17,7 @@ export async function cargarSnapshot(partidoId: string): Promise<SnapshotP | nul
     cargarTorneo(p.torneoId),
   ])
   const nombre = new Map(equipos.map((t) => [t.id, t.name]))
-  const previos = (d?.calc || []).filter((c) => c.id !== p.id)
-  const susp = new Map(d ? sanciones(previos, d.cfg).filter((s) => s.suspendidoProximo > 0).map((s) => [s.playerId, s.suspendidoProximo]) : [])
+  const susp = d ? suspendidosEn(d, p.id) : new Map<string, number>()
   return {
     partido: {
       id: p.id, jornada: p.jornada, fecha: p.fecha, hora: p.hora, escenario: p.escenario,
@@ -69,13 +69,8 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
   if (p.estado === 'suspendido' && op.t === 'reloj') return 'El partido está SUSPENDIDO: usa «Reanudar partido», «Fallo de mesa» o «Jugar de nuevo».'
   const equipoValido = (id: string) => id === p.localId || id === p.visitanteId
 
-  const suspendido = async (playerId: string) => {
-    if (esAdmin) return false
-    const d = await cargarTorneo(p.torneoId)
-    const previos = (d?.calc || []).filter((c) => c.id !== p.id)
-    const s = d ? sanciones(previos, d.cfg).find((x) => x.playerId === playerId) : null
-    return !!s && s.suspendidoProximo > 0
-  }
+  // Un jugador suspendido no puede ser alineado ni registrar eventos: rige para TODOS (vocal y administrador)
+  const suspendido = (playerId: string) => bloqueoSuspension(p.torneoId, p.id, playerId)
 
   switch (op.t) {
     case 'titular': {
@@ -85,7 +80,7 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
       const cid = `T:${p.id}:${op.playerId}`
       if (!op.on) { await prisma.evento.deleteMany({ where: { partidoId, playerId: op.playerId, tipo: 'titular' } }); return }
       if (await prisma.evento.findFirst({ where: { clienteId: cid } })) return
-      if (await suspendido(op.playerId)) return 'Ese jugador está SUSPENDIDO'
+      { const no = await suspendido(op.playerId); if (no) return no }
       const n = await prisma.evento.count({ where: { partidoId, teamId: op.teamId, tipo: 'titular' } })
       if (p.periodo === 'previo' && n >= (torneo?.titulares ?? 11)) return `Ya hay ${torneo?.titulares ?? 11} titulares`
       await prisma.evento.create({ data: { partidoId, teamId: op.teamId, playerId: op.playerId, tipo: 'titular', minuto: 0, periodo: 0, clienteId: cid } })
@@ -121,6 +116,7 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
       if (op.playerId) {
         const j = await prisma.player.findUnique({ where: { id: op.playerId }, select: { teamId: true } })
         if (!j || j.teamId !== op.teamId) return 'Ese jugador no es de ese equipo'
+        const no = await suspendido(op.playerId); if (no) return no
       }
       const minuto = Math.round(op.minuto)
       if (!Number.isFinite(minuto) || minuto < 0 || minuto > 200) return 'Minuto inválido'
@@ -138,7 +134,7 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
       if (jugaron(evp, op.teamId).has(op.entra)) return 'Ese jugador ya participó en el partido'
       const j = await prisma.player.findUnique({ where: { id: op.entra }, select: { teamId: true } })
       if (!j || j.teamId !== op.teamId) return 'Ese jugador no es de ese equipo'
-      if (await suspendido(op.entra)) return 'Ese jugador está SUSPENDIDO'
+      { const no = await suspendido(op.entra); if (no) return no }
       const minuto = Math.round(op.minuto)
       await prisma.evento.createMany({ data: [
         { partidoId, teamId: op.teamId, playerId: op.sale, tipo: 'sale', minuto, periodo: op.periodo, clienteId: `${op.id}-s` },

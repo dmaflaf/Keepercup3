@@ -1,9 +1,10 @@
+import { bloqueoSuspension, suspendidosEn } from '@/lib/suspension'
 import { NextRequest, NextResponse } from 'next/server'
 import { primeraFecha } from '@/lib/fases-prog'
 import { prisma } from '@/lib/db'
 import { verifyAuth } from '@/lib/auth'
 import { cargarTorneo, criteriosDe } from '@/lib/torneo-data'
-import { marcadorDesdeEventos, roundRobin, sanciones } from '@/lib/torneo'
+import { marcadorDesdeEventos, roundRobin } from '@/lib/torneo'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -29,8 +30,7 @@ export async function GET(req: NextRequest) {
     const p = d.partidos.find((x) => x.id === partidoId)
     if (p) {
       const jug = await prisma.player.findMany({ where: { teamId: { in: [p.localId, p.visitanteId] } }, orderBy: [{ number: 'asc' }, { lastName: 'asc' }], select: { id: true, firstName: true, lastName: true, number: true, teamId: true, estado: true } })
-      const previos = d.calc.filter((c) => c.id !== p.id)
-      const susp = new Map(sanciones(previos, d.cfg).filter((s) => s.suspendidoProximo > 0).map((s) => [s.playerId, s.suspendidoProximo]))
+      const susp = suspendidosEn(d, p.id)
       planilla = { partido: p, jugadores: jug.map((j) => ({ id: j.id, nombre: `${j.firstName} ${j.lastName}`, numero: j.number, teamId: j.teamId, suspendido: susp.get(j.id) || 0 })) }
     }
   }
@@ -276,14 +276,8 @@ export async function POST(req: NextRequest) {
       if (!b.playerId) return falla('Elige el jugador')
       const jug = await prisma.player.findUnique({ where: { id: String(b.playerId) }, select: { teamId: true } })
       if (!jug || jug.teamId !== teamId) return falla('Ese jugador no es de ese equipo')
-      if (!b.forzar || !esAdmin) {
-        const d = await cargarTorneo(p.torneoId)
-        const previos = (d?.calc || []).filter((c) => c.id !== p.id)
-        const s = d ? sanciones(previos, d.cfg).find((x) => x.playerId === String(b.playerId)) : null
-        if (s && s.suspendidoProximo > 0 && !['autogol'].includes(b.tipo)) {
-          return NextResponse.json({ ok: false, message: `Este jugador está SUSPENDIDO (${s.suspendidoProximo} partido(s) pendientes).`, suspendido: true }, { status: 409 })
-        }
-      }
+      // Suspendido: no se le puede registrar nada en este partido (rige también para el administrador)
+      { const no = await bloqueoSuspension(p.torneoId, p.id, String(b.playerId)); if (no) return NextResponse.json({ ok: false, message: no, suspendido: true }, { status: 409 }) }
       await prisma.evento.create({ data: { partidoId: p.id, teamId, playerId: String(b.playerId), tipo: b.tipo, minuto } })
       if (!p.marcadorManual && ['gol', 'gol_penal', 'autogol'].includes(b.tipo)) await recalcular(p.id)
       return NextResponse.json({ ok: true })

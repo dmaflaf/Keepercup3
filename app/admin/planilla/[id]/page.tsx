@@ -115,8 +115,7 @@ export default function Planilla() {
   const marcarTitular = (teamId: string, playerId: string, on: boolean) => {
     const j = jug.get(playerId)
     if (on && j && j.suspendido > 0) {
-      if (!esAdmin) { setMsg(`${j.nombre} está SUSPENDIDO y no puede jugar.`); return }
-      if (!confirm(`${j.nombre} está SUSPENDIDO. ¿Habilitarlo de todas formas?`)) return
+      setMsg(`${j.nombre} está SUSPENDIDO y no puede jugar en este partido.`); return
     }
     if (on && p.periodo === 'previo' && snap.eventos.filter((e) => e.teamId === teamId && e.tipo === 'titular').length >= p.titulares) { setMsg(`Ya hay ${p.titulares} titulares.`); return }
     op({ t: 'titular', teamId, playerId, on })

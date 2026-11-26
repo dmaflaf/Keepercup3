@@ -33,7 +33,7 @@ export default function PlanillaPartido() {
     await cargar()
     return r
   }
-  const evento = (teamId: string, playerId: string, tipo: string, forzar = false) => act('evento_agregar', { partidoId: id, teamId, playerId, tipo, minuto: minuto === '' ? null : Number(minuto), forzar })
+  const evento = (teamId: string, playerId: string, tipo: string) => act('evento_agregar', { partidoId: id, teamId, playerId, tipo, minuto: minuto === '' ? null : Number(minuto) })
 
   if (!p) return <div className="min-h-screen bg-slate-900 text-white p-8">{msg || 'Cargando...'} <Link className="underline" href="/admin/torneo">Volver</Link></div>
   const esAdmin = rol === 'admin'
@@ -47,10 +47,7 @@ export default function PlanillaPartido() {
           <div className="flex justify-between text-sm"><span><b>{j.numero ?? '–'}</b> {j.nombre}</span>{j.suspendido > 0 && <span className="text-red-300">SUSPENDIDO</span>}</div>
           <div className="flex flex-wrap gap-1 mt-1">
             {(['gol', 'gol_penal', 'autogol', 'amarilla', 'doble_amarilla', 'roja'] as const).map((t) => (
-              <button key={t} className={btn} disabled={!!j.suspendido && !esAdmin} title={TIPO[t]} onClick={async () => {
-                const r = await evento(teamId, j.id, t)
-                if (r.suspendido && esAdmin && confirm('Este jugador está suspendido. ¿Registrar de todas formas?')) await evento(teamId, j.id, t, true)
-              }}>{TIPO[t].split(' ')[0]}{t === 'gol_penal' ? 'P' : t === 'autogol' ? 'AG' : ''}</button>
+              <button key={t} className={btn} disabled={!!j.suspendido} title={j.suspendido ? 'Suspendido: no puede jugar este partido' : TIPO[t]} onClick={() => evento(teamId, j.id, t)}>{TIPO[t].split(' ')[0]}{t === 'gol_penal' ? 'P' : t === 'autogol' ? 'AG' : ''}</button>
             ))}
           </div>
         </div>
