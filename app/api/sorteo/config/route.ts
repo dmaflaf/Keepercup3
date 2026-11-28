@@ -8,7 +8,8 @@ export async function GET() {
   try {
     const c = await leerConfig()
     const eq = await prisma.team.findMany({ select: { name: true }, orderBy: { name: 'asc' } })
-    const { desde, hasta, rangoMax, ...publica } = c
+    const { desde, hasta, rangoMax, rangos, ...publica } = c
+    void rangos
     return NextResponse.json({ ok: true, ...publica, equipos: eq.map((e) => e.name) })
   } catch {
     return NextResponse.json({ ok: false, message: 'No disponible' }, { status: 503 })

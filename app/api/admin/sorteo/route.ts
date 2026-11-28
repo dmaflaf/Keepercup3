@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { exigirAdmin, leerConfig } from '@/lib/sorteo'
+import { COLORES, exigirAdmin, leerConfig } from '@/lib/sorteo'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,9 +18,19 @@ export async function GET() {
     prisma.sorteoBoleto.groupBy({ by: ['club'], _count: true, orderBy: { _count: { club: 'desc' } } }),
     prisma.sorteoBloqueo.findMany({ where: { tipo: 'telefono' }, orderBy: { createdAt: 'desc' } }),
   ])
+  // Por color: cuántos boletos del rango activo ya se registraron y cuántos premios instantáneos quedan por salir
+  const colores = await Promise.all(COLORES.map(async (c) => {
+    const r = config.rangos[c]
+    const [enRango, pendientes] = await Promise.all([
+      prisma.sorteoBoleto.count({ where: { color: c, numero: { gte: r.desde, lte: r.hasta } } }),
+      prisma.sorteoNumero.count({ where: { color: c, estado: 'pendiente' } }),
+    ])
+    return { color: c, activo: config.coloresActivos.includes(c), desde: r.desde, hasta: r.hasta, enRango, total: r.hasta - r.desde + 1, premiosPendientes: pendientes }
+  }))
   return NextResponse.json({
     ok: true,
     config,
+    colores,
     boletos: Object.fromEntries(porColor.map((c) => [c.color, c._count])),
     ganadores,
     bloqueos: bloqueos.map((x) => ({ id: x.id, telefono: x.valor, motivo: x.motivo })),

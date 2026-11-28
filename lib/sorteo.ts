@@ -8,13 +8,15 @@ export interface SorteoCfg {
   coloresActivos: Color[]
   rangoMax: number
   maxPorSemana: number
-  desde: number // boletos que participan esta semana (inclusive)
+  desde: number // (anterior: un solo rango para todos los colores; se usa si un color no tiene el suyo)
   hasta: number
+  /** Rango que participa ahora, POR COLOR (ej. negro 5201–6000 y rojo 1–800 el mismo fin de semana). */
+  rangos: Record<Color, { desde: number; hasta: number }>
   instagram: string
   tiktok: string
 }
 
-const DEFAULTS: SorteoCfg = { coloresActivos: ['negro'], rangoMax: 6000, maxPorSemana: 4, desde: 1, hasta: 6000, instagram: '', tiktok: '' }
+const DEFAULTS = { coloresActivos: ['negro'] as Color[], rangoMax: 6000, maxPorSemana: 4 }
 
 export async function leerConfig(): Promise<SorteoCfg> {
   const filas = await prisma.sorteoConfig.findMany()
@@ -24,10 +26,16 @@ export async function leerConfig(): Promise<SorteoCfg> {
   const rangoMax = Number(m.rangoMax) > 0 ? Number(m.rangoMax) : DEFAULTS.rangoMax
   const desde = Number(m.desde) >= 1 ? Number(m.desde) : 1
   const hasta = Number(m.hasta) >= desde ? Math.min(Number(m.hasta), rangoMax) : rangoMax
+  // Rango de cada color; si un color no tiene el suyo, usa el rango general anterior
+  const rangos = Object.fromEntries(COLORES.map((c) => {
+    const d = Number(m[`desde:${c}`]), h = Number(m[`hasta:${c}`])
+    return [c, d >= 1 && h >= d ? { desde: d, hasta: Math.min(h, rangoMax) } : { desde, hasta }]
+  })) as Record<Color, { desde: number; hasta: number }>
   return {
     coloresActivos: colores.length ? colores : DEFAULTS.coloresActivos,
     desde,
     hasta,
+    rangos,
     rangoMax,
     maxPorSemana: Number(m.maxPorSemana) > 0 ? Number(m.maxPorSemana) : DEFAULTS.maxPorSemana,
     instagram: m.instagram || '',
@@ -35,10 +43,11 @@ export async function leerConfig(): Promise<SorteoCfg> {
   }
 }
 
-export async function guardarConfig(cfg: Partial<SorteoCfg>) {
+export async function guardarConfig(cfg: Partial<Omit<SorteoCfg, 'rangos'>> & { rangos?: Partial<SorteoCfg['rangos']> }) {
   const pares: [string, string][] = []
   if (cfg.coloresActivos) pares.push(['coloresActivos', cfg.coloresActivos.join(',')])
   if (cfg.rangoMax) pares.push(['rangoMax', String(cfg.rangoMax)])
+  if (cfg.rangos) for (const [c, r] of Object.entries(cfg.rangos)) { pares.push([`desde:${c}`, String(r.desde)], [`hasta:${c}`, String(r.hasta)]) }
   if (cfg.desde) pares.push(['desde', String(cfg.desde)])
   if (cfg.hasta) pares.push(['hasta', String(cfg.hasta)])
   if (cfg.maxPorSemana) pares.push(['maxPorSemana', String(cfg.maxPorSemana)])

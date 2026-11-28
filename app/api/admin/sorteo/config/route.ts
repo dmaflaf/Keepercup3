@@ -18,7 +18,16 @@ export async function POST(req: NextRequest) {
     if (!Number.isInteger(n) || n < 1 || n > 100000) return NextResponse.json({ ok: false, message: 'Rango inválido' }, { status: 400 })
     cambios.rangoMax = n
   }
-  if (b.desde !== undefined || b.hasta !== undefined) {
+  // Rango de UN color: { color, desde, hasta }
+  if (b.color !== undefined) {
+    if (!esColor(b.color)) return NextResponse.json({ ok: false, message: 'Color inválido' }, { status: 400 })
+    const actual = await leerConfig()
+    const d = Number(b.desde), h = Number(b.hasta)
+    if (!Number.isInteger(d) || !Number.isInteger(h) || d < 1 || h < d || h > actual.rangoMax) {
+      return NextResponse.json({ ok: false, message: `Rango inválido para ${b.color}: de 1 a ${actual.rangoMax} y «hasta» no puede ser menor que «desde».` }, { status: 400 })
+    }
+    cambios.rangos = { [b.color]: { desde: d, hasta: h } }
+  } else if (b.desde !== undefined || b.hasta !== undefined) {
     const actual = await leerConfig()
     const d = Number(b.desde ?? actual.desde)
     const h = Number(b.hasta ?? actual.hasta)

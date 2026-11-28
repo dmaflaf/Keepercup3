@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomInt } from 'crypto'
 import { prisma } from '@/lib/db'
-import { esColor, exigirAdmin, generarCodigo, leerConfig } from '@/lib/sorteo'
+import { Color, esColor, exigirAdmin, generarCodigo, leerConfig } from '@/lib/sorteo'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,8 +13,9 @@ export async function POST(req: NextRequest) {
   const premio = await prisma.sorteoPremio.findUnique({ where: { id: String(b.premioId || '') } })
   if (!premio) return NextResponse.json({ ok: false, message: 'Premio no encontrado' }, { status: 404 })
   if (!esColor(b.color)) return NextResponse.json({ ok: false, message: 'Elige el color del boleto' }, { status: 400 })
-  const color = b.color
+  const color = b.color as Color
   const cfg = await leerConfig()
+  const rango = cfg.rangos[color] // cada color tiene su propio rango activo
 
   let lista: number[] = []
   if (b.azar) {
@@ -24,11 +25,11 @@ export async function POST(req: NextRequest) {
       ...(await prisma.sorteoNumero.findMany({ where: { color }, select: { numero: true } })).map((n) => n.numero),
       ...(await prisma.sorteoBoleto.findMany({ where: { color }, select: { numero: true } })).map((n) => n.numero),
     ])
-    const libres = cfg.hasta - cfg.desde + 1 - Array.from(ocupados).filter((n) => n >= cfg.desde && n <= cfg.hasta).length
-    if (libres < cant) return NextResponse.json({ ok: false, message: 'No quedan suficientes números libres en el rango de esta semana' }, { status: 400 })
+    const libres = rango.hasta - rango.desde + 1 - Array.from(ocupados).filter((n) => n >= rango.desde && n <= rango.hasta).length
+    if (libres < cant) return NextResponse.json({ ok: false, message: `No quedan suficientes números libres en el rango activo del ${color} (${rango.desde} al ${rango.hasta})` }, { status: 400 })
     const elegidos = new Set<number>()
     while (elegidos.size < cant) {
-      const n = randomInt(cfg.desde, cfg.hasta + 1)
+      const n = randomInt(rango.desde, rango.hasta + 1)
       if (!ocupados.has(n)) elegidos.add(n)
     }
     lista = Array.from(elegidos)
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       repetidos.push(numero)
     }
   }
-  const fueraDeSemana = lista.filter((n) => n < cfg.desde || n > cfg.hasta)
+  const fueraDeSemana = lista.filter((n) => n < rango.desde || n > rango.hasta)
   return NextResponse.json({ ok: true, creados, repetidos, yaRegistrados, fueraDeSemana })
 }
 

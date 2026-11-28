@@ -5,7 +5,9 @@ import Link from 'next/link'
 
 interface Num { id: string; color: string; numero: number; origen: string; estado: string; codigoCobro: string | null; ganador: { nombres: string; correo: string; telefono: string | null } | null }
 interface Premio { id: string; nombre: string; categoria: string; periodo: string; lugar: string; numeros: Num[] }
-interface Cfg { coloresActivos: string[]; rangoMax: number; desde: number; hasta: number; maxPorSemana: number; instagram: string; tiktok: string }
+interface Cfg { coloresActivos: string[]; rangoMax: number; desde: number; hasta: number; maxPorSemana: number; instagram: string; tiktok: string; rangos: Record<string, { desde: number; hasta: number }> }
+interface ColorEst { color: string; activo: boolean; desde: number; hasta: number; enRango: number; total: number; premiosPendientes: number }
+type Pest = 'boletos' | 'premios' | 'cobrar' | 'tombola' | 'ajustes'
 
 const inp = 'px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white'
 const btn = 'px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-semibold'
@@ -17,9 +19,10 @@ async function api(url: string, body?: unknown, method = 'POST') {
 }
 
 export default function SorteoAdmin() {
-  const [datos, setDatos] = useState<{ config: Cfg; premios: Premio[]; boletos: Record<string, number>; ganadores: number; bloqueos: { id: string; telefono: string; motivo: string }[]; clubes: { club: string; total: number }[] } | null>(null)
+  const [datos, setDatos] = useState<{ config: Cfg; colores: ColorEst[]; premios: Premio[]; boletos: Record<string, number>; ganadores: number; bloqueos: { id: string; telefono: string; motivo: string }[]; clubes: { club: string; total: number }[] } | null>(null)
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
+  const [pest, setPest] = useState<Pest>('boletos')
 
   const cargar = useCallback(async () => {
     const r = await fetch('/api/admin/sorteo').then((x) => x.json()).catch(() => null)
@@ -31,9 +34,14 @@ export default function SorteoAdmin() {
   // ---- config
   const [ig, setIg] = useState('')
   const [tk, setTk] = useState('')
-  const [rd, setRd] = useState('')
-  const [rh, setRh] = useState('')
-  useEffect(() => { if (datos) { setIg(datos.config.instagram); setTk(datos.config.tiktok); setRd(String(datos.config.desde)); setRh(String(datos.config.hasta)) } }, [datos])
+  const [rg, setRg] = useState<Record<string, { desde: string; hasta: string }>>({})
+  useEffect(() => { if (datos) { setIg(datos.config.instagram); setTk(datos.config.tiktok); setRg(Object.fromEntries(datos.colores.map((c) => [c.color, { desde: String(c.desde), hasta: String(c.hasta) }]))) } }, [datos])
+  const activar = (color: string, on: boolean) => {
+    const nuevo = on ? Array.from(new Set([...datos!.config.coloresActivos, color])) : datos!.config.coloresActivos.filter((x) => x !== color)
+    if (!nuevo.length) { setMsg('Debe quedar al menos un color activo.'); return }
+    if (!window.confirm(on ? `¿ACTIVAR los boletos ${color.toUpperCase()}? Desde ya se pueden registrar.` : `¿DESACTIVAR los boletos ${color.toUpperCase()}? Ya no se podrán registrar (los registrados siguen participando en la tómbola).`)) return
+    guardarCfg({ coloresActivos: nuevo })
+  }
   const guardarCfg = async (c: Partial<Cfg>) => { const r = await api('/api/admin/sorteo/config', c); setMsg(r.ok ? 'Guardado' : r.message); cargar() }
 
   // ---- premio nuevo
@@ -121,49 +129,54 @@ export default function SorteoAdmin() {
       <div className="max-w-5xl mx-auto px-6 py-10">
         <Link href="/admin/dashboard" className="text-slate-400 text-sm hover:text-white">← Volver al panel</Link>
         <h1 className="text-3xl font-bold mt-3 mb-1">🎟️ Sorteo</h1>
-        <p className="text-slate-400 mb-4">
-          Boletos registrados: {Object.entries(datos.boletos).map(([c, n]) => `${c}: ${n}`).join(' · ') || '0'} · Premios ganados: {datos.ganadores} ·{' '}
+        <p className="text-slate-400 mb-4 text-sm">
+          Registrados: {Object.entries(datos.boletos).map(([c, n]) => `${c} ${n}`).join(' · ') || '0'} · Premios ganados: {datos.ganadores} ·{' '}
           <Link className="underline text-yellow-300 font-semibold" href="/admin/sorteo/participantes">Ver participantes</Link> ·{' '}
           <a className="underline" href="/api/admin/sorteo/export">Descargar boletos (Excel/CSV)</a>
         </p>
-        {datos.clubes.length > 0 && (
-          <p className="text-slate-400 text-sm mb-4">Club que apoyan: {datos.clubes.slice(0, 8).map((c) => `${c.club} (${c.total})`).join(' · ')}</p>
-        )}
+        <nav className="flex flex-wrap gap-2 mb-5 sticky top-0 z-10 bg-slate-900/90 backdrop-blur py-2">
+          {([['boletos', '🎟 Boletos activos'], ['premios', '🎁 Premios'], ['cobrar', '💵 Cobrar'], ['tombola', '🎰 Tómbola'], ['ajustes', '⚙ Ajustes']] as [Pest, string][]).map(([k, t]) => (
+            <button key={k} onClick={() => setPest(k)} className={`px-4 py-2 rounded-lg font-semibold text-sm border ${pest === k ? 'bg-yellow-500 text-black border-yellow-400' : 'bg-slate-800 border-slate-600 hover:bg-slate-700'}`}>{t}</button>))}
+        </nav>
         {msg && <div className="bg-slate-700 border border-slate-500 rounded-lg p-3 mb-4 text-sm" onClick={() => setMsg('')}>{msg}</div>}
 
-        <section className={sec}>
-          <h2 className="text-xl font-bold mb-3">1. Configuración</h2>
-          <div className="flex flex-wrap gap-4 items-center mb-3">
-            <span className="text-slate-300 text-sm">Color de boleto que participa ahora:</span>
-            {['negro', 'rojo'].map((c) => (
-              <label key={c} className="flex items-center gap-2">
-                <input type="checkbox" checked={datos.config.coloresActivos.includes(c)} onChange={(e) => {
-                  const nuevo = e.target.checked ? [...datos.config.coloresActivos, c] : datos.config.coloresActivos.filter((x) => x !== c)
-                  guardarCfg({ coloresActivos: nuevo })
-                }} /> {c}
-              </label>
-            ))}
-            <span className="text-slate-400 text-sm">Boletos impresos: 1 a {datos.config.rangoMax}</span>
-            <label className="text-sm text-slate-300 flex items-center gap-2">Boletos por semana y teléfono:
-              <input type="number" min={1} className={inp + ' w-20'} defaultValue={datos.config.maxPorSemana} onBlur={(e) => guardarCfg({ maxPorSemana: Number(e.target.value) })} />
-            </label>
+        {pest === 'boletos' && <>
+          <p className="text-slate-300 text-sm mb-4">Activa cada color y pon qué números participan. Puedes tener <b>los dos colores a la vez</b> (ej. se acaban los negros y empiezan los rojos el mismo fin de semana): cada uno con su propio rango. Solo se pueden registrar los colores activos y los números dentro de su rango; los premios al azar también salen de ese rango.</p>
+          <div className="grid md:grid-cols-2 gap-4 mb-6">
+            {datos.colores.map((c) => {
+              const r = rg[c.color] || { desde: String(c.desde), hasta: String(c.hasta) }
+              const pct = c.total ? Math.round((c.enRango / c.total) * 100) : 0
+              const negro = c.color === 'negro'
+              return (
+                <div key={c.color} className={`rounded-2xl p-5 border-2 ${c.activo ? (negro ? 'border-slate-200 bg-slate-950' : 'border-red-500 bg-red-950/40') : 'border-slate-700 bg-slate-800/60 opacity-80'}`}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className={`w-8 h-8 rounded-full border-2 border-white/40 ${negro ? 'bg-black' : 'bg-red-600'}`} />
+                    <h2 className="text-2xl font-black flex-1">Boletos {c.color.toUpperCase()}</h2>
+                    <button onClick={() => activar(c.color, !c.activo)} className={`px-4 py-2 rounded-full text-sm font-black ${c.activo ? 'bg-green-500 text-black' : 'bg-slate-600 text-white'}`}>{c.activo ? '● ACTIVO' : '○ APAGADO'}</button>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="text-xs text-slate-400">Participan del<input type="number" min={1} max={datos.config.rangoMax} className={inp + ' block w-28 mt-1'} value={r.desde} onChange={(e) => setRg({ ...rg, [c.color]: { ...r, desde: e.target.value } })} /></label>
+                    <label className="text-xs text-slate-400">al<input type="number" min={1} max={datos.config.rangoMax} className={inp + ' block w-28 mt-1'} value={r.hasta} onChange={(e) => setRg({ ...rg, [c.color]: { ...r, hasta: e.target.value } })} /></label>
+                    <button className={btn} disabled={r.desde === String(c.desde) && r.hasta === String(c.hasta)} onClick={() => guardarCfg({ color: c.color, desde: Number(r.desde), hasta: Number(r.hasta) } as Partial<Cfg>)}>Guardar rango</button>
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex justify-between text-sm"><span>Registrados en este rango</span><b>{c.enRango} de {c.total} ({pct}%)</b></div>
+                    <div className="h-2.5 bg-slate-700 rounded-full mt-1 overflow-hidden"><div className={`h-full ${pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-400' : 'bg-green-500'}`} style={{ width: `${pct}%` }} /></div>
+                    {pct >= 90 && c.activo && <p className="text-xs text-yellow-300 mt-1">⚠ Este rango casi se llenó: amplíalo o activa el otro color.</p>}
+                    <p className="text-sm text-slate-400 mt-2">Premios instantáneos por salir en {c.color}: <b className="text-slate-200">{c.premiosPendientes}</b></p>
+                  </div>
+                </div>)
+            })}
           </div>
-          <div className="bg-slate-700/50 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-3">
-            <b>Boletos que participan ESTA semana:</b>
-            <label className="flex items-center gap-2 text-sm">del <input type="number" min={1} className={inp + ' w-28'} value={rd} onChange={(e) => setRd(e.target.value)} /></label>
-            <label className="flex items-center gap-2 text-sm">al <input type="number" min={1} className={inp + ' w-28'} value={rh} onChange={(e) => setRh(e.target.value)} /></label>
-            <button className={btn} onClick={() => guardarCfg({ desde: Number(rd), hasta: Number(rh) })}>Guardar rango</button>
-            <span className="text-slate-400 text-xs w-full">Solo estos números se pueden registrar y los sorteos al azar eligen dentro de este rango. Cámbialo cada semana (ej. 1 al 800, luego 801 al 1600).</span>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-sm text-slate-300">
+            <b>Ejemplo de mix:</b> se acaban los negros y el mismo fin de semana empiezan los rojos → deja <b>NEGRO activo</b> con el rango que queda (ej. 5201 al 6000) y <b>activa ROJO</b> del 1 al 800. Ambos se pueden registrar. Cuando ya no circulen negros, apaga NEGRO.
+            <p className="mt-2 text-slate-400">Boletos impresos de cada color: 1 a {datos.config.rangoMax}. Tope por teléfono: {datos.config.maxPorSemana} por semana (en ⚙ Ajustes).</p>
           </div>
-          <div className="grid md:grid-cols-2 gap-3">
-            <input className={inp} placeholder="https://instagram.com/..." value={ig} onChange={(e) => setIg(e.target.value)} />
-            <input className={inp} placeholder="https://tiktok.com/@..." value={tk} onChange={(e) => setTk(e.target.value)} />
-          </div>
-          <button className={btn + ' mt-3'} onClick={() => guardarCfg({ instagram: ig, tiktok: tk })}>Guardar enlaces</button>
-        </section>
+        </>}
 
+        {pest === 'premios' && <>
         <section className={sec}>
-          <h2 className="text-xl font-bold mb-3">2. Premios y números ganadores</h2>
+          <h2 className="text-xl font-bold mb-3">🎁 Premios y números ganadores</h2>
           <div className="grid md:grid-cols-5 gap-2 mb-4">
             <input className={inp + ' md:col-span-2'} placeholder="Premio (ej. 3 órdenes en el bar)" value={np.nombre} onChange={(e) => setNp({ ...np, nombre: e.target.value })} />
             <select className={inp} value={np.categoria} onChange={(e) => setNp({ ...np, categoria: e.target.value })}>
@@ -200,9 +213,10 @@ export default function SorteoAdmin() {
             </div>
           ))}
         </section>
-
+        </>}
+        {pest === 'cobrar' && <>
         <section className={sec}>
-          <h2 className="text-xl font-bold mb-3">3. Cobrar un premio</h2>
+          <h2 className="text-xl font-bold mb-3">💵 Cobrar un premio</h2>
           <p className="text-slate-400 text-sm mb-3">El ganador muestra su código y su boleto físico. Compara que el boleto (color y número) coincida y entrega el premio.</p>
           <div className="flex gap-2">
             <input className={inp + ' uppercase'} placeholder="Código de cobro" value={codigo} onChange={(e) => setCodigo(e.target.value)} />
@@ -228,26 +242,10 @@ export default function SorteoAdmin() {
             </div>
           )}
         </section>
-
+        </>}
+        {pest === 'tombola' && <>
         <section className={sec}>
-          <h2 className="text-xl font-bold mb-3">Teléfonos bloqueados</h2>
-          <div className="flex gap-2 mb-3">
-            <input className={inp} placeholder="09XXXXXXXX" value={bloqTel} onChange={(e) => setBloqTel(e.target.value)} />
-            <button className={btn} onClick={() => { bloquear(bloqTel); setBloqTel('') }}>Bloquear y liberar sus números</button>
-          </div>
-          {datos.bloqueos.length === 0 ? <p className="text-slate-500 text-sm">Ninguno.</p> : datos.bloqueos.map((x) => (
-            <div key={x.id} className="flex justify-between text-sm py-1 border-b border-slate-700"><span>{x.telefono} · {x.motivo}</span><button className="text-green-400" onClick={() => desbloquear(x.id)}>Desbloquear</button></div>
-          ))}
-        </section>
-
-        <section className={sec + ' border-red-900'}>
-          <h2 className="text-xl font-bold mb-2">Reiniciar después de las pruebas</h2>
-          <p className="text-slate-400 text-sm mb-3">Borra los boletos de prueba y deja los premios y números cargados listos para el sorteo real. Hazlo UNA vez, antes de dar el QR al público.</p>
-          <button className="px-4 py-2 bg-slate-600 hover:bg-red-700 rounded-lg" onClick={reiniciar}>Reiniciar sorteo…</button>
-        </section>
-
-        <section className={sec}>
-          <h2 className="text-xl font-bold mb-3">4. Gran sorteo (tómbola en vivo)</h2>
+          <h2 className="text-xl font-bold mb-3">🎰 Gran sorteo (tómbola en vivo)</h2>
           <div className="flex flex-wrap gap-2 mb-2">
             <select className={inp} value={tp} onChange={(e) => setTp(e.target.value)}>
               <option value="">— Premio —</option>
@@ -271,6 +269,37 @@ export default function SorteoAdmin() {
             {tmsg && <p className="text-red-400 mt-3">{tmsg}</p>}
           </div>
         </section>
+        </>}
+        {pest === 'ajustes' && <>
+        <section className={sec}>
+          <h2 className="text-xl font-bold mb-3">⚙ Ajustes del sorteo</h2>
+          <label className="text-sm text-slate-300 flex items-center gap-2 mb-4">Boletos por semana y teléfono:
+            <input type="number" min={1} className={inp + ' w-20'} defaultValue={datos.config.maxPorSemana} onBlur={(e) => guardarCfg({ maxPorSemana: Number(e.target.value) })} />
+          </label>
+          <p className="text-sm text-slate-300 mb-2">Redes que deben seguir para participar:</p>
+          <div className="grid md:grid-cols-2 gap-3">
+            <input className={inp} placeholder="https://instagram.com/..." value={ig} onChange={(e) => setIg(e.target.value)} />
+            <input className={inp} placeholder="https://tiktok.com/@..." value={tk} onChange={(e) => setTk(e.target.value)} />
+          </div>
+          <button className={btn + ' mt-3'} onClick={() => guardarCfg({ instagram: ig, tiktok: tk })}>Guardar enlaces</button>
+          {datos.clubes.length > 0 && <p className="text-slate-400 text-sm mt-4">Club que apoyan: {datos.clubes.slice(0, 8).map((c) => `${c.club} (${c.total})`).join(' · ')}</p>}
+        </section>
+        <section className={sec}>
+          <h2 className="text-xl font-bold mb-3">Teléfonos bloqueados</h2>
+          <div className="flex gap-2 mb-3">
+            <input className={inp} placeholder="09XXXXXXXX" value={bloqTel} onChange={(e) => setBloqTel(e.target.value)} />
+            <button className={btn} onClick={() => { bloquear(bloqTel); setBloqTel('') }}>Bloquear y liberar sus números</button>
+          </div>
+          {datos.bloqueos.length === 0 ? <p className="text-slate-500 text-sm">Ninguno.</p> : datos.bloqueos.map((x) => (
+            <div key={x.id} className="flex justify-between text-sm py-1 border-b border-slate-700"><span>{x.telefono} · {x.motivo}</span><button className="text-green-400" onClick={() => desbloquear(x.id)}>Desbloquear</button></div>
+          ))}
+        </section>
+        <section className={sec + ' border-red-900'}>
+          <h2 className="text-xl font-bold mb-2">Reiniciar después de las pruebas</h2>
+          <p className="text-slate-400 text-sm mb-3">Borra los boletos de prueba y deja los premios y números cargados listos para el sorteo real. Hazlo UNA vez, antes de dar el QR al público.</p>
+          <button className="px-4 py-2 bg-slate-600 hover:bg-red-700 rounded-lg" onClick={reiniciar}>Reiniciar sorteo…</button>
+        </section>
+        </>}
       </div>
     </div>
   )

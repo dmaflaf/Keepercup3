@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
   if (!esColor(color) || !cfg.coloresActivos.includes(color)) return NextResponse.json({ ok: false, message: 'Ese color de boleto no está participando en este momento.' }, { status: 400 })
   if (!numeros.length) return NextResponse.json({ ok: false, message: 'Escribe el número de tu boleto.' }, { status: 400 })
   if (numeros.some((n) => !Number.isInteger(n) || n < 1 || n > cfg.rangoMax)) return NextResponse.json({ ok: false, message: `Los números de boleto deben estar entre 1 y ${cfg.rangoMax}.` }, { status: 400 })
-  const fuera = numeros.filter((n) => n < cfg.desde || n > cfg.hasta)
+  const rango = cfg.rangos[color]
+  const fuera = numeros.filter((n) => n < rango.desde || n > rango.hasta)
   if (fuera.length) {
     return NextResponse.json({ ok: false, message: `El boleto ${fuera.map(p4).join(', ')} no participa en este sorteo. Revisa el número de tu boleto.` }, { status: 400 })
   }
