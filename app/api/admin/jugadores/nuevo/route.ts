@@ -46,7 +46,10 @@ export async function POST(req: NextRequest) {
   const nacimiento = String(f.get('nacimiento') || '')
   if (!/^\d{4}-\d{2}-\d{2}$/.test(nacimiento)) return falla('Elige la fecha de nacimiento.')
   const edad = (Date.now() - new Date(nacimiento + 'T00:00:00Z').getTime()) / (365.25 * 86400000)
-  if (edad < 12 || edad > 80) return falla('Revisa la fecha de nacimiento.')
+  // Se aceptan niños (desde 3 años); menos de eso o más de 80 suele ser un error al escribir la fecha
+  if (edad < 3 || edad > 80) return falla(`Revisa la fecha de nacimiento (daría ${Math.max(0, Math.floor(edad))} años).`)
+  const tel = String(f.get('telefono') || '').trim()
+  if (tel && !/^[+\d][\d\s-]{6,19}$/.test(tel)) return falla('El teléfono no es válido: escribe solo números (ej. 0991234567). Revisa que el navegador no haya puesto un correo.')
   const numTxt = String(f.get('numero') || '').trim()
   const number = numTxt === '' ? null : Number(numTxt)
   if (number !== null && (!Number.isInteger(number) || number < 0 || number > 999)) return falla('Número de camiseta inválido.')

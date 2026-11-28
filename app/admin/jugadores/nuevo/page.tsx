@@ -75,13 +75,15 @@ export default function NuevoJugador() {
             <label className="block text-sm">Nombres<input className={inp + ' mt-1'} value={f.nombres} onChange={(e) => set('nombres', e.target.value)} /></label>
             <label className="block text-sm">Apellidos<input className={inp + ' mt-1'} value={f.apellidos} onChange={(e) => set('apellidos', e.target.value)} /></label>
             <label className="block text-sm">{f.extranjero ? 'Pasaporte / documento' : 'Cédula'}<input className={inp + ' mt-1'} inputMode={f.extranjero ? 'text' : 'numeric'} value={f.cedula} onChange={(e) => set('cedula', e.target.value)} /></label>
-            <label className="block text-sm">Fecha de nacimiento<input type="date" className={inp + ' mt-1'} value={f.nacimiento} onChange={(e) => set('nacimiento', e.target.value)} /></label>
+            <label className="block text-sm">Fecha de nacimiento<input type="date" className={inp + ' mt-1'} value={f.nacimiento} onChange={(e) => set('nacimiento', e.target.value)} />
+              {(() => { if (!f.nacimiento) return null; const e = Math.floor((Date.now() - new Date(f.nacimiento + 'T00:00:00Z').getTime()) / (365.25 * 86400000)); return <span className={`text-xs ${e < 3 || e > 80 ? 'text-red-300' : e < 18 ? 'text-yellow-300' : 'text-slate-400'}`}>{e} años{e < 18 && e >= 3 ? ' · menor de edad' : ''}{e < 3 || e > 80 ? ' · revisa la fecha' : ''}</span> })()}
+            </label>
             <label className="block text-sm">Número de camiseta<input className={inp + ' mt-1'} inputMode="numeric" value={f.numero} onChange={(e) => set('numero', e.target.value.replace(/\D/g, ''))} />
               {numOcupado && <span className="text-xs text-red-300">Ese número ya está ocupado en {club!.nombre}.</span>}
               {club && !numOcupado && <span className="text-xs text-slate-400">Ocupados: {club.numeros.slice(0, 40).join(', ') || 'ninguno'}</span>}
             </label>
             <label className="block text-sm">Posición<select className={inp + ' mt-1'} value={f.posicion} onChange={(e) => set('posicion', e.target.value)}><option value="">—</option>{POS.map((p) => <option key={p}>{p}</option>)}</select></label>
-            <label className="block text-sm col-span-2">Teléfono (opcional)<input className={inp + ' mt-1'} inputMode="tel" value={f.telefono} onChange={(e) => set('telefono', e.target.value)} /></label>
+            <label className="block text-sm col-span-2">Teléfono (opcional)<input type="tel" autoComplete="tel" className={inp + ' mt-1'} inputMode="tel" value={f.telefono} onChange={(e) => set('telefono', e.target.value)} /></label>
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.extranjero} onChange={(e) => set('extranjero', e.target.checked)} /> Pasaporte / documento extranjero (no valida la cédula ecuatoriana)</label>
           <div className="grid grid-cols-3 gap-3">
