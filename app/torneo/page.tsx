@@ -62,7 +62,7 @@ export default function TorneoPublico() {
             {enVivo.map((p) => (
               <a key={p.id} href={`/torneo/vivo/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#bf1b2c', color: '#fff', borderRadius: 12, padding: '14px 16px', margin: '14px 0 0', textDecoration: 'none', fontWeight: 800, flexWrap: 'wrap' }}>
                 <span style={{ background: '#fff', color: '#bf1b2c', borderRadius: 6, padding: '2px 8px', fontSize: 12 }}>🔴 EN VIVO</span>
-                <span style={{ flex: 1, minWidth: 180 }}>{p.local} <b style={{ fontSize: 22 }}>{p.golesLocal ?? 0} - {p.golesVisitante ?? 0}</b> {p.visitante}</span>
+                <span style={{ flex: 1, minWidth: 180, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}><Escudo id={p.localId} nombre={p.local} tam={22} />{p.local} <b style={{ fontSize: 22 }}>{p.golesLocal ?? 0} - {p.golesVisitante ?? 0}</b> {p.visitante}<Escudo id={p.visitanteId} nombre={p.visitante} tam={22} /></span>
                 <span style={{ fontSize: 13, opacity: 0.9 }}>Ver partido y eventos ›</span>
               </a>
             ))}
@@ -72,7 +72,7 @@ export default function TorneoPublico() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 8 }}>
                   {ultimos.map((p) => (
                     <a key={p.id} href={`/torneo/partido/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0B1B33', borderRadius: 8, padding: '8px 10px', color: '#F3F6F8', textDecoration: 'none', fontSize: 13 }}>
-                      <span style={{ flex: 1, textAlign: 'right' }}>{p.local}</span><b style={{ color: '#D9A93A', minWidth: 44, textAlign: 'center' }}>{p.golesLocal}-{p.golesVisitante}</b><span style={{ flex: 1 }}>{p.visitante}</span><span style={{ color: '#93A4B8' }}>›</span>
+                      <span style={{ flex: 1, textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>{p.local}<Escudo id={p.localId} nombre={p.local} tam={18} /></span><b style={{ color: '#D9A93A', minWidth: 44, textAlign: 'center' }}>{p.golesLocal}-{p.golesVisitante}</b><span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}><Escudo id={p.visitanteId} nombre={p.visitante} tam={18} />{p.visitante}</span><span style={{ color: '#93A4B8' }}>›</span>
                     </a>
                   ))}
                 </div>
@@ -116,9 +116,9 @@ export default function TorneoPublico() {
                   <h3 style={h3}>{ps[0]?.jornada} <span style={{ color: '#93A4B8', fontWeight: 400, fontSize: 13 }}>· {ps.length} partidos jugados</span></h3>
                   {ps.map((p) => (
                     <a key={p.id} href={`/torneo/partido/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 0', borderTop: '1px solid #1f3150', fontSize: 14, color: '#F3F6F8', textDecoration: 'none' }}>
-                      <span style={{ flex: 1, textAlign: 'right', fontWeight: 600 }}>{p.local}</span>
+                      <span style={{ flex: 1, textAlign: 'right', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>{p.local}<Escudo id={p.localId} nombre={p.local} tam={24} /></span>
                       <b style={{ minWidth: 64, textAlign: 'center', color: '#D9A93A', fontSize: 18 }}>{p.golesLocal} - {p.golesVisitante}</b>
-                      <span style={{ flex: 1, fontWeight: 600 }}>{p.visitante}</span>
+                      <span style={{ flex: 1, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><Escudo id={p.visitanteId} nombre={p.visitante} tam={24} />{p.visitante}</span>
                       <span style={{ width: 96, color: '#93A4B8', fontSize: 12, textAlign: 'right' }}>{fecha(p.fecha)} ›</span>
                     </a>
                   ))}
@@ -164,7 +164,7 @@ export default function TorneoPublico() {
                   <h3 style={h3}>{ps[0]?.jornada} <span style={{ color: '#93A4B8', fontWeight: 400, fontSize: 13 }}>· {ps.filter((p) => p.estado === 'finalizado').length} de {ps.length} jugados</span></h3>
                   {ps.map((p) => (
                         <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid #1f3150', fontSize: 14 }}>
-                          <a href={`/torneo/club/${p.localId}`} style={{ flex: 1, textAlign: 'right', fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{p.local}</a>
+                          <a href={`/torneo/club/${p.localId}`} style={{ flex: 1, textAlign: 'right', fontWeight: 600, color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>{p.local}<Escudo id={p.localId} nombre={p.local} tam={24} /></a>
                           <span style={{ minWidth: 70, textAlign: 'center', fontWeight: 900, color: p.estado === 'finalizado' ? '#D9A93A' : '#93A4B8', fontSize: p.estado === 'finalizado' ? 18 : 13 }}>
                             {p.estado === 'suspendido'
                               ? <a href={`/torneo/partido/${p.id}`} style={{ color: '#fff', background: '#7f1d1d', borderRadius: 6, padding: '4px 8px', textDecoration: 'none', fontSize: 12 }}>⛔ SUSP. {p.golesLocal ?? 0}-{p.golesVisitante ?? 0}</a>
@@ -172,7 +172,7 @@ export default function TorneoPublico() {
                               ? <a href={`/torneo/vivo/${p.id}`} style={{ color: '#fff', background: '#bf1b2c', borderRadius: 6, padding: '4px 8px', textDecoration: 'none', fontSize: 13 }}>🔴 EN VIVO {p.golesLocal ?? 0}-{p.golesVisitante ?? 0}</a>
                               : p.estado === 'finalizado' ? `${p.golesLocal} - ${p.golesVisitante}` : p.hora || 'vs'}
                           </span>
-                          <a href={`/torneo/club/${p.visitanteId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{p.visitante}</a>
+                          <a href={`/torneo/club/${p.visitanteId}`} style={{ flex: 1, fontWeight: 600, color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}><Escudo id={p.visitanteId} nombre={p.visitante} tam={24} />{p.visitante}</a>
                           <span style={{ width: 120, color: '#93A4B8', fontSize: 12, textAlign: 'right' }}>{fecha(p.fecha)}{p.escenario ? ' · ' + p.escenario : ''}{p.estado === 'suspendido' ? ' · suspendido' : ''}{p.jornadaJuego && p.jornadaJuego !== p.jornadaNum && p.estado !== 'finalizado' ? <b style={{ color: '#fb923c' }}> · {p.jornadaJuego > p.jornadaNum ? 'diferido' : 'adelantado'} a la Fecha {p.jornadaJuego}</b> : ''}{p.estado === 'finalizado' && <> · <a href={`/torneo/partido/${p.id}`} style={{ color: '#D9A93A' }}>Detalle</a></>}</span>
                         </div>
                   ))}
