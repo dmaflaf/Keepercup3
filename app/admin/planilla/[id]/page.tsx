@@ -136,7 +136,9 @@ export default function Planilla() {
     setHoja(null)
   }
 
-  const Fila = ({ teamId, jugadorId }: { teamId: string; jugadorId: string }) => {
+  // Se dibujan como funciones (no como componentes internos): así React no borra y recrea las listas en cada
+  // actualización (cada medio segundo por el reloj), que en el celular hacía saltar la pantalla hacia arriba.
+  const fila = (teamId: string, jugadorId: string) => {
     const j = jug.get(jugadorId)!
     const ev = snap.eventos.filter((e) => e.playerId === jugadorId)
     const goles = ev.filter((e) => e.tipo === 'gol' || e.tipo === 'gol_penal').length
@@ -156,7 +158,7 @@ export default function Planilla() {
     )
   }
 
-  const Equipo = ({ teamId, nombre }: { teamId: string; nombre: string }) => {
+  const equipo = (teamId: string, nombre: string) => {
     const todos = snap.jugadores.filter((j) => j.teamId === teamId)
     const titulares = snap.eventos.filter((e) => e.teamId === teamId && e.tipo === 'titular').length
     const campo = enCancha(snap.eventos, teamId)
@@ -195,11 +197,11 @@ export default function Planilla() {
         ) : (
           <>
             <p className="px-3 pt-2 text-xs uppercase tracking-wider text-slate-400">En la cancha ({enCampo.length})</p>
-            {enCampo.map((j) => <Fila key={j.id} teamId={teamId} jugadorId={j.id} />)}
+            {enCampo.map((j) => <div key={j.id}>{fila(teamId, j.id)}</div>)}
             {salieron.length > 0 && <p className="px-3 pt-3 text-xs uppercase tracking-wider text-slate-400">Ya salieron</p>}
-            {salieron.map((j) => <div key={j.id} className="opacity-60"><Fila teamId={teamId} jugadorId={j.id} /></div>)}
+            {salieron.map((j) => <div key={j.id} className="opacity-60">{fila(teamId, j.id)}</div>)}
             <button className="w-full px-3 py-3 border-t border-slate-700 text-sm text-slate-300 text-left" onClick={() => setBanca((b) => ({ ...b, [teamId]: !b[teamId] }))}>{banca[teamId] ? '▾' : '▸'} Banca / sin jugar ({resto.length})</button>
-            {banca[teamId] && resto.map((j) => <div key={j.id} className="opacity-80"><Fila teamId={teamId} jugadorId={j.id} /></div>)}
+            {banca[teamId] && resto.map((j) => <div key={j.id} className="opacity-80">{fila(teamId, j.id)}</div>)}
           </>
         )}
       </div>
@@ -294,8 +296,8 @@ export default function Planilla() {
         )}
 
         <div className="grid md:grid-cols-2 gap-3 mt-3">
-          <Equipo teamId={p.localId} nombre={p.local} />
-          <Equipo teamId={p.visitanteId} nombre={p.visitante} />
+          {equipo(p.localId, p.local)}
+          {equipo(p.visitanteId, p.visitante)}
         </div>
 
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mt-3">
