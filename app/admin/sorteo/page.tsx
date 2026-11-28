@@ -89,12 +89,19 @@ export default function SorteoAdmin() {
     setMsg(r.ok ? `Bloqueado. Boletos suyos liberados: ${r.liberados}` : r.message)
     setCobro(null); cargar()
   }
+  const [claveRein, setClaveRein] = useState('')
+  const [reinicios, setReinicios] = useState<{ fecha: string; quien: string; boletos: number; premiosReiniciados: number; copia: string }[]>([])
+  const cargarReinicios = useCallback(async () => { const r = await fetch('/api/admin/sorteo/reiniciar', { cache: 'no-store' }).then((x) => x.json()).catch(() => null); if (r?.ok) setReinicios(r.reinicios) }, [])
+  useEffect(() => { cargarReinicios() }, [cargarReinicios])
   const reiniciar = async () => {
-    const t = prompt('Esto BORRA todos los boletos registrados, los bloqueos y los ganadores de la tómbola, y deja los premios cargados como nuevos.\n\nEscribe BORRAR para confirmar:')
+    if (!claveRein) { setMsg('Escribe tu contraseña de administrador para reiniciar.'); return }
+    const total = Object.values(datos?.boletos || {}).reduce((a, n) => a + n, 0)
+    const t = prompt(`Esto BORRA los ${total} boletos registrados, los bloqueos y los ganadores de la tómbola, y deja los premios como nuevos.\n\nAntes se guarda una copia de todo (descargable abajo).\n\nEscribe BORRAR para confirmar:`)
     if (t !== 'BORRAR') return
-    const r = await api('/api/admin/sorteo/reiniciar', { confirmar: 'BORRAR' })
-    setMsg(r.ok ? `Sorteo reiniciado. Boletos borrados: ${r.boletos}. Premios devueltos a pendiente: ${r.premiosReiniciados}.` : r.message)
-    cargar()
+    const r = await api('/api/admin/sorteo/reiniciar', { confirmar: 'BORRAR', password: claveRein })
+    setClaveRein('')
+    setMsg(r.ok ? `Sorteo reiniciado. Boletos borrados: ${r.boletos} (quedó una copia). Premios devueltos a pendiente: ${r.premiosReiniciados}.` : r.message)
+    cargar(); cargarReinicios()
   }
   const desbloquear = async (id: string) => { await api('/api/admin/sorteo/bloqueos?id=' + id, undefined, 'DELETE'); cargar() }
 
@@ -296,8 +303,20 @@ export default function SorteoAdmin() {
         </section>
         <section className={sec + ' border-red-900'}>
           <h2 className="text-xl font-bold mb-2">Reiniciar después de las pruebas</h2>
-          <p className="text-slate-400 text-sm mb-3">Borra los boletos de prueba y deja los premios y números cargados listos para el sorteo real. Hazlo UNA vez, antes de dar el QR al público.</p>
-          <button className="px-4 py-2 bg-slate-600 hover:bg-red-700 rounded-lg" onClick={reiniciar}>Reiniciar sorteo…</button>
+          <p className="text-slate-400 text-sm mb-3">Borra TODOS los boletos registrados y deja los premios como nuevos. Solo para después de las pruebas, antes de dar el QR al público. <b className="text-red-300">Con el sorteo en marcha, NO lo uses.</b> Pide tu contraseña y guarda antes una copia de lo que borra.</p>
+          <div className="flex flex-wrap gap-2 items-center">
+            <input type="password" autoComplete="current-password" className={inp + ' w-56'} placeholder="Tu contraseña de admin" value={claveRein} onChange={(e) => setClaveRein(e.target.value)} />
+            <button className="px-4 py-2 bg-slate-600 hover:bg-red-700 rounded-lg disabled:opacity-40" disabled={!claveRein} onClick={reiniciar}>Reiniciar sorteo…</button>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm font-semibold mb-1">Historial de reinicios</p>
+            {!reinicios.length && <p className="text-slate-500 text-sm">Sin reinicios registrados (el historial empezó a guardarse con esta versión).</p>}
+            {reinicios.map((x) => (
+              <div key={x.copia} className="flex flex-wrap gap-2 text-sm py-1 border-t border-slate-700">
+                <span>{new Date(x.fecha).toLocaleString('es-EC', { timeZone: 'America/Guayaquil', dateStyle: 'medium', timeStyle: 'short' })} · {x.quien} · borró {x.boletos} boleto(s)</span>
+                <a className="underline text-yellow-300 ml-auto" href={`/api/admin/sorteo/reiniciar?copia=${encodeURIComponent(x.copia)}`}>Descargar copia (CSV)</a>
+              </div>))}
+          </div>
         </section>
         </>}
       </div>
