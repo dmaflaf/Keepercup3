@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import { cargarTorneo } from '@/lib/torneo-data'
 import { marcadorDesdeEventos } from '@/lib/torneo'
 import { bloqueoSuspension, suspendidosEn } from '@/lib/suspension'
+import { juegaPara, refuerzosAprobados } from '@/lib/fichaje'
 import { enCancha, jugaron, cambiosHechos, Op, Periodo, SnapshotP, TIPOS_JUEGO, transicion } from '@/lib/planilla'
 
 export interface ResultadoOp { id: string; ok: boolean; message?: string }
@@ -19,6 +20,15 @@ export async function cargarSnapshot(partidoId: string): Promise<SnapshotP | nul
   const nombre = new Map(equipos.map((t) => [t.id, t.name]))
   const susp = d ? suspendidosEn(d, p.id) : new Map<string, number>()
   const fase = await prisma.fase.findUnique({ where: { id: p.faseId }, select: { tipo: true } })
+  // Fase Final: los Fichajes de Oro aprobados aparecen en la planilla de su club destino
+  if (fase?.tipo === 'eliminatoria') {
+    const ref = [...(await refuerzosAprobados(p.torneoId)).entries()].filter(([, t]) => t === p.localId || t === p.visitanteId)
+    if (ref.length) {
+      const extra = await prisma.player.findMany({ where: { id: { in: ref.map(([id]) => id) } }, select: { id: true, firstName: true, lastName: true, number: true, position: true, teamId: true } })
+      const destino = new Map(ref)
+      for (const x of extra) jug.push({ ...x, teamId: destino.get(x.id)!, position: `⭐ Fichaje de Oro${x.position ? ' · ' + x.position : ''}` })
+    }
+  }
   return {
     partido: {
       id: p.id, jornada: p.jornada, fecha: p.fecha, hora: p.hora, escenario: p.escenario,
@@ -77,8 +87,7 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
   switch (op.t) {
     case 'titular': {
       if (!equipoValido(op.teamId)) return 'Ese equipo no juega este partido'
-      const j = await prisma.player.findUnique({ where: { id: op.playerId }, select: { teamId: true } })
-      if (!j || j.teamId !== op.teamId) return 'Ese jugador no es de ese equipo'
+      if (!(await juegaPara(op.playerId, op.teamId, p))) return 'Ese jugador no es de ese equipo'
       const cid = `T:${p.id}:${op.playerId}`
       if (!op.on) { await prisma.evento.deleteMany({ where: { partidoId, playerId: op.playerId, tipo: 'titular' } }); return }
       if (await prisma.evento.findFirst({ where: { clienteId: cid } })) return
@@ -123,8 +132,7 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
       const faltaJugador = !['falta', 'tanda_gol', 'tanda_fallo'].includes(op.tipo)
       if (faltaJugador && !op.playerId) return 'Elige el jugador'
       if (op.playerId) {
-        const j = await prisma.player.findUnique({ where: { id: op.playerId }, select: { teamId: true } })
-        if (!j || j.teamId !== op.teamId) return 'Ese jugador no es de ese equipo'
+        if (!(await juegaPara(op.playerId, op.teamId, p))) return 'Ese jugador no es de ese equipo'
         const no = await suspendido(op.playerId); if (no) return no
       }
       const minuto = Math.round(op.minuto)
@@ -141,8 +149,7 @@ async function aplicarUna(partidoId: string, op: Op, esAdmin: boolean): Promise<
       if (cambiosHechos(evp, op.teamId) >= (torneo?.cambiosMax ?? 29)) return `Ya se usaron los ${torneo?.cambiosMax ?? 29} cambios`
       if (!enCancha(evp, op.teamId).has(op.sale)) return 'El jugador que sale no está en la cancha'
       if (jugaron(evp, op.teamId).has(op.entra)) return 'Ese jugador ya participó en el partido'
-      const j = await prisma.player.findUnique({ where: { id: op.entra }, select: { teamId: true } })
-      if (!j || j.teamId !== op.teamId) return 'Ese jugador no es de ese equipo'
+      if (!(await juegaPara(op.entra, op.teamId, p))) return 'Ese jugador no es de ese equipo'
       { const no = await suspendido(op.entra); if (no) return no }
       const minuto = Math.round(op.minuto)
       await prisma.evento.createMany({ data: [

@@ -11,6 +11,11 @@ interface Datos {
   cuenta: { conceptos: { concepto: string; detalle: string | null; cargado: number; pagado: number }[]; cargado: number; pagado: number; saldo: number; pagos: { fecha: string | null; concepto: string; comprobante: string | null; monto: number }[] } | null
   solicitudes: { id: string; texto: string; estado: string; respuesta: string | null; fecha: string }[]
   numeros: { modo: 'todos' | 'sinNumero' | 'ninguno'; grabados: string | null }
+  fichaje: {
+    abierta: boolean; puede: boolean; minPartidos: number; hastaFecha: number; copasListas: string[]
+    mio: { estado: string; motivo: string | null; jugador: string; numero: number | null; posicion: string | null; origen: string; partidos: number; playerId: string } | null
+    elegibles: { playerId: string; nombre: string; numero: number | null; posicion: string | null; origen: string; copa: string; partidos: number; goles: number; amarillas: number; rojas: number; tieneFoto: boolean }[]
+  } | null
   equipo: {
     tablas: { fase: string; grupo: string; tipo: string; filas: { pos: number; equipo: string; mio: boolean; pj: number; pg: number; pe: number; pp: number; gf: number; gc: number; dg: number; pts: number }[] }[]
     resumen: { pj: number; pg: number; pe: number; pp: number; gf: number; gc: number }
@@ -19,7 +24,7 @@ interface Datos {
     fairplay: { puntos: number; pos: number; de: number }
   } | null
 }
-type Tab = 'inicio' | 'nomina' | 'equipo' | 'cuenta' | 'pedidos'
+type Tab = 'inicio' | 'nomina' | 'equipo' | 'fichaje' | 'cuenta' | 'pedidos'
 
 const usd = (n: number) => `$${n.toFixed(2)}`
 const card = 'bg-[#13254a] border border-[#24407a] rounded-2xl p-4 mb-4'
@@ -96,11 +101,16 @@ export default function PortalDT({ params }: { params: { token: string } }) {
           <button className="text-xs text-slate-300 border border-[#24407a] rounded-lg px-3 py-1.5" onClick={async () => { await post({ accion: 'salir' }); setCedula(''); cargar() }}>Salir</button>
         </header>
         <nav className="sticky top-0 z-10 -mx-4 px-4 py-2 mb-3 bg-[#0b1733]/95 backdrop-blur flex gap-1 overflow-x-auto">
-          {([['inicio', 'Inicio'], ['nomina', 'Nómina'], ['equipo', 'Mi equipo'], ['cuenta', 'Cuenta'], ['pedidos', 'Pedidos']] as [Tab, string][]).map(([k, n]) => (
+          {([['inicio', 'Inicio'], ['nomina', 'Nómina'], ['equipo', 'Mi equipo'], ...(d.fichaje ? [['fichaje', '⭐ Fichaje']] : []), ['cuenta', 'Cuenta'], ['pedidos', 'Pedidos']] as [Tab, string][]).map(([k, n]) => (
             <button key={k} onClick={() => setTab(k)} className={`shrink-0 px-2.5 py-2 rounded-full text-[13px] font-semibold ${tab === k ? 'bg-[#f5c542] text-[#0b1733]' : 'bg-[#13254a] text-slate-200'}`}>{n}</button>))}
         </nav>
 
         {tab === 'inicio' && <>
+        {d.fichaje?.abierta && d.fichaje.puede && (!d.fichaje.mio || d.fichaje.mio.estado === 'rechazado') && (
+          <button onClick={() => setTab('fichaje')} className="w-full text-left rounded-2xl p-4 mb-4 bg-gradient-to-r from-[#f5c542] to-[#e0a92a] text-[#0b1733]">
+            <p className="font-black text-lg">⭐ Fichaje de Oro abierto</p>
+            <p className="text-sm">Refuerza tu club para la Fase Final con un jugador de los clubes eliminados. Toca aquí →</p>
+          </button>)}
         {pideNumeros && (
           <button onClick={() => setTab('nomina')} className="w-full text-left bg-[#f5c542] text-[#0b1733] rounded-2xl p-4 mb-4">
             <p className="font-bold">🔢 {d.numeros.modo === 'todos' ? 'Asigna los números de tu nómina' : `${sinNumero} jugador(es) sin número`}</p>
@@ -172,6 +182,7 @@ export default function PortalDT({ params }: { params: { token: string } }) {
         </section>}
 
         {tab === 'equipo' && <MiEquipo d={d} />}
+        {tab === 'fichaje' && d.fichaje && <Fichaje t={t} f={d.fichaje} post={post} listo={cargar} />}
 
         {tab === 'cuenta' && !d.cuenta && <p className="text-sm text-slate-300">Sin cuenta registrada.</p>}
         {tab === 'cuenta' && d.cuenta && (
@@ -271,6 +282,65 @@ function Numeros({ d, post, listo }: { d: Datos; post: (b: Record<string, unknow
       {msg && <p className="text-sm text-red-300 mt-2">{msg}</p>}
       <button disabled={ocupado || hayError} onClick={grabar} className="mt-3 w-full py-3 rounded-xl bg-[#f5c542] text-[#0b1733] font-bold disabled:opacity-40">{ocupado ? 'Grabando…' : hayError ? 'Corrige los números en rojo' : 'Grabar números'}</button>
     </section>)
+}
+
+function Fichaje({ t, f, post, listo }: { t: string; f: NonNullable<Datos['fichaje']>; post: (b: Record<string, unknown>) => Promise<{ ok: boolean; message?: string }>; listo: () => void }) {
+  const [q, setQ] = useState('')
+  const [pos, setPos] = useState('')
+  const [msg, setMsg] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+  const posiciones = Array.from(new Set(f.elegibles.map((x) => x.posicion).filter(Boolean))) as string[]
+  const norm = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const lista = f.elegibles.filter((x) => (!pos || x.posicion === pos) && (!q || norm(`${x.nombre} ${x.origen}`).includes(norm(q))))
+  const m = f.mio
+  async function pedir(x: (typeof f.elegibles)[number]) {
+    if (!window.confirm(`¿Pedir a ${x.nombre} (${x.origen}) como tu Fichaje de Oro?\n\nSolo puedes pedir UNO y, una vez aprobado, no hay cambios.`)) return
+    setOcupado(true); const r = await post({ accion: 'fichaje', playerId: x.playerId }); setOcupado(false)
+    if (!r.ok) setMsg(r.message || 'No se pudo'); else listo()
+  }
+  return (<>
+    <section className="rounded-2xl p-4 mb-4 border-2 border-[#f5c542] bg-[#13254a]">
+      <h2 className="text-xl font-black text-[#f5c542]">⭐ Fichaje de Oro</h2>
+      <p className="text-sm text-slate-300 mt-1">Desde cuartos de final, cada club clasificado puede reforzarse con <b>un jugador</b> de un club eliminado en la Fase 2 (de cualquier copa). Requisitos: haber jugado al menos <b>{f.minPartidos} partidos</b> con su club (hasta la Fecha {f.hastaFecha}), carnet habilitado y sin sanciones pendientes. Ser jugador barrial o amateur (no profesional, futsal ni extranjero): lo verifica la organización al aprobar.</p>
+    </section>
+    {m && (
+      <section className={`rounded-2xl p-4 mb-4 border ${m.estado === 'aprobado' ? 'bg-green-900/40 border-green-600' : m.estado === 'rechazado' ? 'bg-red-900/30 border-red-600' : 'bg-yellow-900/30 border-yellow-600'}`}>
+        <p className="text-xs uppercase tracking-wider text-slate-300">{m.estado === 'aprobado' ? '✔ Tu Fichaje de Oro' : m.estado === 'rechazado' ? '✖ Pedido rechazado' : '⏳ Pedido enviado: esperando a la organización'}</p>
+        <div className="flex items-center gap-3 mt-2">
+          <FotoF t={t} id={m.playerId} nombre={m.jugador} />
+          <div><p className="font-bold text-lg leading-tight">{m.numero != null ? `#${m.numero} ` : ''}{m.jugador}</p><p className="text-sm text-slate-300">{m.posicion || ''}{m.posicion ? ' · ' : ''}viene de {m.origen} · {m.partidos} partidos</p></div>
+        </div>
+        {m.estado === 'rechazado' && m.motivo && <p className="text-sm text-red-200 mt-2">Motivo: {m.motivo}</p>}
+        {m.estado === 'aprobado' && <p className="text-sm text-green-200 mt-2">Ya puede jugar con tu club desde cuartos de final: aparece en tu planilla.</p>}
+      </section>)}
+    {!f.puede && <p className="text-sm text-slate-300 bg-[#13254a] rounded-2xl p-4">{f.copasListas.length ? 'El Fichaje de Oro es solo para los clubes clasificados a cuartos de final.' : 'Se habilita cuando termine la Fase 2 y se conozcan los clasificados.'}</p>}
+    {f.puede && !f.abierta && (!m || m.estado === 'rechazado') && <p className="text-sm text-slate-300 bg-[#13254a] rounded-2xl p-4">El Fichaje de Oro todavía no está abierto. Te avisaremos.</p>}
+    {f.elegibles.length > 0 && (
+      <section className={card}>
+        <h2 className={h2}>Jugadores disponibles ({lista.length})</h2>
+        <input className="w-full p-3 rounded-xl bg-[#0b1733] border border-[#24407a] text-sm mb-2" placeholder="Buscar por nombre o club" value={q} onChange={(e) => setQ(e.target.value)} />
+        {posiciones.length > 1 && <div className="flex flex-wrap gap-1 mb-2">{['', ...posiciones].map((x) => <button key={x || 'todas'} onClick={() => setPos(x)} className={`px-3 py-1 rounded-full text-xs font-semibold border ${pos === x ? 'bg-[#f5c542] text-[#0b1733] border-[#f5c542]' : 'border-[#24407a]'}`}>{x || 'Todas'}</button>)}</div>}
+        {msg && <p className="text-sm text-red-300 mb-2">{msg}</p>}
+        {lista.map((x) => (
+          <div key={x.playerId} className="flex items-center gap-3 py-2.5 border-t border-[#24407a] first:border-0">
+            <FotoF t={t} id={x.playerId} nombre={x.nombre} />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold leading-tight">{x.nombre}</p>
+              <p className="text-xs text-slate-400">{x.posicion || 'Sin posición'} · {x.origen}</p>
+              <p className="text-xs text-slate-300 mt-0.5">{x.partidos} PJ{x.goles ? ` · ⚽ ${x.goles}` : ''}{x.amarillas ? ` · 🟨 ${x.amarillas}` : ''}{x.rojas ? ` · 🟥 ${x.rojas}` : ''}</p>
+            </div>
+            <button disabled={ocupado} onClick={() => pedir(x)} className="px-3 py-2 rounded-xl bg-[#f5c542] text-[#0b1733] font-bold text-sm disabled:opacity-40">Pedir</button>
+          </div>))}
+      </section>)}
+  </>)
+}
+
+function FotoF({ t, id, nombre }: { t: string; id: string; nombre: string }) {
+  const [mal, setMal] = useState(false)
+  const ini = nombre.split(' ').filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase()
+  if (mal) return <div className="w-12 h-12 rounded-full bg-[#24407a] flex items-center justify-center font-bold text-slate-300 shrink-0">{ini}</div>
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={`/api/portal/${t}/foto/${id}`} alt="" loading="lazy" className="w-12 h-12 rounded-full object-cover shrink-0 bg-[#24407a]" onError={() => setMal(true)} />
 }
 
 function MiEquipo({ d }: { d: Datos }) {

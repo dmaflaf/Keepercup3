@@ -101,4 +101,10 @@ fsn = calcularSanciones([...f2a, C(P('10','A','B',0,0,10,[a('amarilla')]),'f2'),
 eq([fsn.estado, fsn.anulados], ['—', 1], 'multas/portal: 3.ª amarilla de F2 anulada en cuartos')
 fsn = calcularSanciones([C(P('10','A','B',0,0,10,[rj]),'f2'), E(P('11','A','D',1,0,11)), E(P('12','A','E',0,0,12,[],'programado'))].map(PS), cfgS).find((x) => x.playerId === 'p7')!
 eq([fsn.estado, fsn.cumplidos, fsn.pendientes], ['SUSPENDIDO', 1, [12]], 'multas/portal: roja de F2 se cumple en cuartos y semi')
+// Fichaje de Oro: tarjeta con su club de origen (X) y roja con el club destino (A) en la Fase Final → cumple con A
+const fx = [C(P('9','X','Y',0,0,9,[{ teamId: 'X', playerId: 'p20', tipo: 'amarilla' }]),'f2'), E(P('11','A','D',1,0,11,[{ teamId: 'A', playerId: 'p20', tipo: 'roja' }])), E(P('12','A','E',1,0,12)), E(P('13','A','F',0,0,13,[],'programado'))]
+s = sanciones(fx, cfg).find((x) => x.playerId === 'p20')!
+eq([s.teamId, s.cumplidos, s.suspendidoProximo], ['A', 1, 1], 'Fichaje de Oro: la roja se cumple en los partidos del club destino')
+fsn = calcularSanciones(fx.map(PS), cfgS).find((x) => x.playerId === 'p20')!
+eq([fsn.teamId, fsn.cumplidos, fsn.pendientes], ['A', 1, [13]], 'multas/portal: Fichaje de Oro cumple con el club destino')
 console.log(`OK ${ok}  FALLAS ${mal}`)

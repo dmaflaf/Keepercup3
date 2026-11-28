@@ -100,6 +100,14 @@ export async function GET(req: NextRequest) {
       })),
     ].filter((x) => x.goleadores.length)
     const llaves = construirLlaves(d.fases, partidos, d.nombreEquipo)
+    // Fichajes de Oro aprobados, por copa del club que ficha
+    const copaDe2 = new Map(llaves.flatMap((l) => l.cruces.filter((c) => c.id.startsWith('C')).flatMap((c) => [c.local, c.visitante]).filter(Boolean).map((e) => [e!.teamId, l.copa] as [string, string])))
+    const fo = await prisma.fichajeOro.findMany({ where: { torneoId: torneo.id, estado: 'aprobado' } })
+    const fj = await prisma.player.findMany({ where: { id: { in: fo.map((f) => f.playerId) } }, select: { id: true, firstName: true, lastName: true, position: true } })
+    const fjm = new Map(fj.map((j) => [j.id, j]))
+    // Copa del club: la de su llave o, si su grupo no ha terminado, la de su grupo en la Fase 2
+    for (const f of d.fases) for (const g of f.grupos) { const c = /\boro\b/i.test(g.nombre) ? 'Copa Oro' : /\bplata\b/i.test(g.nombre) ? 'Copa Plata' : null; if (c) for (const e of g.equipos) if (!copaDe2.has(e.id)) copaDe2.set(e.id, c) }
+    const fichajes = fo.map((f) => ({ copa: copaDe2.get(f.teamId) || '', teamId: f.teamId, club: d.nombreEquipo.get(f.teamId) || '?', origen: d.nombreEquipo.get(f.origenId) || '?', jugador: `${fjm.get(f.playerId)?.firstName || ''} ${fjm.get(f.playerId)?.lastName || ''}`.trim(), posicion: fjm.get(f.playerId)?.position || null }))
     const estadisticas = { porteros: porteros.slice(0, 10), minPorteros, minClub, masPartidos, ataque, defensa }
     return NextResponse.json(
       {
@@ -111,6 +119,7 @@ export async function GET(req: NextRequest) {
         fairplay,
         goleadoresPor,
         llaves,
+        fichajes,
         ...resto,
         sanciones: sancionesOut,
       },

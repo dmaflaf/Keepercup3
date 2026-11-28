@@ -3,6 +3,7 @@ import sharp from 'sharp'
 import { prisma } from '@/lib/db'
 import { recorteAPixeles } from '@/lib/encuadre'
 import { sesionPortal } from '@/lib/portal'
+import { esElegibleCacheado } from '@/lib/fichaje'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +11,11 @@ export const dynamic = 'force-dynamic'
 export async function GET(_req: Request, { params }: { params: { token: string; playerId: string } }) {
   const { club, ok } = await sesionPortal(params.token)
   if (!club || !ok) return new NextResponse(null, { status: 401 })
-  const j = await prisma.player.findFirst({ where: { id: params.playerId, teamId: club.id }, select: { images: { where: { kind: 'selfie' }, select: { data: true, crop: true } } } })
+  // Sus jugadores, o los elegibles para el Fichaje de Oro mientras está abierto
+  const propio = await prisma.player.count({ where: { id: params.playerId, teamId: club.id } })
+  const suFichaje = await prisma.fichajeOro.count({ where: { teamId: club.id, playerId: params.playerId } })
+  if (!propio && !suFichaje && !(await esElegibleCacheado(params.playerId))) return new NextResponse(null, { status: 404 })
+  const j = await prisma.player.findFirst({ where: { id: params.playerId }, select: { images: { where: { kind: 'selfie' }, select: { data: true, crop: true } } } })
   const im = j?.images[0]
   if (!im) return new NextResponse(null, { status: 404 })
   try {

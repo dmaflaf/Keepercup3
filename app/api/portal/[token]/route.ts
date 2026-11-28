@@ -5,6 +5,7 @@ import { cargarTorneo } from '@/lib/torneo-data'
 import { cargarMultas } from '@/lib/multas-data'
 import { calcularFinanzas, ETIQUETA } from '@/lib/finanzas-data'
 import { goleadores } from '@/lib/torneo'
+import { estadoFichaje, pedirFichaje } from '@/lib/fichaje'
 import { asignacionAbierta, crearSesion, demasiadosIntentos, modoNumeros, registrarIntento, registrarNumeros, sesionPortal } from '@/lib/portal'
 
 export const dynamic = 'force-dynamic'
@@ -81,8 +82,25 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     const fairplay = { puntos: misPts, pos: [...clubesT].filter((id) => (fp.get(id) || 0) < misPts).length + 1, de: clubesT.size }
     equipo = { tablas, resumen: res, goleadores: golClub, tarjetas: [...tj.values()].sort((a, b) => (b.rojas + b.dobles) - (a.rojas + a.dobles) || b.amarillas - a.amarillas), fairplay }
   }
+  // Fichaje de Oro: solo se calcula si está abierto o el club ya tiene un pedido
+  const pedido = await prisma.fichajeOro.findFirst({ where: { teamId: club.id }, orderBy: { createdAt: 'desc' } })
+  let fichaje = null
+  const ef = await estadoFichaje(torneo?.id)
+  if (ef && (ef.cfg.abierta || pedido)) {
+    const puede = ef.clasificados.some((c) => c.teamId === club.id)
+    let mio = null
+    if (pedido) {
+      const pj = await prisma.player.findUnique({ where: { id: pedido.playerId }, select: { firstName: true, lastName: true, number: true, position: true, team: { select: { name: true } } } })
+      mio = { estado: pedido.estado, motivo: pedido.motivo, jugador: pj ? `${pj.firstName} ${pj.lastName}`.trim() : '?', numero: pj?.number ?? null, posicion: pj?.position ?? null, origen: pj?.team.name || '?', partidos: pedido.partidos, playerId: pedido.playerId }
+    }
+    const vigente = mio && mio.estado !== 'rechazado'
+    fichaje = {
+      abierta: ef.cfg.abierta, puede, minPartidos: ef.cfg.minPartidos, hastaFecha: ef.cfg.hastaFecha, copasListas: ef.copasListas, mio,
+      elegibles: ef.cfg.abierta && puede && !vigente ? ef.elegibles.filter((x) => !ef.tomados.has(x.playerId)) : [],
+    }
+  }
   return NextResponse.json({
-    ok: true, numeros, equipo, club: { nombre: club.name, ciudad: club.city, dt: club.directorName, logo: !!club.logo }, torneo: torneo?.nombre || null,
+    ok: true, numeros, fichaje, equipo, club: { nombre: club.name, ciudad: club.city, dt: club.directorName, logo: !!club.logo }, torneo: torneo?.nombre || null,
     jugadores, proximos, jugados, cuenta,
     solicitudes: solicitudes.map((x) => ({ id: x.id, texto: x.texto, estado: x.estado, respuesta: x.respuesta, fecha: x.createdAt })),
   }, { headers: { 'Cache-Control': 'no-store' } })
@@ -149,6 +167,11 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     ])
     await registrarNumeros(cambios.map((c) => ({ teamId: club.id, playerId: c.id, nombre: c.nombre, de: c.de, a: c.a, por: 'DT (portal)' })))
     return NextResponse.json({ ok: true, cambios: cambios.length })
+  }
+  if (b.accion === 'fichaje') {
+    const r = await pedirFichaje(club.id, String((b as { playerId?: string }).playerId || ''), 'dt')
+    if (!r.ok) return falla(r.message, 409)
+    return NextResponse.json({ ok: true })
   }
   if (b.accion === 'salir') { const r = NextResponse.json({ ok: true }); r.cookies.set('portal-dt', '', { path: '/', maxAge: 0 }); return r }
   return falla('Acción desconocida')

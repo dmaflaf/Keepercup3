@@ -26,6 +26,7 @@ export function calcularSanciones(partidos: PartidoSan[], cfg: CfgSan): FilaSanc
     for (const e of m.eventos) {
       if (!e.playerId || !['amarilla', 'doble_amarilla', 'roja'].includes(e.tipo)) continue
       const f = filas.get(e.playerId) || { playerId: e.playerId, teamId: e.teamId, y: 0, r: 0, dobles: 0, cards: [] }
+      f.teamId = e.teamId // cumple con el club por el que juega ahora (Fichaje de Oro o traspaso): el de su última tarjeta
       if (e.tipo === 'roja') f.r++
       else if (e.tipo === 'doble_amarilla') { f.y += 2; f.dobles++ } else f.y++
       f.cards.push({ m, t: e.tipo === 'roja' ? 'R' : e.tipo === 'doble_amarilla' ? 'D' : 'A', extra: Math.max(0, e.extra || 0), aparte: !!e.aparte })

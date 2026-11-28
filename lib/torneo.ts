@@ -168,7 +168,9 @@ export function sanciones(partidos: PartidoCalc[], cfg: CfgTorneo): EstadoSancio
   const get = (e: EventoCalc) => {
     const id = e.playerId as string
     if (!jugadores.has(id)) { jugadores.set(id, { playerId: id, teamId: e.teamId, amarillas: 0, rojas: 0, totalAmarillas: 0, suspendidoProximo: 0, precaucion: false, cumplidos: 0, motivos: [] }); cola.set(id, []) }
-    return jugadores.get(id) as EstadoSancion
+    const s = jugadores.get(id) as EstadoSancion
+    s.teamId = e.teamId // cumple con el club por el que juega ahora (Fichaje de Oro o traspaso): el de su última tarjeta
+    return s
   }
   const anular = (s: EstadoSancion, ciclo: string | undefined) => {
     const q = cola.get(s.playerId) || []

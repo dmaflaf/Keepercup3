@@ -9,7 +9,7 @@ interface Partido { id: string; localId: string; visitanteId: string; jornadaJue
 interface Gol { playerId: string; jugador: string; numero: number | null; equipo: string; goles: number; detalle?: { nombre: string; goles: number }[] }
 interface San { playerId: string; jugador: string; numero: number | null; equipo: string; totalAmarillas: number; rojas: number; suspendidoProximo: number; precaucion: boolean; vuelta?: { noJuega: string[]; vuelve: { jornada: string; fecha: string | null; rival: string } | null; siguienteEtapa: boolean; cumplio: boolean } | null }
 interface SecGol { id: string; nombre: string; goleadores: Gol[] }
-interface Datos { ok: boolean; llaves?: LlaveCopa[]; goleadoresPor?: SecGol[]; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; minPorteros?: number; minClub?: number; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
+interface Datos { ok: boolean; llaves?: LlaveCopa[]; fichajes?: { copa: string; teamId: string; club: string; origen: string; jugador: string; posicion: string | null }[]; goleadoresPor?: SecGol[]; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; minPorteros?: number; minClub?: number; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
 
 const TABS = ['Resultados', 'Fixture', 'Tablas', 'Finales', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
 
@@ -205,7 +205,7 @@ export default function TorneoPublico() {
               </>)
             })()}
 
-            {tab === 'Finales' && <Llaves llaves={d.llaves || []} />}
+            {tab === 'Finales' && <Llaves llaves={d.llaves || []} fichajes={d.fichajes || []} />}
 
             {tab === 'Estadísticas' && d.estadisticas && (
               <>
@@ -342,7 +342,7 @@ interface EqLlave { teamId: string; nombre: string; provisional: boolean }
 interface Cruce { id: string; local: EqLlave | null; visitante: EqLlave | null; origenLocal: string; origenVisitante: string; gl: number | null; gv: number | null; pl: number | null; pv: number | null; ganador: 'local' | 'visitante' | null; partidoId: string | null; fecha: string | null; hora: string | null; escenario: string | null; estado: string | null }
 interface LlaveCopa { copa: string; cruces: Cruce[]; campeon: EqLlave | null; gruposTerminados: number }
 
-function Llaves({ llaves }: { llaves: LlaveCopa[] }) {
+function Llaves({ llaves, fichajes }: { llaves: LlaveCopa[]; fichajes: NonNullable<Datos['fichajes']> }) {
   const [copa, setCopa] = useState(llaves[0]?.copa || '')
   // Ancho disponible: en el celular se usa el mismo esquema, en versión compacta y ajustada a la pantalla
   const [ancho, setAncho] = useState(900)
@@ -434,6 +434,14 @@ function Llaves({ llaves }: { llaves: LlaveCopa[] }) {
         {ronda('SEMIFINALES', ['S1', 'S2'])}
         {ronda('FINAL Y TERCER PUESTO', ['F', 'T'])}
       </>}
+      {fichajes.filter((f) => f.copa === l.copa).length > 0 && (
+        <div style={{ marginTop: 14, border: '1px solid #D9A93A', borderRadius: 12, padding: 12, background: 'rgba(217,169,58,.07)' }}>
+          <div style={{ fontWeight: 900, color: '#D9A93A', marginBottom: 6 }}>⭐ Fichajes de Oro · {l.copa}</div>
+          {fichajes.filter((f) => f.copa === l.copa).sort((a, b) => a.club.localeCompare(b.club)).map((f) => (
+            <div key={f.teamId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: '1px solid #1f3150', fontSize: 13.5, flexWrap: 'wrap' }}>
+              <Escudo id={f.teamId} nombre={f.club} /><b>{f.club}</b><span style={{ color: '#93A4B8' }}>se refuerza con</span><b style={{ color: '#F3F6F8' }}>{f.jugador}</b><span style={{ color: '#93A4B8' }}>({f.posicion ? f.posicion + ' · ' : ''}viene de {f.origen})</span>
+            </div>))}
+        </div>)}
       <p style={{ color: '#6F8198', fontSize: 11.5, margin: '6px 0 0' }}>C = cuartos · S = semifinal · Ganador C1 = el que gane ese cruce. Cuartos y semis empatados: penales directos. Final empatada: tiempo extra y penales (Art. 41).</p>
     </div>)
 }

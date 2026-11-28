@@ -1,4 +1,5 @@
 import { bloqueoSuspension, suspendidosEn } from '@/lib/suspension'
+import { juegaPara } from '@/lib/fichaje'
 import { NextRequest, NextResponse } from 'next/server'
 import { primeraFecha } from '@/lib/fases-prog'
 import { prisma } from '@/lib/db'
@@ -274,8 +275,7 @@ export async function POST(req: NextRequest) {
       const minuto = entero(b.minuto)
       if (Number.isNaN(minuto) || (minuto !== null && minuto > 130)) return falla('Minuto inválido')
       if (!b.playerId) return falla('Elige el jugador')
-      const jug = await prisma.player.findUnique({ where: { id: String(b.playerId) }, select: { teamId: true } })
-      if (!jug || jug.teamId !== teamId) return falla('Ese jugador no es de ese equipo')
+      if (!(await juegaPara(String(b.playerId), teamId, p))) return falla('Ese jugador no es de ese equipo')
       // Suspendido: no se le puede registrar nada en este partido (rige también para el administrador)
       { const no = await bloqueoSuspension(p.torneoId, p.id, String(b.playerId)); if (no) return NextResponse.json({ ok: false, message: no, suspendido: true }, { status: 409 }) }
       await prisma.evento.create({ data: { partidoId: p.id, teamId, playerId: String(b.playerId), tipo: b.tipo, minuto } })

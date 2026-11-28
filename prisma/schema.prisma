@@ -524,3 +524,23 @@ model SolicitudCambio {
   @@index([teamId])
   @@index([estado])
 }
+
+// Fichaje de Oro (Art. 41): desde cuartos, cada club clasificado puede reforzarse con UN jugador de un club eliminado en la
+// Fase 2. El jugador conserva su club de origen (su historial no se mueve); en la Fase Final juega para el club destino.
+model FichajeOro {
+  id         String    @id @default(cuid())
+  torneoId   String
+  teamId     String    // club que lo ficha
+  playerId   String    // jugador fichado (sigue perteneciendo a su club de origen)
+  origenId   String    // club de origen (eliminado)
+  partidos   Int       // partidos jugados al pedirlo
+  estado     String    @default("pendiente") // pendiente | aprobado | rechazado
+  motivo     String?
+  pedidoPor  String    @default("dt") // dt | admin
+  createdAt  DateTime  @default(now())
+  resueltoEn DateTime?
+
+  @@index([torneoId])
+  @@index([playerId])
+  @@index([teamId])
+}
