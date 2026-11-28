@@ -11,7 +11,7 @@ interface San { playerId: string; jugador: string; numero: number | null; equipo
 interface SecGol { id: string; nombre: string; goleadores: Gol[] }
 interface Datos { ok: boolean; llaves?: LlaveCopa[]; goleadoresPor?: SecGol[]; torneos: { id: string; nombre: string }[]; torneo: { id: string; nombre: string; amarillasSuspension: number } | null; fases: Fase[]; partidos: Partido[]; goleadores: Gol[]; sanciones: San[]; estadisticas?: { porteros: { jugador: string; numero: number | null; equipo: string; partidos: number; golesRecibidos: number; vallas: number; promedio: number }[]; minPorteros?: number; minClub?: number; masPartidos: { jugador: string; numero: number | null; equipo: string; partidos: number }[]; ataque: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[]; defensa: { equipo: string; teamId: string; valor: number; pj: number; promedio?: number }[] }; fairplay?: { teamId: string; equipo: string; amarillas: number; dobles: number; rojas: number; puntos: number }[] }
 
-const TABS = ['Resultados', 'Fixture', 'Tablas', 'Llaves', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
+const TABS = ['Resultados', 'Fixture', 'Tablas', 'Finales', 'Goleadores', 'Fair play', 'Estadísticas', 'Sanciones'] as const
 
 export default function TorneoPublico() {
   const [d, setD] = useState<Datos | null>(null)
@@ -79,8 +79,11 @@ export default function TorneoPublico() {
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, margin: '14px 0 6px', flexWrap: 'wrap' }}>
-              {TABS.filter((t) => t !== 'Llaves' || (d.llaves || []).length > 0).map((t) => (
-                <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid ' + (tab === t ? '#D9A93A' : '#2a3b55'), background: tab === t ? '#D9A93A' : '#0F223D', color: tab === t ? '#211603' : '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>{t}</button>
+              {TABS.filter((t) => t !== 'Finales' || (d.llaves || []).length > 0).map((t) => (
+                t === 'Finales'
+                  // La fase más importante: botón destacado en verde Keeper Cup con borde dorado
+                  ? <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 18px', borderRadius: 8, border: '2px solid #D9A93A', background: tab === t ? 'linear-gradient(135deg,#2fd14f,#12892a)' : 'linear-gradient(135deg,#1aa33a,#0b5e1f)', color: '#fff', fontWeight: 900, cursor: 'pointer', boxShadow: tab === t ? '0 0 0 3px rgba(217,169,58,.45), 0 0 18px rgba(47,209,79,.55)' : '0 0 12px rgba(26,163,58,.35)', letterSpacing: 0.3 }}>🏆 {t}</button>
+                  : <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid ' + (tab === t ? '#D9A93A' : '#2a3b55'), background: tab === t ? '#D9A93A' : '#0F223D', color: tab === t ? '#211603' : '#F3F6F8', fontWeight: 700, cursor: 'pointer' }}>{t}</button>
               ))}
             </div>
 
@@ -202,7 +205,7 @@ export default function TorneoPublico() {
               </>)
             })()}
 
-            {tab === 'Llaves' && <Llaves llaves={d.llaves || []} />}
+            {tab === 'Finales' && <Llaves llaves={d.llaves || []} />}
 
             {tab === 'Estadísticas' && d.estadisticas && (
               <>
